@@ -245,8 +245,7 @@ class TelegramBot:
     # Command handlers
     async def _start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
-        user = update.effective_user
-        welcome_message = get_welcome_message(user.first_name)
+        welcome_message = get_welcome_message()
         
         await self._send_message_with_keyboard(update, welcome_message, "main")
     
