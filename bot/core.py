@@ -13,6 +13,7 @@ from telegram.ext import (
     filters,
     ContextTypes,
     ConversationHandler,
+    UpdateHandler,
 )
 
 # Absolute imports
@@ -122,6 +123,9 @@ class TelegramBot:
         
         # Message handler for buttons (should be last)
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message))
+        
+        # Add catch-all update logger
+        self.app.add_handler(UpdateHandler(self._log_any_update))
     
     def _get_registration_handler(self):
         """Get registration conversation handler"""
@@ -521,4 +525,7 @@ username on other platforms: @sisp_t
                 logger.info(f"No grade changes for user {username}")
                 
         except Exception as e:
-            logger.error(f"Error checking grades for user {user.get('username', 'unknown')}: {e}") 
+            logger.error(f"Error checking grades for user {user.get('username', 'unknown')}: {e}")
+    
+    async def _log_any_update(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        logger.info(f"DEBUG: Received update: {update}") 
