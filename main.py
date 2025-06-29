@@ -28,6 +28,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+logger.info("DEBUG: Main script starting - logging test")
+
 class BotRunner:
     """Main bot runner (webhook only)"""
     
