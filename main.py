@@ -8,7 +8,6 @@ import logging
 import os
 import sys
 import signal
-import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -16,7 +15,6 @@ from pathlib import Path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from bot.core import TelegramBot
-from health.server import HealthServer
 from config import CONFIG
 
 # Set up logging
@@ -31,11 +29,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class BotRunner:
-    """Main bot runner with health check integration"""
+    """Main bot runner (webhook only)"""
     
     def __init__(self):
         self.bot = TelegramBot()
-        self.health_server = HealthServer()
         self.running = False
         self.start_time = None
         
@@ -48,9 +45,6 @@ class BotRunner:
             
             # Create necessary directories
             self.create_directories()
-            
-            # Start health check server
-            await self.start_health_server()
             
             # Start the bot
             await self.bot.start()
@@ -75,9 +69,6 @@ class BotRunner:
         if self.bot:
             await self.bot.stop()
         
-        if self.health_server:
-            await self.health_server.stop()
-        
         logger.info("✅ Bot stopped successfully!")
     
     def create_directories(self):
@@ -91,11 +82,6 @@ class BotRunner:
         for directory in directories:
             Path(directory).mkdir(exist_ok=True)
             logger.info(f"📁 Created directory: {directory}")
-    
-    async def start_health_server(self):
-        """Start Flask health check server"""
-        await self.health_server.start()
-        logger.info("🌐 Health check server started")
 
 def check_environment():
     """Check if all required environment variables are set"""

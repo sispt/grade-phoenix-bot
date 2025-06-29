@@ -45,6 +45,7 @@ class TelegramBot:
         
     async def start(self):
         """Start the bot"""
+        import os
         try:
             # Initialize bot application
             self.app = Application.builder().token(CONFIG["TELEGRAM_TOKEN"]).build()
@@ -56,13 +57,21 @@ class TelegramBot:
             if CONFIG["ENABLE_NOTIFICATIONS"]:
                 self.grade_check_task = asyncio.create_task(self._grade_checking_loop())
             
-            # Start polling
+            # Start webhook (for Railway)
             await self.app.initialize()
             await self.app.start()
-            await self.app.updater.start_polling()
+            port = int(os.environ.get("PORT", 8443))
+            webhook_url = f"https://shamunibot-production.up.railway.app/{CONFIG['TELEGRAM_TOKEN']}"
+            await self.app.updater.start_webhook(
+                listen="0.0.0.0",
+                port=port,
+                url_path=CONFIG["TELEGRAM_TOKEN"],
+                webhook_url=webhook_url
+            )
             
             self.running = True
-            logger.info("🤖 Bot started successfully!")
+            logger.info("🤖 Bot started successfully with webhook!")
+            logger.info(f"🌐 Webhook URL: {webhook_url}")
             
         except Exception as e:
             logger.error(f"❌ Failed to start bot: {e}")
