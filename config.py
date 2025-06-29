@@ -61,7 +61,7 @@ CONFIG = {
     "TIMEZONE": "UTC+3",
     
     # Logging
-    "LOG_LEVEL": "INFO",
+    "LOG_LEVEL": "DEBUG",
     "LOG_FILE": "bot.log",
     "LOG_MAX_SIZE_MB": 10,
     "LOG_BACKUP_COUNT": 5,

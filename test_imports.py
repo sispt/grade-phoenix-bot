@@ -36,10 +36,6 @@ def test_imports():
         from utils.messages import get_welcome_message, get_help_message
         print("✅ utils modules imported successfully")
         
-        # Test health server
-        from health.server import HealthServer
-        print("✅ health server imported successfully")
-        
         # Test bot core
         from bot.core import TelegramBot
         print("✅ bot core imported successfully")

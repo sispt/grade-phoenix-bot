@@ -63,12 +63,18 @@ class TelegramBot:
             await self.app.start()
             port = int(os.environ.get("PORT", 8443))
             webhook_url = f"https://shamunibot-production.up.railway.app/{CONFIG['TELEGRAM_TOKEN']}"
+            
+            logger.info(f"DEBUG: Setting up webhook on port {port}")
+            logger.info(f"DEBUG: Webhook URL: {webhook_url}")
+            
             await self.app.updater.start_webhook(
                 listen="0.0.0.0",
                 port=port,
                 url_path=CONFIG["TELEGRAM_TOKEN"],
                 webhook_url=webhook_url
             )
+            
+            logger.info("DEBUG: Webhook started successfully")
             
             self.running = True
             logger.info("🤖 Bot started successfully with webhook!")
@@ -98,38 +104,50 @@ class TelegramBot:
     
     def _add_handlers(self):
         """Add all bot handlers"""
+        logger.info("DEBUG: Adding bot handlers...")
+        
         # Basic commands
         self.app.add_handler(CommandHandler("start", self._start_command))
         self.app.add_handler(CommandHandler("help", self._help_command))
         self.app.add_handler(CommandHandler("register", self._register_start))
+        logger.info("DEBUG: Basic command handlers added")
         
         # User commands
         self.app.add_handler(CommandHandler("grades", self._grades_command))
         self.app.add_handler(CommandHandler("profile", self._profile_command))
         self.app.add_handler(CommandHandler("settings", self._settings_command))
         self.app.add_handler(CommandHandler("support", self._support_command))
+        logger.info("DEBUG: User command handlers added")
         
         # Admin commands
         self.app.add_handler(CommandHandler("stats", self._stats_command))
         self.app.add_handler(CommandHandler("list_users", self._list_users_command))
         self.app.add_handler(CommandHandler("restart", self._restart_command))
+        logger.info("DEBUG: Admin command handlers added")
         
         # Conversation handlers (registration and broadcast) - these must come BEFORE the generic message handler
         self.app.add_handler(self._get_registration_handler())
         self.app.add_handler(self._get_broadcast_handler())
+        logger.info("DEBUG: Conversation handlers added")
         
         # Callback query handler
         self.app.add_handler(CallbackQueryHandler(self._handle_callback))
+        logger.info("DEBUG: Callback query handler added")
         
         # Message handler for buttons (should be last)
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message))
+        logger.info("DEBUG: Message handler added")
         
         # Add catch-all update logger
         self.app.add_handler(TypeHandler(Update, self._log_any_update))
+        logger.info("DEBUG: TypeHandler for logging added")
+        
+        logger.info("DEBUG: All handlers added successfully!")
     
     def _get_registration_handler(self):
         """Get registration conversation handler"""
-        return ConversationHandler(
+        logger.info("DEBUG: Creating registration conversation handler")
+        handler = ConversationHandler(
             entry_points=[CommandHandler("register", self._register_start)],
             states={
                 ASK_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._register_username)],
@@ -137,6 +155,8 @@ class TelegramBot:
             },
             fallbacks=[CommandHandler("cancel", self._cancel_registration)],
         )
+        logger.info("DEBUG: Registration conversation handler created successfully")
+        return handler
     
     def _get_broadcast_handler(self):
         """Get broadcast conversation handler"""
@@ -164,6 +184,7 @@ class TelegramBot:
     
     async def _register_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Start registration process"""
+        logger.info("DEBUG: _register_start called")
         telegram_id = update.effective_user.id
         
         # Check if user already registered
@@ -180,34 +201,43 @@ class TelegramBot:
             "(مثال: ENG2324901)",
             reply_markup=ReplyKeyboardMarkup([["❌ إلغاء"]], resize_keyboard=True)
         )
+        logger.info(f"DEBUG: Registration started for user {telegram_id}")
         return ASK_USERNAME
     
     async def _register_username(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.info("DEBUG: _register_username called")
         username = update.message.text.strip()
+        logger.info(f"DEBUG: Username received: {username}")
+        
         if not username:
             await update.message.reply_text("اسم المستخدم غير صالح، حاول مرة أخرى:")
             return ASK_USERNAME
         
         context.user_data["username"] = username
+        logger.info(f"DEBUG: Username stored in context: {username}")
         await update.message.reply_text("الآن، أرسل كلمة المرور الخاصة بك:")
         return ASK_PASSWORD
     
     async def _register_password(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle password input and complete registration"""
+        logger.info("DEBUG: _register_password called")
         password = update.message.text.strip()
+        logger.info(f"DEBUG: Password received (length: {len(password)})")
+        
         if not password:
             await update.message.reply_text("❌ كلمة المرور غير صالحة، حاول مرة أخرى:")
             return ASK_PASSWORD
         
         username = context.user_data.get("username")
         telegram_id = update.effective_user.id
+        logger.info(f"DEBUG: Attempting login for user {username} (ID: {telegram_id})")
         
         await update.message.reply_text("🔄 جاري تسجيل الدخول...")
         
         # Login to university
         token = await self.university_api.login(username, password)
         if not token:
+            logger.warning(f"DEBUG: Login failed for user {username}")
             await update.message.reply_text(
                 "❌ **فشل تسجيل الدخول**\n\n"
                 "تأكد من صحة اسم المستخدم وكلمة المرور وحاول مرة أخرى.",
@@ -215,11 +245,13 @@ class TelegramBot:
             )
             return ConversationHandler.END
         
+        logger.info(f"DEBUG: Login successful for user {username}, token received")
         await update.message.reply_text("📊 جاري جلب بياناتك...")
         
         # Fetch user data
         user_data = await self.university_api.get_user_data(token)
         if not user_data:
+            logger.warning(f"DEBUG: Failed to fetch user data for {username}")
             await update.message.reply_text(
                 "❌ **فشل جلب بيانات الطالب**\n\n"
                 "حاول لاحقاً أو تواصل مع الدعم الفني.",
@@ -227,12 +259,16 @@ class TelegramBot:
             )
             return ConversationHandler.END
         
+        logger.info(f"DEBUG: User data fetched successfully for {username}")
+        
         # Save user
         self.user_storage.save_user(telegram_id, username, password, token, user_data)
         
         # Save grades
         grades = user_data.get("grades", [])
         self.grade_storage.save_grades(telegram_id, grades)
+        
+        logger.info(f"DEBUG: Registration completed successfully for user {username}")
         
         success_message = f"""
 ✅ **تم تسجيل الدخول بنجاح!**
@@ -528,4 +564,23 @@ username on other platforms: @sisp_t
             logger.error(f"Error checking grades for user {user.get('username', 'unknown')}: {e}")
     
     async def _log_any_update(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        logger.info(f"DEBUG: Received update: {update}") 
+        """Log any incoming update for debugging"""
+        try:
+            update_type = "Unknown"
+            user_info = "Unknown"
+            
+            if update.message:
+                update_type = "Message"
+                user_info = f"ID: {update.effective_user.id}, Username: {update.effective_user.username}, Text: {update.message.text[:50]}..."
+            elif update.callback_query:
+                update_type = "Callback Query"
+                user_info = f"ID: {update.effective_user.id}, Username: {update.effective_user.username}, Data: {update.callback_query.data}"
+            elif update.edited_message:
+                update_type = "Edited Message"
+                user_info = f"ID: {update.effective_user.id}, Username: {update.effective_user.username}"
+            
+            logger.info(f"DEBUG: Received {update_type} update - {user_info}")
+            
+        except Exception as e:
+            logger.error(f"DEBUG: Error logging update: {e}")
+            logger.info(f"DEBUG: Raw update: {update}") 
