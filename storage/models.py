@@ -1,7 +1,7 @@
 """
 🗄️ Database Models for PostgreSQL
 """
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Text, JSON, text
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Text, JSON, text, BigInteger
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
@@ -16,7 +16,7 @@ class User(Base):
     __tablename__ = 'users'
     
     id = Column(Integer, primary_key=True)
-    telegram_id = Column(Integer, unique=True, nullable=False, index=True)
+    telegram_id = Column(BigInteger, unique=True, nullable=False, index=True)
     username = Column(String(100), nullable=False)
     password = Column(String(255), nullable=False)  # Will be encrypted
     token = Column(String(500), nullable=True)
@@ -52,7 +52,7 @@ class Grade(Base):
     __tablename__ = 'grades'
     
     id = Column(Integer, primary_key=True)
-    telegram_id = Column(Integer, nullable=False, index=True)
+    telegram_id = Column(BigInteger, nullable=False, index=True)
     course_name = Column(String(200), nullable=False)
     course_code = Column(String(50), nullable=True)
     ects_credits = Column(String(20), nullable=True)

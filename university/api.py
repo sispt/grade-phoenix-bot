@@ -444,7 +444,7 @@ class UniversityAPI:
                                 else:
                                     logger.info(f"DEBUG: No grades found in block: {block_title}")
                             else:
-                                logger.info(f"DEBUG: Block {block_index + 1} has no HTML body")
+                                logger.info(f"DEBUG: Block {block_index + 1} has no HTML body (body is None or empty)")
                     else:
                         logger.info(f"DEBUG: Panel {panel_index + 1} has no blocks")
             else:

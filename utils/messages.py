@@ -27,9 +27,9 @@ def get_welcome_message(first_name: str = "عزيزي") -> str:
 📞 **للحصول على المساعدة:** اضغط على "❓ المساعدة"
 
 ---
-🔔 **بوت الإشعارات الجامعية**
-👨‍💻 المطور: عبدالرحمن عبدالقادر
-📧 البريد الإلكتروني: tox098123@gmail.com
+Developed By Abdulrahman Abdulkader
+Email: abdulrahmanabdulkader59@gmail.com
+Other platforms: @sisp_t
 """
 
 def get_help_message() -> str:

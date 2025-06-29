@@ -208,102 +208,92 @@ class TelegramBot:
         """Get broadcast conversation handler"""
         return self.broadcast_system.get_conversation_handler()
     
+    # Standard keyboard helper methods
+    async def _send_message_with_keyboard(self, update: Update, message: str, keyboard_type: str = "main"):
+        """Standard method to send message with keyboard"""
+        if keyboard_type == "main":
+            keyboard = get_main_keyboard()
+        elif keyboard_type == "relogin":
+            keyboard = get_main_keyboard_with_relogin()
+        elif keyboard_type == "admin":
+            keyboard = get_admin_keyboard()
+        elif keyboard_type == "cancel":
+            keyboard = get_cancel_keyboard()
+        else:
+            keyboard = get_main_keyboard()
+        
+        await update.message.reply_text(message, reply_markup=keyboard)
+    
+    async def _edit_message_no_keyboard(self, message_obj, new_text: str):
+        """Standard method to edit message without keyboard"""
+        try:
+            await message_obj.edit_text(new_text)
+            return True
+        except Exception as e:
+            logger.error(f"DEBUG: Failed to edit message: {e}")
+            return False
+    
+    async def _send_error_with_keyboard(self, update: Update, error_message: str, keyboard_type: str = "main"):
+        """Standard method to send error message with keyboard"""
+        await self._send_message_with_keyboard(update, error_message, keyboard_type)
+    
     # Command handlers
     async def _start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
         user = update.effective_user
-        telegram_id = user.id
+        welcome_message = get_welcome_message(user.first_name)
         
-        # Check if user has active session
-        if self.user_storage.is_user_registered(telegram_id):
-            session = self.user_storage.get_user_session(telegram_id)
-            if session:
-                welcome_msg = f"""
-🎉 **مرحباً بعودتك {user.first_name}!**
-
-✅ **أنت مسجل بالفعل** ويمكنك استخدام جميع الميزات.
-
-💡 **الخيارات المتاحة:**
-• 📊 فحص الدرجات - عرض درجاتك الحالية
-• 👤 معلوماتي - عرض معلوماتك الشخصية
-• ⚙️ الإعدادات - تعديل إعدادات البوت
-• ❓ المساعدة - دليل الاستخدام
-"""
-                keyboard = get_main_keyboard()
-            else:
-                welcome_msg = f"""
-🎉 **مرحباً {user.first_name}!**
-
-⚠️ **جلسة منتهية الصلاحية** - يرجى إعادة تسجيل الدخول.
-
-💡 **اضغط على '🔄 إعادة تسجيل الدخول' لإعادة تفعيل حسابك.**
-"""
-                keyboard = get_main_keyboard_with_relogin()
-        else:
-            welcome_msg = get_welcome_message(user.first_name)
-            keyboard = get_main_keyboard()
-        
-        await update.message.reply_text(
-            welcome_msg,
-            reply_markup=keyboard
-        )
+        await self._send_message_with_keyboard(update, welcome_message, "main")
     
     async def _help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /help command"""
-        help_msg = get_help_message()
+        help_message = get_help_message()
         
-        await update.message.reply_text(
-            help_msg,
-            reply_markup=get_main_keyboard()
-        )
+        await self._send_message_with_keyboard(update, help_message, "main")
     
     async def _register_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Start registration process"""
         logger.info("DEBUG: _register_start called")
-        telegram_id = update.effective_user.id
         
-        # Check if user already has active session
-        if self.user_storage.is_user_registered(telegram_id):
-            session = self.user_storage.get_user_session(telegram_id)
-            if session:
-                await update.message.reply_text(
-                    "✅ أنت مسجل بالفعل! يمكنك استخدام '📊 فحص الدرجات' لعرض درجاتك.\n\n"
-                    "💡 إذا كنت تريد إعادة تسجيل الدخول، اضغط على '🔄 إعادة تسجيل الدخول'.",
-                    reply_markup=get_main_keyboard()
-                )
-                return ConversationHandler.END
-            else:
-                # Session expired, allow re-registration
-                await update.message.reply_text(
-                    "⚠️ **جلسة منتهية الصلاحية**\n\n"
-                    "يرجى إعادة إدخال بياناتك لتجديد الجلسة.",
-                    reply_markup=get_cancel_keyboard()
-                )
-                logger.info(f"DEBUG: Re-registration started for user {telegram_id} (expired session)")
-                return ASK_USERNAME
+        # Clear any existing user data
+        context.user_data.clear()
         
-        await update.message.reply_text(
-            "🚀 **تسجيل الدخول للجامعة**\n\n"
-            "يرجى إرسال اسم المستخدم الجامعي الخاص بك:\n"
-            "(مثال: ENG2324901)",
-            reply_markup=get_cancel_keyboard()
+        await self._send_message_with_keyboard(
+            update, 
+            "🚀 **تسجيل الدخول للبوت الجامعي**\n\n"
+            "📝 **أدخل اسم المستخدم الجامعي:**\n"
+            "مثال: ENG2324901\n\n"
+            "💡 **ملاحظة:** استخدم اسم المستخدم الخاص بك في نظام الجامعة",
+            "cancel"
         )
-        logger.info(f"DEBUG: Registration started for user {telegram_id}")
-        logger.info(f"DEBUG: Returning conversation state: {ASK_USERNAME}")
+        
         return ASK_USERNAME
     
     async def _register_username(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle username input"""
         logger.info("DEBUG: _register_username called")
         username = update.message.text.strip()
         logger.info(f"DEBUG: Username received: {username}")
         
         if not username:
-            await update.message.reply_text("اسم المستخدم غير صالح، حاول مرة أخرى:")
+            await self._send_message_with_keyboard(
+                update,
+                "❌ اسم المستخدم غير صالح، حاول مرة أخرى:",
+                "cancel"
+            )
             return ASK_USERNAME
         
+        # Store username in context
         context.user_data["username"] = username
-        logger.info(f"DEBUG: Username stored in context: {username}")
-        await update.message.reply_text("الآن، أرسل كلمة المرور الخاصة بك:")
+        
+        await self._send_message_with_keyboard(
+            update,
+            f"✅ **تم حفظ اسم المستخدم:** {username}\n\n"
+            "🔐 **أدخل كلمة المرور:**\n"
+            "💡 **ملاحظة:** كلمة المرور لن تُحفظ بشكل آمن",
+            "cancel"
+        )
+        
         return ASK_PASSWORD
     
     async def _register_password(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -325,45 +315,87 @@ class TelegramBot:
         
         try:
             # Login to university
+            logger.info(f"DEBUG: Attempting university login for {username}")
             token = await self.university_api.login(username, password)
             if not token:
                 logger.warning(f"DEBUG: Login failed for user {username}")
-                await loading_message.edit_text(
+                await self._edit_message_no_keyboard(loading_message, 
                     "❌ **فشل تسجيل الدخول**\n\n"
                     "تأكد من صحة اسم المستخدم وكلمة المرور وحاول مرة أخرى.\n\n"
                     "💡 **نصائح:**\n"
                     "• تأكد من صحة اسم المستخدم (مثال: ENG2324901)\n"
                     "• تأكد من صحة كلمة المرور\n"
-                    "• تحقق من اتصال الإنترنت",
-                    reply_markup=get_main_keyboard()
+                    "• تحقق من اتصال الإنترنت"
+                )
+                await self._send_message_with_keyboard(
+                    update,
+                    "🔙 اضغط على '🚀 تسجيل الدخول' للمحاولة مرة أخرى",
+                    "main"
                 )
                 return ConversationHandler.END
             
             logger.info(f"DEBUG: Login successful for user {username}, token received")
-            await loading_message.edit_text("📊 جاري جلب بياناتك...")
+            await self._edit_message_no_keyboard(loading_message, "📊 جاري جلب بياناتك...")
             
             # Fetch user data
+            logger.info(f"DEBUG: Fetching user data for {username}")
             user_data = await self.university_api.get_user_data(token)
             if not user_data:
                 logger.warning(f"DEBUG: Failed to fetch user data for {username}")
-                await loading_message.edit_text(
+                await self._edit_message_no_keyboard(loading_message,
                     "❌ **فشل جلب بيانات الطالب**\n\n"
                     "حاول لاحقاً أو تواصل مع الدعم الفني.\n\n"
                     "📞 **الدعم:**\n"
                     "• المطور: @sisp_t\n"
-                    "• البريد الإلكتروني: abdulrahmanabdulkader59@gmail.com",
-                    reply_markup=get_main_keyboard()
+                    "• البريد الإلكتروني: abdulrahmanabdulkader59@gmail.com"
+                )
+                await self._send_message_with_keyboard(
+                    update,
+                    "🔙 اضغط على '🚀 تسجيل الدخول' للمحاولة مرة أخرى",
+                    "main"
                 )
                 return ConversationHandler.END
             
             logger.info(f"DEBUG: User data fetched successfully for {username}")
             
             # Save user
-            self.user_storage.save_user(telegram_id, username, password, token, user_data)
+            logger.info(f"DEBUG: Saving user data for {username}")
+            try:
+                self.user_storage.save_user(telegram_id, username, password, token, user_data)
+                logger.info(f"DEBUG: User saved successfully for {username}")
+            except Exception as save_error:
+                logger.error(f"DEBUG: Failed to save user data: {save_error}")
+                # If PostgreSQL fails, try to fall back to file storage
+                if "NumericValueOutOfRange" in str(save_error) or "integer out of range" in str(save_error):
+                    logger.info("DEBUG: PostgreSQL integer overflow detected, falling back to file storage")
+                    try:
+                        # Initialize file storage as fallback
+                        from storage.users import UserStorage
+                        from storage.grades import GradeStorage
+                        self.user_storage = UserStorage()
+                        self.grade_storage = GradeStorage()
+                        logger.info("DEBUG: File storage initialized as fallback")
+                        
+                        # Try saving again with file storage
+                        self.user_storage.save_user(telegram_id, username, password, token, user_data)
+                        logger.info(f"DEBUG: User saved successfully with file storage for {username}")
+                    except Exception as file_error:
+                        logger.error(f"DEBUG: File storage also failed: {file_error}")
+                        raise
+                else:
+                    raise
             
             # Save grades
-            grades = user_data.get("grades", [])
-            self.grade_storage.save_grades(telegram_id, grades)
+            logger.info(f"DEBUG: Saving grades for {username}")
+            try:
+                grades = user_data.get("grades", [])
+                self.grade_storage.save_grades(telegram_id, grades)
+                logger.info(f"DEBUG: Grades saved successfully for {username}")
+            except Exception as grade_error:
+                logger.error(f"DEBUG: Failed to save grades: {grade_error}")
+                # If PostgreSQL fails, grades should already be saved with file storage above
+                if "NumericValueOutOfRange" not in str(grade_error) and "integer out of range" not in str(grade_error):
+                    raise
             
             logger.info(f"DEBUG: Registration completed successfully for user {username}")
             
@@ -384,21 +416,32 @@ class TelegramBot:
 🎯 **للحصول على المساعدة:** اضغط على "❓ المساعدة"
 """
             
-            await loading_message.edit_text(
-                success_message,
+            logger.info(f"DEBUG: Sending success message for {username}")
+            await loading_message.edit_text(success_message)
+            # Send keyboard in a separate message
+            await update.message.reply_text(
+                "🎉 تم التسجيل بنجاح! استخدم الأزرار أدناه:",
                 reply_markup=get_main_keyboard()
             )
             return ConversationHandler.END
             
         except Exception as e:
             logger.error(f"DEBUG: Unexpected error during registration: {e}")
+            logger.error(f"DEBUG: Error type: {type(e)}")
+            logger.error(f"DEBUG: Error details: {str(e)}")
+            import traceback
+            logger.error(f"DEBUG: Full traceback: {traceback.format_exc()}")
             try:
                 await loading_message.edit_text(
                     "❌ **حدث خطأ غير متوقع**\n\n"
                     "حاول مرة أخرى أو تواصل مع الدعم الفني.\n\n"
                     "📞 **الدعم:**\n"
                     "• المطور: @sisp_t\n"
-                    "• البريد الإلكتروني: abdulrahmanabdulkader59@gmail.com",
+                    "• البريد الإلكتروني: abdulrahmanabdulkader59@gmail.com"
+                )
+                # Send keyboard in a separate message
+                await update.message.reply_text(
+                    "🔙 اضغط على '🚀 تسجيل الدخول' للمحاولة مرة أخرى",
                     reply_markup=get_main_keyboard()
                 )
             except Exception as edit_error:
@@ -573,7 +616,16 @@ class TelegramBot:
                 message = "❌ **فشل في تسجيل الدخول**\n\n"
                 message += "حاول مرة أخرى أو اضغط على '🔄 إعادة تسجيل الدخول'"
             
-            await loading_message.edit_text(message, reply_markup=get_main_keyboard())
+            await loading_message.edit_text(message)
+            # Send keyboard in a separate message if needed
+            if "لا توجد درجات متاحة" in message or "فشل في جلب الدرجات" in message:
+                await update.message.reply_text(
+                    "🔙 استخدم الأزرار أدناه:",
+                    reply_markup=get_main_keyboard()
+                )
+            else:
+                # For successful grade display, add keyboard to the same message
+                await loading_message.edit_text(message, reply_markup=get_main_keyboard())
             
         except Exception as e:
             logger.error(f"❌ DEBUG: Unexpected error in grades command: {e}")
@@ -582,7 +634,11 @@ class TelegramBot:
                 "حاول مرة أخرى أو تواصل مع الدعم الفني.\n\n"
                 "📞 **الدعم:**\n"
                 "• المطور: @sisp_t\n"
-                "• البريد الإلكتروني: abdulrahmanabdulkader59@gmail.com",
+                "• البريد الإلكتروني: abdulrahmanabdulkader59@gmail.com"
+            )
+            # Send keyboard in a separate message
+            await update.message.reply_text(
+                "🔙 استخدم الأزرار أدناه:",
                 reply_markup=get_main_keyboard()
             )
     
