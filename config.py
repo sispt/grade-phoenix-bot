@@ -19,8 +19,8 @@ CONFIG = {
     "USE_POSTGRESQL": bool(os.getenv("DATABASE_URL", "").startswith("postgresql")),
     
     # University API Configuration
-    "UNIVERSITY_LOGIN_URL": "https://api.sis.shamuniversity.com/portal",
-    "UNIVERSITY_API_URL": "https://api.sis.shamuniversity.com/portal/graphql",
+    "UNIVERSITY_LOGIN_URL": "https://staging.sis.shamuniversity.com/portal",
+    "UNIVERSITY_API_URL": "https://staging.sis.shamuniversity.com/portal/graphql",
     "UNIVERSITY_NAME": "جامعة الشام",
     "UNIVERSITY_WEBSITE": "https://staging.sis.shamuniversity.com",
     

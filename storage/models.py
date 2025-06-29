@@ -87,12 +87,15 @@ class DatabaseManager:
     def _setup_database(self):
         """Setup database connection and create tables"""
         try:
-            # Create engine
+            # Create engine with better configuration
             self.engine = create_engine(
                 self.database_url,
                 echo=False,  # Set to True for SQL debugging
                 pool_pre_ping=True,
-                pool_recycle=300
+                pool_recycle=300,
+                pool_size=10,
+                max_overflow=20,
+                pool_timeout=30
             )
             
             # Create session factory
@@ -101,6 +104,10 @@ class DatabaseManager:
                 autoflush=False,
                 bind=self.engine
             )
+            
+            # Test connection before creating tables
+            if not self.test_connection():
+                raise Exception("Database connection test failed")
             
             # Create tables
             Base.metadata.create_all(bind=self.engine)
@@ -112,21 +119,49 @@ class DatabaseManager:
             raise
     
     def get_session(self):
-        """Get database session"""
-        return self.SessionLocal()
+        """Get database session with error handling"""
+        try:
+            return self.SessionLocal()
+        except Exception as e:
+            logger.error(f"❌ Failed to create database session: {e}")
+            raise
     
     def close_session(self, session):
-        """Close database session"""
+        """Close database session safely"""
         if session:
-            session.close()
+            try:
+                session.close()
+            except Exception as e:
+                logger.error(f"❌ Error closing database session: {e}")
     
     def test_connection(self):
-        """Test database connection"""
-        try:
-            with self.get_session() as session:
-                session.execute(text("SELECT 1"))
-                logger.info("✅ Database connection test successful")
-                return True
-        except Exception as e:
-            logger.error(f"❌ Database connection test failed: {e}")
-            return False 
+        """Test database connection with retry"""
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                with self.get_session() as session:
+                    session.execute(text("SELECT 1"))
+                    logger.info("✅ Database connection test successful")
+                    return True
+            except Exception as e:
+                logger.error(f"❌ Database connection test failed (attempt {attempt + 1}): {e}")
+                if attempt < max_retries - 1:
+                    import time
+                    time.sleep(2 ** attempt)
+                    continue
+                return False
+        return False
+    
+    def execute_with_retry(self, operation, max_retries=3):
+        """Execute database operation with retry mechanism"""
+        for attempt in range(max_retries):
+            try:
+                return operation()
+            except Exception as e:
+                logger.error(f"❌ Database operation failed (attempt {attempt + 1}): {e}")
+                if attempt < max_retries - 1:
+                    import time
+                    time.sleep(2 ** attempt)
+                    continue
+                raise
+        return None 

@@ -110,19 +110,30 @@ class TelegramBot:
             await self.app.initialize()
             await self.app.start()
             port = int(os.environ.get("PORT", 8443))
-            webhook_url = f"https://shamunibot-production.up.railway.app/{CONFIG['TELEGRAM_TOKEN']}"
+            
+            # Dynamic webhook URL
+            webhook_url = os.getenv("WEBHOOK_URL")
+            if not webhook_url:
+                # Fallback to Railway URL
+                webhook_url = f"https://shamunibot-production.up.railway.app/{CONFIG['TELEGRAM_TOKEN']}"
             
             logger.info(f"DEBUG: Setting up webhook on port {port}")
             logger.info(f"DEBUG: Webhook URL: {webhook_url}")
             
-            await self.app.updater.start_webhook(
-                listen="0.0.0.0",
-                port=port,
-                url_path=CONFIG["TELEGRAM_TOKEN"],
-                webhook_url=webhook_url
-            )
-            
-            logger.info("DEBUG: Webhook started successfully")
+            try:
+                await self.app.updater.start_webhook(
+                    listen="0.0.0.0",
+                    port=port,
+                    url_path=CONFIG["TELEGRAM_TOKEN"],
+                    webhook_url=webhook_url
+                )
+                logger.info("DEBUG: Webhook started successfully")
+            except Exception as webhook_error:
+                logger.error(f"DEBUG: Webhook setup failed: {webhook_error}")
+                # Fallback to polling if webhook fails
+                logger.info("DEBUG: Falling back to polling mode")
+                await self.app.updater.start_polling()
+                logger.info("DEBUG: Polling started successfully")
             
             self.running = True
             logger.info("🤖 Bot started successfully with webhook!")
@@ -279,10 +290,29 @@ class TelegramBot:
         username = update.message.text.strip()
         logger.info(f"DEBUG: Username received: {username}")
         
+        # Validate username
         if not username:
             await self._send_message_with_keyboard(
                 update,
-                "❌ اسم المستخدم غير صالح، حاول مرة أخرى:",
+                "اسم المستخدم مطلوب. حاول مرة أخرى:",
+                "cancel"
+            )
+            return ASK_USERNAME
+        
+        # Check username format (basic validation)
+        if len(username) < 3 or len(username) > 20:
+            await self._send_message_with_keyboard(
+                update,
+                "اسم المستخدم يجب أن يكون بين 3 و 20 حرف. حاول مرة أخرى:",
+                "cancel"
+            )
+            return ASK_USERNAME
+        
+        # Check if username contains only allowed characters
+        if not username.replace('-', '').replace('_', '').isalnum():
+            await self._send_message_with_keyboard(
+                update,
+                "اسم المستخدم يجب أن يحتوي على أحرف وأرقام فقط. حاول مرة أخرى:",
                 "cancel"
             )
             return ASK_USERNAME
@@ -292,9 +322,8 @@ class TelegramBot:
         
         await self._send_message_with_keyboard(
             update,
-            f"✅ **تم حفظ اسم المستخدم:** {username}\n\n"
-            "🔐 **أدخل كلمة المرور:**\n"
-            "💡 **ملاحظة:** كلمة المرور لن تُحفظ بشكل آمن",
+            f"تم حفظ اسم المستخدم: {username}\n\n"
+            "أدخل كلمة المرور:",
             "cancel"
         )
         
@@ -442,77 +471,172 @@ class TelegramBot:
     async def _grades_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /grades command"""
         telegram_id = update.effective_user.id
+        logger.info(f"DEBUG: Grades command called by user {telegram_id}")
+        
         if not self.user_storage.is_user_registered(telegram_id):
+            logger.warning(f"DEBUG: Unregistered user {telegram_id} tried to access grades")
             await update.message.reply_text(
                 "سجل دخولك أولاً.\n— THE DIE IS CAST · based on beehouse",
                 reply_markup=get_main_keyboard()
             )
             return
+        
         # Show loading message
         loading_message = await update.message.reply_text("جاري فحص الدرجات...")
+        
         try:
+            # Get user session
             session = self.user_storage.get_user_session(telegram_id)
             if not session:
-                await loading_message.edit_text(
-                    "انتهت الجلسة. سجل دخولك مجدداً.\n— THE DIE IS CAST · based on beehouse",
-                    reply_markup=get_main_keyboard()
+                logger.warning(f"DEBUG: No session found for user {telegram_id}")
+                await self._edit_message_no_keyboard(loading_message,
+                    "انتهت الجلسة. سجل دخولك مجدداً.\n— THE DIE IS CAST · based on beehouse"
+                )
+                await self._send_message_with_keyboard(
+                    update,
+                    "اضغط '🚀 تسجيل الدخول' لتجديد الجلسة",
+                    "main"
                 )
                 return
+            
             token = session.get("token")
             username = session.get("username")
+            password = session.get("password")
+            
             if not token:
-                await loading_message.edit_text(
-                    "انتهت الجلسة. سجل دخولك مجدداً.\n— THE DIE IS CAST · based on beehouse",
-                    reply_markup=get_main_keyboard()
+                logger.warning(f"DEBUG: No token found for user {telegram_id}")
+                await self._edit_message_no_keyboard(loading_message,
+                    "انتهت الجلسة. سجل دخولك مجدداً.\n— THE DIE IS CAST · based on beehouse"
+                )
+                await self._send_message_with_keyboard(
+                    update,
+                    "اضغط '🚀 تسجيل الدخول' لتجديد الجلسة",
+                    "main"
                 )
                 return
+            
+            # Test token validity
+            logger.info(f"DEBUG: Testing token for user {username}")
             if not await self.university_api.test_token(token):
-                await loading_message.edit_text("جاري تجديد الجلسة...")
-                password = session.get("password")
+                logger.info(f"DEBUG: Token expired for user {username}, attempting relogin")
+                await self._edit_message_no_keyboard(loading_message, "جاري تجديد الجلسة...")
+                
                 if not password:
-                    await loading_message.edit_text(
-                        "فشل تسجيل الدخول. تحقق من بياناتك.\n— THE DIE IS CAST · based on beehouse",
-                        reply_markup=get_main_keyboard_with_relogin()
+                    logger.warning(f"DEBUG: No password stored for user {username}")
+                    await self._edit_message_no_keyboard(loading_message,
+                        "انتهت الجلسة. سجل دخولك مجدداً.\n— THE DIE IS CAST · based on beehouse"
+                    )
+                    await self._send_message_with_keyboard(
+                        update,
+                        "اضغط '🚀 تسجيل الدخول' لتجديد الجلسة",
+                        "main"
                     )
                     return
+                
+                # Attempt relogin
                 new_token = await self.university_api.login(username, password)
-                if new_token:
-                    token = new_token
-                    self.user_storage.update_user_token(telegram_id, token)
-                else:
-                    self.user_storage.invalidate_user_session(telegram_id)
-                    await loading_message.edit_text(
-                        "فشل تسجيل الدخول. تحقق من بياناتك.\n— THE DIE IS CAST · based on beehouse",
-                        reply_markup=get_main_keyboard_with_relogin()
+                if not new_token:
+                    logger.warning(f"DEBUG: Relogin failed for user {username}")
+                    await self._edit_message_no_keyboard(loading_message,
+                        "فشل تجديد الجلسة. سجل دخولك مجدداً.\n— THE DIE IS CAST · based on beehouse"
+                    )
+                    await self._send_message_with_keyboard(
+                        update,
+                        "اضغط '🚀 تسجيل الدخول' لتجديد الجلسة",
+                        "main"
                     )
                     return
-            if token:
-                await loading_message.edit_text("يتم التحقق من البيانات...")
-                fresh_data = await self.university_api.get_user_data(token)
-                if fresh_data:
-                    grades = fresh_data.get("grades", [])
-                    old_grades = self.grade_storage.get_grades(telegram_id)
-                    self.grade_storage.save_grades(telegram_id, grades)
-                    if grades:
-                        message = "\n".join([
-                            "نتائجك الحالية:",
-                            *[
-                                f"{i}. {g.get('المقرر', 'غير محدد')} | {g.get('الدرجة', 'غير متاح')}"
-                                for i, g in enumerate(grades, 1)
-                            ],
-                            f"— THE DIE IS CAST · based on beehouse"
-                        ])
+                
+                # Update token
+                logger.info(f"DEBUG: Token refreshed for user {username}")
+                self.user_storage.update_user_token(telegram_id, new_token)
+                token = new_token
+            
+            # Fetch fresh grades
+            logger.info(f"DEBUG: Fetching fresh grades for user {username}")
+            await self._edit_message_no_keyboard(loading_message, "جاري جلب الدرجات...")
+            
+            user_data = await self.university_api.get_user_data(token)
+            if not user_data:
+                logger.warning(f"DEBUG: Failed to fetch user data for {username}")
+                await self._edit_message_no_keyboard(loading_message,
+                    "فشل جلب الدرجات. حاول لاحقاً.\n— THE DIE IS CAST · based on beehouse"
+                )
+                await self._send_message_with_keyboard(
+                    update,
+                    "اضغط '📊 عرض الدرجات' للمحاولة مرة أخرى",
+                    "main"
+                )
+                return
+            
+            grades = user_data.get("grades", [])
+            logger.info(f"DEBUG: Retrieved {len(grades)} grades for user {username}")
+            
+            # Save fresh grades
+            try:
+                self.grade_storage.save_grades(telegram_id, grades)
+                logger.info(f"DEBUG: Grades saved successfully for user {username}")
+            except Exception as save_error:
+                logger.error(f"DEBUG: Failed to save grades: {save_error}")
+                # Continue even if save fails
+            
+            # Display grades
+            if not grades:
+                await self._edit_message_no_keyboard(loading_message,
+                    "لا توجد درجات متاحة حالياً.\n— THE DIE IS CAST · based on beehouse"
+                )
+                await self._send_message_with_keyboard(
+                    update,
+                    "اضغط '📊 عرض الدرجات' للمحاولة مرة أخرى",
+                    "main"
+                )
+                return
+            
+            # Format grades message
+            grades_text = f"📊 **درجاتك الحالية:**\n\n"
+            for i, grade in enumerate(grades, 1):
+                course_name = grade.get("المقرر", "غير محدد")
+                course_code = grade.get("كود المادة", "")
+                practical = grade.get("درجة الأعمال", "لم يتم النشر")
+                theoretical = grade.get("درجة النظري", "لم يتم النشر")
+                final = grade.get("الدرجة", "لم يتم النشر")
+                
+                grades_text += f"**{i}. {course_name}**"
+                if course_code:
+                    grades_text += f" ({course_code})"
+                grades_text += f"\n"
+                grades_text += f"• الأعمال: {practical}\n"
+                grades_text += f"• النظري: {theoretical}\n"
+                grades_text += f"• النهائي: {final}\n\n"
+            
+            grades_text += "— THE DIE IS CAST · based on beehouse"
+            
+            # Split message if too long
+            if len(grades_text) > 4096:
+                parts = [grades_text[i:i+4096] for i in range(0, len(grades_text), 4096)]
+                for i, part in enumerate(parts):
+                    if i == 0:
+                        await self._edit_message_no_keyboard(loading_message, part)
                     else:
-                        message = "لا توجد درجات متاحة حالياً.\n— THE DIE IS CAST · based on beehouse"
-                else:
-                    message = "تعذر جلب البيانات. حاول لاحقاً.\n— THE DIE IS CAST · based on beehouse"
+                        await update.message.reply_text(part)
             else:
-                message = "فشل تسجيل الدخول. تحقق من بياناتك.\n— THE DIE IS CAST · based on beehouse"
-            await loading_message.edit_text(message, reply_markup=get_main_keyboard())
+                await self._edit_message_no_keyboard(loading_message, grades_text)
+            
+            await self._send_message_with_keyboard(
+                update,
+                "اضغط '📊 عرض الدرجات' لتحديث الدرجات",
+                "main"
+            )
+            
         except Exception as e:
-            await update.message.reply_text(
-                "النظام غير متاح. حاول لاحقاً.\n— THE DIE IS CAST · based on beehouse",
-                reply_markup=get_main_keyboard()
+            logger.error(f"DEBUG: Error in grades command: {e}")
+            await self._edit_message_no_keyboard(loading_message,
+                "حدث خطأ أثناء جلب الدرجات. حاول لاحقاً.\n— THE DIE IS CAST · based on beehouse"
+            )
+            await self._send_message_with_keyboard(
+                update,
+                "اضغط '📊 عرض الدرجات' للمحاولة مرة أخرى",
+                "main"
             )
     
     async def _profile_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

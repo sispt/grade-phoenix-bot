@@ -30,7 +30,11 @@ class UniversityAPI:
             try:
                 logger.info(f"DEBUG: Login attempt {attempt + 1}/{max_retries} for user {username}")
                 
-                # Use the correct GraphQL mutation format
+                # Validate inputs
+                if not username or not password:
+                    logger.warning(f"DEBUG: Invalid credentials for user {username}")
+                    return None
+                
                 payload = {
                     "operationName": "signinUser",
                     "variables": {"username": username, "password": password},
@@ -39,51 +43,70 @@ class UniversityAPI:
                             login(username: $username, password: $password)
                         }
                     """
-            }
-            
-            async with aiohttp.ClientSession(timeout=self.timeout) as session:
-                async with session.post(
+                }
+                
+                async with aiohttp.ClientSession(timeout=self.timeout) as session:
+                    async with session.post(
                         self.login_url,
                         headers=self.api_headers,
-                    json=payload
-                ) as response:
+                        json=payload
+                    ) as response:
                         logger.info(f"DEBUG: Login response status: {response.status}")
                         
                         if response.status == 200:
-                            data = await response.json()
-                            logger.info(f"DEBUG: Login response data: {data}")
-                            
-                            token = data.get("data", {}).get("login")
-                            if token:
-                            logger.info(f"Login successful for user: {username}")
-                            return token
-                        else:
-                                logger.warning(f"Login failed for user: {username} - no token in response")
+                            try:
+                                data = await response.json()
+                                logger.info(f"DEBUG: Login response data: {data}")
+                                
+                                token = data.get("data", {}).get("login")
+                                if token:
+                                    logger.info(f"✅ Login successful for user: {username}")
+                                    return token
+                                else:
+                                    logger.warning(f"❌ Login failed for user: {username} - no token in response")
+                                    return None
+                            except json.JSONDecodeError as json_error:
+                                logger.error(f"DEBUG: JSON decode error: {json_error}")
+                                if attempt < max_retries - 1:
+                                    await asyncio.sleep(2 ** attempt)
+                                    continue
                                 return None
                         elif response.status == 401:
-                            logger.error(f"Login failed for user: {username} - invalid credentials")
+                            logger.error(f"❌ Login failed for user: {username} - invalid credentials")
                             return None
-                    else:
-                        logger.error(f"Login request failed with status: {response.status}")
+                        elif response.status == 429:
+                            logger.warning(f"⚠️ Rate limited for user {username}, retrying...")
                             if attempt < max_retries - 1:
-                                await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                                await asyncio.sleep(2 ** attempt)
                                 continue
-                        return None
-                        
+                            return None
+                        else:
+                            logger.error(f"❌ Login request failed with status: {response.status}")
+                            if attempt < max_retries - 1:
+                                await asyncio.sleep(2 ** attempt)
+                                continue
+                            return None
+                            
             except asyncio.TimeoutError:
-                logger.error(f"Login timeout for user {username} (attempt {attempt + 1})")
+                logger.error(f"⏰ Login timeout for user {username} (attempt {attempt + 1})")
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2 ** attempt)
                     continue
                 return None
-        except Exception as e:
-                logger.error(f"Error during login for user {username} (attempt {attempt + 1}): {e}")
+            except aiohttp.ClientError as client_error:
+                logger.error(f"🌐 Network error during login for user {username} (attempt {attempt + 1}): {client_error}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)
+                    continue
+                return None
+            except Exception as e:
+                logger.error(f"❌ Unexpected error during login for user {username} (attempt {attempt + 1}): {e}")
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2 ** attempt)
                     continue
                 return None
         
-            return None
+        return None
     
     async def test_token(self, token: str) -> bool:
         """Test if token is still valid"""
