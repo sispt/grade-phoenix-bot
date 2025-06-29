@@ -335,10 +335,30 @@ class TelegramBot:
                 if grades:
                     message = "📊 **درجاتك الحالية:**\n\n"
                     for grade in grades:
-                        message += f"📚 **{grade.get('course_name', '')}**\n"
-                        message += f"   🔬 العملي: {grade.get('practical_grade', '')}\n"
-                        message += f"   ✍️ التحريري: {grade.get('theoretical_grade', '')}\n"
-                        message += f"   🎯 النهائي: {grade.get('final_grade', '')}\n\n"
+                        # Safely extract all fields with proper validation
+                        course_name = grade.get('المقرر', 'غير محدد')
+                        course_code = grade.get('كود المادة', '')
+                        ects_credits = grade.get('رصيد ECTS', '')
+                        practical_grade = grade.get('درجة الأعمال', 'لم يتم النشر')
+                        theoretical_grade = grade.get('درجة النظري', 'لم يتم النشر')
+                        final_grade = grade.get('الدرجة', 'لم يتم النشر')
+                        
+                        # Validate and clean the data
+                        course_name = course_name.strip() if course_name else 'غير محدد'
+                        course_code = course_code.strip() if course_code else ''
+                        ects_credits = ects_credits.strip() if ects_credits else ''
+                        practical_grade = practical_grade.strip() if practical_grade else 'لم يتم النشر'
+                        theoretical_grade = theoretical_grade.strip() if theoretical_grade else 'لم يتم النشر'
+                        final_grade = final_grade.strip() if final_grade else 'لم يتم النشر'
+                        
+                        message += f"📚 **{course_name}**\n"
+                        if course_code and course_code != '':
+                            message += f"   🏷️ الكود: {course_code}\n"
+                        if ects_credits and ects_credits != '':
+                            message += f"   📊 الرصيد: {ects_credits} ECTS\n"
+                        message += f"   🔬 درجة الأعمال: {practical_grade}\n"
+                        message += f"   ✍️ درجة النظري: {theoretical_grade}\n"
+                        message += f"   🎯 الدرجة النهائية: {final_grade}\n\n"
                 else:
                     message = "📭 لا توجد درجات متاحة حالياً."
             else:
@@ -539,8 +559,8 @@ username on other platforms: @sisp_t
                 # Grades changed, notify user
                 changes = []
                 for new_grade in new_grades:
-                    course_name = new_grade.get("course_name", "")
-                    old_grade = next((g for g in old_grades if g.get("course_name") == course_name), None)
+                    course_name = new_grade.get("المقرر", "")
+                    old_grade = next((g for g in old_grades if g.get("المقرر") == course_name), None)
                     
                     if not old_grade or old_grade != new_grade:
                         changes.append(new_grade)
@@ -548,10 +568,26 @@ username on other platforms: @sisp_t
                 if changes:
                     message = "🎓 تم تحديث درجاتك:\n\n"
                     for grade in changes:
-                        message += f"📚 {grade.get('course_name', '')}\n"
-                        message += f"   العملي: {grade.get('practical_grade', '')}\n"
-                        message += f"   التحريري: {grade.get('theoretical_grade', '')}\n"
-                        message += f"   النهائي: {grade.get('final_grade', '')}\n\n"
+                        # Safely extract all fields with proper validation
+                        course_name = grade.get('المقرر', 'غير محدد')
+                        course_code = grade.get('كود المادة', '')
+                        practical_grade = grade.get('درجة الأعمال', 'لم يتم النشر')
+                        theoretical_grade = grade.get('درجة النظري', 'لم يتم النشر')
+                        final_grade = grade.get('الدرجة', 'لم يتم النشر')
+                        
+                        # Validate and clean the data
+                        course_name = course_name.strip() if course_name else 'غير محدد'
+                        course_code = course_code.strip() if course_code else ''
+                        practical_grade = practical_grade.strip() if practical_grade else 'لم يتم النشر'
+                        theoretical_grade = theoretical_grade.strip() if theoretical_grade else 'لم يتم النشر'
+                        final_grade = final_grade.strip() if final_grade else 'لم يتم النشر'
+                        
+                        message += f"📚 **{course_name}**\n"
+                        if course_code and course_code != '':
+                            message += f"   🏷️ الكود: {course_code}\n"
+                        message += f"   🔬 درجة الأعمال: {practical_grade}\n"
+                        message += f"   ✍️ درجة النظري: {theoretical_grade}\n"
+                        message += f"   🎯 الدرجة النهائية: {final_grade}\n\n"
                     
                     try:
                         await self.app.bot.send_message(chat_id=telegram_id, text=message)

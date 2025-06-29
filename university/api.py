@@ -24,46 +24,66 @@ class UniversityAPI:
     
     async def login(self, username: str, password: str) -> Optional[str]:
         """Login to university system"""
-        try:
-            logger.info(f"DEBUG: Attempting login to {self.login_url}")
-            
-            # Use the correct GraphQL mutation format
-            payload = {
-                "operationName": "signinUser",
-                "variables": {"username": username, "password": password},
-                "query": """
-                    mutation signinUser($username: String!, $password: String!) {
-                        login(username: $username, password: $password)
-                    }
-                """
-            }
-            
-            async with aiohttp.ClientSession(timeout=self.timeout) as session:
-                async with session.post(
-                    self.login_url,
-                    headers=self.api_headers,
-                    json=payload
-                ) as response:
-                    logger.info(f"DEBUG: Login response status: {response.status}")
-                    
-                    if response.status == 200:
-                        data = await response.json()
-                        logger.info(f"DEBUG: Login response data: {data}")
+        max_retries = CONFIG.get("MAX_RETRY_ATTEMPTS", 3)
+        
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"DEBUG: Login attempt {attempt + 1}/{max_retries} for user {username}")
+                
+                # Use the correct GraphQL mutation format
+                payload = {
+                    "operationName": "signinUser",
+                    "variables": {"username": username, "password": password},
+                    "query": """
+                        mutation signinUser($username: String!, $password: String!) {
+                            login(username: $username, password: $password)
+                        }
+                    """
+                }
+                
+                async with aiohttp.ClientSession(timeout=self.timeout) as session:
+                    async with session.post(
+                        self.login_url,
+                        headers=self.api_headers,
+                        json=payload
+                    ) as response:
+                        logger.info(f"DEBUG: Login response status: {response.status}")
                         
-                        token = data.get("data", {}).get("login")
-                        if token:
-                            logger.info(f"Login successful for user: {username}")
-                            return token
-                        else:
-                            logger.warning(f"Login failed for user: {username} - no token in response")
+                        if response.status == 200:
+                            data = await response.json()
+                            logger.info(f"DEBUG: Login response data: {data}")
+                            
+                            token = data.get("data", {}).get("login")
+                            if token:
+                                logger.info(f"Login successful for user: {username}")
+                                return token
+                            else:
+                                logger.warning(f"Login failed for user: {username} - no token in response")
+                                return None
+                        elif response.status == 401:
+                            logger.error(f"Login failed for user: {username} - invalid credentials")
                             return None
-                    else:
-                        logger.error(f"Login request failed with status: {response.status}")
-                        return None
-                        
-        except Exception as e:
-            logger.error(f"Error during login for user {username}: {e}")
-            return None
+                        else:
+                            logger.error(f"Login request failed with status: {response.status}")
+                            if attempt < max_retries - 1:
+                                await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                                continue
+                            return None
+                            
+            except asyncio.TimeoutError:
+                logger.error(f"Login timeout for user {username} (attempt {attempt + 1})")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)
+                    continue
+                return None
+            except Exception as e:
+                logger.error(f"Error during login for user {username} (attempt {attempt + 1}): {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)
+                    continue
+                return None
+        
+        return None
     
     async def test_token(self, token: str) -> bool:
         """Test if token is still valid"""
@@ -224,18 +244,33 @@ class UniversityAPI:
     def _parse_grades_from_html(self, page_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Parse grades from HTML response"""
         try:
+            logger.info("DEBUG: Starting HTML parsing")
             grades = []
             
             if "panels" in page_data:
+                logger.info(f"DEBUG: Found {len(page_data['panels'])} panels")
                 for panel in page_data["panels"]:
                     if "blocks" in panel:
+                        logger.info(f"DEBUG: Found {len(panel['blocks'])} blocks in panel")
                         for block in panel["blocks"]:
-                            if block.get("title") and "grade" in block.get("title", "").lower():
+                            logger.info(f"DEBUG: Processing block with title: {block.get('title', 'No title')}")
+                            # Look specifically for the student card block like in beehouse
+                            if block.get("title") == "بطاقة الطالب":
+                                logger.info("DEBUG: Found student card block!")
                                 # Parse grades from HTML body
                                 html_body = block.get("body", "")
                                 if html_body:
+                                    logger.info(f"DEBUG: HTML body length: {len(html_body)}")
                                     parsed_grades = self._extract_grades_from_html(html_body)
                                     grades.extend(parsed_grades)
+                                    logger.info(f"DEBUG: Found {len(parsed_grades)} grades in student card")
+                                else:
+                                    logger.warning("DEBUG: No HTML body in student card block")
+                                break  # Found the student card, no need to continue
+                        if grades:
+                            break  # Found grades, no need to continue
+            else:
+                logger.warning("DEBUG: No panels found in page data")
             
             logger.info(f"Parsed {len(grades)} grades from HTML")
             return grades
@@ -247,66 +282,74 @@ class UniversityAPI:
     def _extract_grades_from_html(self, html_content: str) -> List[Dict[str, Any]]:
         """Extract grades from HTML content"""
         try:
+            logger.info("DEBUG: Starting HTML table parsing")
             grades = []
             soup = BeautifulSoup(html_content, 'html.parser')
             
-            # Look for table rows or div elements containing grade information
-            # This is a simplified parser - you may need to adjust based on actual HTML structure
-            rows = soup.find_all(['tr', 'div'])
+            # Look for ant-table structure
+            table = soup.find("table")
+            if not table:
+                logger.warning("DEBUG: No table found in HTML")
+                return []
             
-            for row in rows:
-                text = row.get_text().strip()
-                if any(keyword in text.lower() for keyword in ['course', 'grade', 'practical', 'theoretical']):
-                    # Extract course information
-                    course_info = self._extract_course_info(row)
-                    if course_info:
-                        grades.append(course_info)
+            logger.info("DEBUG: Found table, parsing ant-table structure")
             
+            # Find thead to get headers
+            thead = table.find("thead", class_="ant-table-thead")
+            if not thead:
+                logger.warning("DEBUG: No thead found")
+                return []
+            
+            # Extract headers from th elements
+            headers = []
+            for th in thead.find_all("th", class_="ant-table-cell"):
+                header_text = th.get_text(strip=True)
+                if header_text:  # Only add non-empty headers
+                    headers.append(header_text)
+                    logger.info(f"DEBUG: Found header: {header_text}")
+            
+            if not headers:
+                logger.warning("DEBUG: No valid headers found")
+                return []
+            
+            logger.info(f"DEBUG: Table headers: {headers}")
+            
+            # Find tbody to get rows
+            tbody = table.find("tbody", class_="ant-table-tbody")
+            if not tbody:
+                logger.warning("DEBUG: No tbody found")
+                return []
+            
+            # Parse each row
+            for row in tbody.find_all("tr"):
+                cells = row.find_all("td", class_="ant-table-cell")
+                if len(cells) != len(headers):
+                    logger.warning(f"DEBUG: Row has {len(cells)} cells but {len(headers)} headers, skipping")
+                    continue
+                
+                # Extract data from each cell
+                row_data = {}
+                valid_row = False
+                
+                for i, cell in enumerate(cells):
+                    cell_text = cell.get_text(strip=True)
+                    row_data[headers[i]] = cell_text
+                    logger.info(f"DEBUG: Cell {i} ({headers[i]}): {cell_text}")
+                    
+                    # Check if this row has any meaningful data
+                    if cell_text and cell_text != "":
+                        valid_row = True
+                
+                # Only add courses that have some meaningful data
+                if valid_row:
+                    grades.append(row_data)
+                    logger.info(f"DEBUG: Added grade entry: {row_data}")
+                else:
+                    logger.info(f"DEBUG: Skipped empty grade entry: {row_data}")
+            
+            logger.info(f"DEBUG: Total grades parsed: {len(grades)}")
             return grades
             
         except Exception as e:
             logger.error(f"Error extracting grades from HTML: {e}")
-            return []
-    
-    def _extract_course_info(self, element) -> Optional[Dict[str, Any]]:
-        """Extract course information from HTML element"""
-        try:
-            text = element.get_text().strip()
-            
-            # This is a simplified extraction - adjust based on actual HTML structure
-            # You may need to implement more sophisticated parsing based on the actual university system
-            
-            # Example parsing (adjust as needed):
-            lines = text.split('\n')
-            course_name = ""
-            practical_grade = ""
-            theoretical_grade = ""
-            final_grade = ""
-            
-            for line in lines:
-                line = line.strip()
-                if line and len(line) > 3:
-                    if not course_name and any(keyword in line.lower() for keyword in ['course', 'subject']):
-                        course_name = line
-                    elif any(char.isdigit() for char in line) and len(line) <= 10:
-                        # This might be a grade
-                        if not practical_grade:
-                            practical_grade = line
-                        elif not theoretical_grade:
-                            theoretical_grade = line
-                        elif not final_grade:
-                            final_grade = line
-            
-            if course_name:
-                return {
-                    "course_name": course_name,
-                    "practical_grade": practical_grade,
-                    "theoretical_grade": theoretical_grade,
-                    "final_grade": final_grade
-                }
-            
-            return None
-            
-        except Exception as e:
-            logger.error(f"Error extracting course info: {e}")
-            return None 
+            return [] 
