@@ -79,7 +79,13 @@ class BotRunner:
             # Run migrations
             if not run_migrations():
                 logger.error("❌ Database migration failed")
-                raise Exception("Database migration failed")
+                if CONFIG.get("USE_POSTGRESQL", False):
+                    # If PostgreSQL is required, fail
+                    raise Exception("Database migration failed")
+                else:
+                    # If using file storage, continue
+                    logger.info("🔄 Continuing with file-based storage...")
+                    return
             
             # Check database status
             if not check_database_status():

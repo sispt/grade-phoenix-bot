@@ -13,6 +13,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from config import CONFIG
 from storage.models import DatabaseManager, Base, User, Grade
+from sqlalchemy import text
 
 # Configure logging
 logging.basicConfig(
@@ -47,11 +48,11 @@ def run_migrations():
         # Verify tables exist
         with db_manager.get_session() as session:
             # Check if users table exists
-            result = session.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users')")
+            result = session.execute(text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users')"))
             users_table_exists = result.scalar()
             
             # Check if grades table exists
-            result = session.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'grades')")
+            result = session.execute(text("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'grades')"))
             grades_table_exists = result.scalar()
             
             if users_table_exists and grades_table_exists:

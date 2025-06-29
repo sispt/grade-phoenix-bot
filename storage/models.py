@@ -1,7 +1,7 @@
 """
 🗄️ Database Models for PostgreSQL
 """
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Text, JSON
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Text, JSON, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
@@ -124,7 +124,7 @@ class DatabaseManager:
         """Test database connection"""
         try:
             with self.get_session() as session:
-                session.execute("SELECT 1")
+                session.execute(text("SELECT 1"))
                 logger.info("✅ Database connection test successful")
                 return True
         except Exception as e:
