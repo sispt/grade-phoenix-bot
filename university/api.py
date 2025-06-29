@@ -254,25 +254,21 @@ class UniversityAPI:
                         logger.info(f"DEBUG: Found {len(panel['blocks'])} blocks in panel")
                         for block in panel["blocks"]:
                             logger.info(f"DEBUG: Processing block with title: {block.get('title', 'No title')}")
-                            # Look specifically for the student card block like in beehouse
-                            if block.get("title") == "بطاقة الطالب":
-                                logger.info("DEBUG: Found student card block!")
-                                # Parse grades from HTML body
-                                html_body = block.get("body", "")
-                                if html_body:
-                                    logger.info(f"DEBUG: HTML body length: {len(html_body)}")
-                                    parsed_grades = self._extract_grades_from_html(html_body)
+                            
+                            # Parse any block that has HTML body content
+                            html_body = block.get("body", "")
+                            if html_body:
+                                logger.info(f"DEBUG: HTML body length: {len(html_body)}")
+                                parsed_grades = self._extract_grades_from_html(html_body)
+                                if parsed_grades:  # Only add if we found grades
                                     grades.extend(parsed_grades)
-                                    logger.info(f"DEBUG: Found {len(parsed_grades)} grades in student card")
-                                else:
-                                    logger.warning("DEBUG: No HTML body in student card block")
-                                break  # Found the student card, no need to continue
-                        if grades:
-                            break  # Found grades, no need to continue
+                                    logger.info(f"DEBUG: Found {len(parsed_grades)} grades in block: {block.get('title', 'No title')}")
+                            else:
+                                logger.info(f"DEBUG: No HTML body in block: {block.get('title', 'No title')}")
             else:
                 logger.warning("DEBUG: No panels found in page data")
             
-            logger.info(f"Parsed {len(grades)} grades from HTML")
+            logger.info(f"Parsed {len(grades)} total grades from all blocks")
             return grades
             
         except Exception as e:
@@ -286,66 +282,69 @@ class UniversityAPI:
             grades = []
             soup = BeautifulSoup(html_content, 'html.parser')
             
-            # Look for ant-table structure
-            table = soup.find("table")
-            if not table:
-                logger.warning("DEBUG: No table found in HTML")
+            # Look for any table structure
+            tables = soup.find_all("table")
+            if not tables:
+                logger.info("DEBUG: No tables found in HTML")
                 return []
             
-            logger.info("DEBUG: Found table, parsing ant-table structure")
+            logger.info(f"DEBUG: Found {len(tables)} tables")
             
-            # Find thead to get headers
-            thead = table.find("thead", class_="ant-table-thead")
-            if not thead:
-                logger.warning("DEBUG: No thead found")
-                return []
-            
-            # Extract headers from th elements
-            headers = []
-            for th in thead.find_all("th", class_="ant-table-cell"):
-                header_text = th.get_text(strip=True)
-                if header_text:  # Only add non-empty headers
-                    headers.append(header_text)
-                    logger.info(f"DEBUG: Found header: {header_text}")
-            
-            if not headers:
-                logger.warning("DEBUG: No valid headers found")
-                return []
-            
-            logger.info(f"DEBUG: Table headers: {headers}")
-            
-            # Find tbody to get rows
-            tbody = table.find("tbody", class_="ant-table-tbody")
-            if not tbody:
-                logger.warning("DEBUG: No tbody found")
-                return []
-            
-            # Parse each row
-            for row in tbody.find_all("tr"):
-                cells = row.find_all("td", class_="ant-table-cell")
-                if len(cells) != len(headers):
-                    logger.warning(f"DEBUG: Row has {len(cells)} cells but {len(headers)} headers, skipping")
+            for table_index, table in enumerate(tables):
+                logger.info(f"DEBUG: Processing table {table_index + 1}")
+                
+                # Find thead to get headers
+                thead = table.find("thead")
+                if not thead:
+                    logger.info(f"DEBUG: No thead found in table {table_index + 1}")
                     continue
                 
-                # Extract data from each cell
-                row_data = {}
-                valid_row = False
+                # Extract headers from th elements
+                headers = []
+                for th in thead.find_all("th"):
+                    header_text = th.get_text(strip=True)
+                    if header_text:  # Only add non-empty headers
+                        headers.append(header_text)
+                        logger.info(f"DEBUG: Found header: {header_text}")
                 
-                for i, cell in enumerate(cells):
-                    cell_text = cell.get_text(strip=True)
-                    row_data[headers[i]] = cell_text
-                    logger.info(f"DEBUG: Cell {i} ({headers[i]}): {cell_text}")
+                if not headers:
+                    logger.info(f"DEBUG: No valid headers found in table {table_index + 1}")
+                    continue
+                
+                logger.info(f"DEBUG: Table {table_index + 1} headers: {headers}")
+                
+                # Find tbody to get rows
+                tbody = table.find("tbody")
+                if not tbody:
+                    logger.info(f"DEBUG: No tbody found in table {table_index + 1}")
+                    continue
+                
+                # Parse each row
+                for row_index, row in enumerate(tbody.find_all("tr")):
+                    cells = row.find_all("td")
+                    if len(cells) != len(headers):
+                        logger.info(f"DEBUG: Row {row_index + 1} has {len(cells)} cells but {len(headers)} headers, skipping")
+                        continue
                     
-                    # Check if this row has any meaningful data
-                    if cell_text and cell_text != "":
-                        valid_row = True
-                
-                # Only add courses that have some meaningful data
-                if valid_row:
-                    grades.append(row_data)
-                    logger.info(f"DEBUG: Added grade entry: {row_data}")
-                else:
-                    logger.info(f"DEBUG: Skipped empty grade entry: {row_data}")
+                    # Extract data from each cell as raw text
+                    row_data = {}
+                    has_data = False
+                    
+                    for i, cell in enumerate(cells):
+                        cell_text = cell.get_text(strip=True)
+                        row_data[headers[i]] = cell_text
+                        logger.info(f"DEBUG: Cell {i} ({headers[i]}): {cell_text}")
+                        
+                        # Check if this row has any meaningful data
+                        if cell_text and cell_text.strip():
+                            has_data = True
+                    
+                    # Only add rows that have some data
+                    if has_data:
+                        grades.append(row_data)
+                        logger.info(f"DEBUG: Added grade entry: {row_data}")
+                    else:
+                        logger.info(f"DEBUG: Skipped empty row: {row_data}")
             
             logger.info(f"DEBUG: Total grades parsed: {len(grades)}")
             return grades
