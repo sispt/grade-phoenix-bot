@@ -13,7 +13,7 @@ from telegram.ext import (
     filters,
     ContextTypes,
     ConversationHandler,
-    UpdateHandler,
+    TypeHandler,
 )
 
 # Absolute imports
@@ -125,7 +125,7 @@ class TelegramBot:
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message))
         
         # Add catch-all update logger
-        self.app.add_handler(UpdateHandler(self._log_any_update))
+        self.app.add_handler(TypeHandler(Update, self._log_any_update))
     
     def _get_registration_handler(self):
         """Get registration conversation handler"""
