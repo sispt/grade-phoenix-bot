@@ -148,7 +148,10 @@ class TelegramBot:
         """Get registration conversation handler"""
         logger.info("DEBUG: Creating registration conversation handler")
         handler = ConversationHandler(
-            entry_points=[CommandHandler("register", self._register_start)],
+            entry_points=[
+                CommandHandler("register", self._register_start),
+                MessageHandler(filters.Regex("^🚀 تسجيل الدخول$"), self._register_start)
+            ],
             states={
                 ASK_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._register_username)],
                 ASK_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._register_password)],
@@ -202,6 +205,7 @@ class TelegramBot:
             reply_markup=ReplyKeyboardMarkup([["❌ إلغاء"]], resize_keyboard=True)
         )
         logger.info(f"DEBUG: Registration started for user {telegram_id}")
+        logger.info(f"DEBUG: Returning conversation state: {ASK_USERNAME}")
         return ASK_USERNAME
     
     async def _register_username(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
