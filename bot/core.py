@@ -392,14 +392,26 @@ class TelegramBot:
             
         except Exception as e:
             logger.error(f"DEBUG: Unexpected error during registration: {e}")
-            await loading_message.edit_text(
-                "❌ **حدث خطأ غير متوقع**\n\n"
-                "حاول مرة أخرى أو تواصل مع الدعم الفني.\n\n"
-                "📞 **الدعم:**\n"
-                "• المطور: @sisp_t\n"
-                "• البريد الإلكتروني: abdulrahmanabdulkader59@gmail.com",
-                reply_markup=get_main_keyboard()
-            )
+            try:
+                await loading_message.edit_text(
+                    "❌ **حدث خطأ غير متوقع**\n\n"
+                    "حاول مرة أخرى أو تواصل مع الدعم الفني.\n\n"
+                    "📞 **الدعم:**\n"
+                    "• المطور: @sisp_t\n"
+                    "• البريد الإلكتروني: abdulrahmanabdulkader59@gmail.com",
+                    reply_markup=get_main_keyboard()
+                )
+            except Exception as edit_error:
+                logger.error(f"DEBUG: Failed to edit message: {edit_error}")
+                # Try sending a new message instead
+                await update.message.reply_text(
+                    "❌ **حدث خطأ غير متوقع**\n\n"
+                    "حاول مرة أخرى أو تواصل مع الدعم الفني.\n\n"
+                    "📞 **الدعم:**\n"
+                    "• المطور: @sisp_t\n"
+                    "• البريد الإلكتروني: abdulrahmanabdulkader59@gmail.com",
+                    reply_markup=get_main_keyboard()
+                )
             return ConversationHandler.END
     
     async def _cancel_registration(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
