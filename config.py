@@ -15,7 +15,8 @@ CONFIG = {
     "ADMIN_EMAIL": os.getenv("ADMIN_EMAIL", "tox098123@gmail.com"),
     
     # University API Configuration
-    "UNIVERSITY_API_URL": "https://sis.shamuniversity.com/graphql",
+    "UNIVERSITY_LOGIN_URL": "https://api.staging.sis.shamuniversity.com/portal",
+    "UNIVERSITY_API_URL": "https://api.staging.sis.shamuniversity.com/graphql",
     "UNIVERSITY_NAME": "جامعة الشام",
     "UNIVERSITY_WEBSITE": "https://sis.shamuniversity.com",
     

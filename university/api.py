@@ -17,52 +17,45 @@ class UniversityAPI:
     """University API integration"""
     
     def __init__(self):
+        self.login_url = CONFIG["UNIVERSITY_LOGIN_URL"]
         self.api_url = CONFIG["UNIVERSITY_API_URL"]
-        self.headers = CONFIG["API_HEADERS"]
+        self.api_headers = CONFIG["API_HEADERS"]
         self.timeout = aiohttp.ClientTimeout(total=CONFIG.get("REQUEST_TIMEOUT_SECONDS", 30))
     
     async def login(self, username: str, password: str) -> Optional[str]:
         """Login to university system"""
         try:
-            login_query = """
-            mutation Login($username: String!, $password: String!) {
-                login(username: $username, password: $password) {
-                    token
-                    user {
-                        id
-                        username
-                        fullname
-                        email
-                    }
-                }
-            }
-            """
+            logger.info(f"DEBUG: Attempting login to {self.login_url}")
             
-            variables = {
-                "username": username,
-                "password": password
-            }
-            
+            # Use the correct GraphQL mutation format
             payload = {
-                "query": login_query,
-                "variables": variables
+                "operationName": "signinUser",
+                "variables": {"username": username, "password": password},
+                "query": """
+                    mutation signinUser($username: String!, $password: String!) {
+                        login(username: $username, password: $password)
+                    }
+                """
             }
             
             async with aiohttp.ClientSession(timeout=self.timeout) as session:
                 async with session.post(
-                    self.api_url,
-                    headers=self.headers,
+                    self.login_url,
+                    headers=self.api_headers,
                     json=payload
                 ) as response:
+                    logger.info(f"DEBUG: Login response status: {response.status}")
+                    
                     if response.status == 200:
                         data = await response.json()
+                        logger.info(f"DEBUG: Login response data: {data}")
                         
-                        if "data" in data and data["data"] and data["data"]["login"]:
-                            token = data["data"]["login"]["token"]
+                        token = data.get("data", {}).get("login")
+                        if token:
                             logger.info(f"Login successful for user: {username}")
                             return token
                         else:
-                            logger.warning(f"Login failed for user: {username}")
+                            logger.warning(f"Login failed for user: {username} - no token in response")
                             return None
                     else:
                         logger.error(f"Login request failed with status: {response.status}")
@@ -86,7 +79,7 @@ class UniversityAPI:
             }
             """
             
-            headers = {**self.headers, "Authorization": f"Bearer {token}"}
+            headers = {**self.api_headers, "Authorization": f"Bearer {token}"}
             
             payload = {
                 "query": test_query
@@ -150,7 +143,7 @@ class UniversityAPI:
             }
             """
             
-            headers = {**self.headers, "Authorization": f"Bearer {token}"}
+            headers = {**self.api_headers, "Authorization": f"Bearer {token}"}
             
             payload = {
                 "query": user_query
@@ -198,10 +191,10 @@ class UniversityAPI:
             }
             """
             
-            headers = {**self.headers, "Authorization": f"Bearer {token}"}
+            headers = {**self.api_headers, "Authorization": f"Bearer {token}"}
             
             variables = {
-                "name": "grades",
+                "name": "homepage",
                 "params": []
             }
             
