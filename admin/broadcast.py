@@ -17,6 +17,7 @@ from telegram.ext import (
 
 from config import CONFIG
 from storage.users import UserStorage
+from utils.keyboards import get_cancel_keyboard
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +68,7 @@ class BroadcastSystem:
             "• الرسالة ستُرسل لجميع المستخدمين المسجلين\n"
             "• يمكنك إلغاء العملية في أي وقت\n\n"
             "اكتب رسالتك الآن:",
-            reply_markup=ReplyKeyboardMarkup([["❌ إلغاء"]], resize_keyboard=True)
+            reply_markup=get_cancel_keyboard()
         )
         
         return COMPOSE_MESSAGE

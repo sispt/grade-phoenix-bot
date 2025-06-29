@@ -48,12 +48,17 @@ class BotRunner:
             # Create necessary directories
             self.create_directories()
             
+            # Run database migrations
+            await self.run_migrations()
+            
             # Start the bot
             await self.bot.start()
             
             logger.info("✅ Bot started successfully!")
             logger.info(f"📊 Admin ID: {CONFIG['ADMIN_ID']}")
             logger.info(f"🕒 Start time: {self.start_time}")
+            logger.info(f"🗄️ Database: {'PostgreSQL' if CONFIG.get('USE_POSTGRESQL', False) else 'File-based'}")
+            logger.info(f"🔔 Notifications: {'Enabled' if CONFIG['ENABLE_NOTIFICATIONS'] else 'Disabled'}")
             
             # Keep running
             while self.running:
@@ -62,6 +67,34 @@ class BotRunner:
         except Exception as e:
             logger.error(f"❌ Failed to start bot: {e}")
             raise
+    
+    async def run_migrations(self):
+        """Run database migrations"""
+        try:
+            logger.info("🗄️ Running database migrations...")
+            
+            # Import migrations module
+            from migrations import run_migrations, check_database_status
+            
+            # Run migrations
+            if not run_migrations():
+                logger.error("❌ Database migration failed")
+                raise Exception("Database migration failed")
+            
+            # Check database status
+            if not check_database_status():
+                logger.warning("⚠️ Database status check failed")
+            
+            logger.info("✅ Database migrations completed")
+            
+        except Exception as e:
+            logger.error(f"❌ Migration error: {e}")
+            if CONFIG.get("USE_POSTGRESQL", False):
+                # If PostgreSQL is required, fail
+                raise
+            else:
+                # If using file storage, continue
+                logger.info("🔄 Continuing with file-based storage...")
     
     async def stop(self):
         """Stop the bot gracefully"""

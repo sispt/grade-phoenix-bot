@@ -4,7 +4,7 @@
 import asyncio
 import logging
 from datetime import datetime
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -18,12 +18,15 @@ from telegram.ext import (
 
 # Absolute imports
 from config import CONFIG
-from storage.users import UserStorage
-from storage.grades import GradeStorage
+from storage.models import DatabaseManager
+from storage.postgresql_users import PostgreSQLUserStorage
+from storage.postgresql_grades import PostgreSQLGradeStorage
+from storage.users import UserStorage  # Fallback for local development
+from storage.grades import GradeStorage  # Fallback for local development
 from university.api import UniversityAPI
 from admin.dashboard import AdminDashboard
 from admin.broadcast import BroadcastSystem
-from utils.keyboards import get_main_keyboard, get_admin_keyboard
+from utils.keyboards import get_main_keyboard, get_main_keyboard_with_relogin, get_admin_keyboard, get_cancel_keyboard
 from utils.messages import get_welcome_message, get_help_message
 
 logger = logging.getLogger(__name__)
@@ -36,14 +39,54 @@ class TelegramBot:
     
     def __init__(self):
         self.app = None
-        self.user_storage = UserStorage()
-        self.grade_storage = GradeStorage()
+        self.db_manager = None
+        self.user_storage = None
+        self.grade_storage = None
         self.university_api = UniversityAPI()
         self.admin_dashboard = AdminDashboard()
         self.broadcast_system = BroadcastSystem()
         self.grade_check_task = None
         self.running = False
         
+        # Initialize storage based on configuration
+        self._initialize_storage()
+        
+    def _initialize_storage(self):
+        """Initialize storage system based on configuration"""
+        try:
+            if CONFIG.get("USE_POSTGRESQL", False):
+                # Use PostgreSQL
+                logger.info("🗄️ Initializing PostgreSQL storage...")
+                self.db_manager = DatabaseManager(CONFIG["DATABASE_URL"])
+                
+                # Test database connection
+                if self.db_manager.test_connection():
+                    self.user_storage = PostgreSQLUserStorage(self.db_manager)
+                    self.grade_storage = PostgreSQLGradeStorage(self.db_manager)
+                    logger.info("✅ PostgreSQL storage initialized successfully")
+                else:
+                    logger.error("❌ PostgreSQL connection failed, falling back to file storage")
+                    self._initialize_file_storage()
+            else:
+                # Use file-based storage
+                logger.info("📁 Initializing file-based storage...")
+                self._initialize_file_storage()
+                
+        except Exception as e:
+            logger.error(f"❌ Storage initialization failed: {e}")
+            logger.info("🔄 Falling back to file-based storage...")
+            self._initialize_file_storage()
+    
+    def _initialize_file_storage(self):
+        """Initialize file-based storage as fallback"""
+        try:
+            self.user_storage = UserStorage()
+            self.grade_storage = GradeStorage()
+            logger.info("✅ File-based storage initialized successfully")
+        except Exception as e:
+            logger.error(f"❌ File storage initialization failed: {e}")
+            raise
+    
     async def start(self):
         """Start the bot"""
         import os
@@ -169,11 +212,40 @@ class TelegramBot:
     async def _start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
         user = update.effective_user
-        welcome_msg = get_welcome_message(user.first_name)
+        telegram_id = user.id
+        
+        # Check if user has active session
+        if self.user_storage.is_user_registered(telegram_id):
+            session = self.user_storage.get_user_session(telegram_id)
+            if session:
+                welcome_msg = f"""
+🎉 **مرحباً بعودتك {user.first_name}!**
+
+✅ **أنت مسجل بالفعل** ويمكنك استخدام جميع الميزات.
+
+💡 **الخيارات المتاحة:**
+• 📊 فحص الدرجات - عرض درجاتك الحالية
+• 👤 معلوماتي - عرض معلوماتك الشخصية
+• ⚙️ الإعدادات - تعديل إعدادات البوت
+• ❓ المساعدة - دليل الاستخدام
+"""
+                keyboard = get_main_keyboard()
+            else:
+                welcome_msg = f"""
+🎉 **مرحباً {user.first_name}!**
+
+⚠️ **جلسة منتهية الصلاحية** - يرجى إعادة تسجيل الدخول.
+
+💡 **اضغط على '🔄 إعادة تسجيل الدخول' لإعادة تفعيل حسابك.**
+"""
+                keyboard = get_main_keyboard_with_relogin()
+        else:
+            welcome_msg = get_welcome_message(user.first_name)
+            keyboard = get_main_keyboard()
         
         await update.message.reply_text(
             welcome_msg,
-            reply_markup=get_main_keyboard()
+            reply_markup=keyboard
         )
     
     async def _help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -190,19 +262,31 @@ class TelegramBot:
         logger.info("DEBUG: _register_start called")
         telegram_id = update.effective_user.id
         
-        # Check if user already registered
-        if self.user_storage.get_user(telegram_id):
-            await update.message.reply_text(
-                "✅ أنت مسجل بالفعل! يمكنك استخدام '📊 فحص الدرجات' لعرض درجاتك.",
-                reply_markup=get_main_keyboard()
-            )
-            return ConversationHandler.END
+        # Check if user already has active session
+        if self.user_storage.is_user_registered(telegram_id):
+            session = self.user_storage.get_user_session(telegram_id)
+            if session:
+                await update.message.reply_text(
+                    "✅ أنت مسجل بالفعل! يمكنك استخدام '📊 فحص الدرجات' لعرض درجاتك.\n\n"
+                    "💡 إذا كنت تريد إعادة تسجيل الدخول، اضغط على '🔄 إعادة تسجيل الدخول'.",
+                    reply_markup=get_main_keyboard()
+                )
+                return ConversationHandler.END
+            else:
+                # Session expired, allow re-registration
+                await update.message.reply_text(
+                    "⚠️ **جلسة منتهية الصلاحية**\n\n"
+                    "يرجى إعادة إدخال بياناتك لتجديد الجلسة.",
+                    reply_markup=get_cancel_keyboard()
+                )
+                logger.info(f"DEBUG: Re-registration started for user {telegram_id} (expired session)")
+                return ASK_USERNAME
         
         await update.message.reply_text(
             "🚀 **تسجيل الدخول للجامعة**\n\n"
             "يرجى إرسال اسم المستخدم الجامعي الخاص بك:\n"
             "(مثال: ENG2324901)",
-            reply_markup=ReplyKeyboardMarkup([["❌ إلغاء"]], resize_keyboard=True)
+            reply_markup=get_cancel_keyboard()
         )
         logger.info(f"DEBUG: Registration started for user {telegram_id}")
         logger.info(f"DEBUG: Returning conversation state: {ASK_USERNAME}")
@@ -236,45 +320,54 @@ class TelegramBot:
         telegram_id = update.effective_user.id
         logger.info(f"DEBUG: Attempting login for user {username} (ID: {telegram_id})")
         
-        await update.message.reply_text("🔄 جاري تسجيل الدخول...")
+        # Show loading message
+        loading_message = await update.message.reply_text("🔄 جاري تسجيل الدخول...")
         
-        # Login to university
-        token = await self.university_api.login(username, password)
-        if not token:
-            logger.warning(f"DEBUG: Login failed for user {username}")
-            await update.message.reply_text(
-                "❌ **فشل تسجيل الدخول**\n\n"
-                "تأكد من صحة اسم المستخدم وكلمة المرور وحاول مرة أخرى.",
-                reply_markup=get_main_keyboard()
-            )
-            return ConversationHandler.END
-        
-        logger.info(f"DEBUG: Login successful for user {username}, token received")
-        await update.message.reply_text("📊 جاري جلب بياناتك...")
-        
-        # Fetch user data
-        user_data = await self.university_api.get_user_data(token)
-        if not user_data:
-            logger.warning(f"DEBUG: Failed to fetch user data for {username}")
-            await update.message.reply_text(
-                "❌ **فشل جلب بيانات الطالب**\n\n"
-                "حاول لاحقاً أو تواصل مع الدعم الفني.",
-                reply_markup=get_main_keyboard()
-            )
-            return ConversationHandler.END
-        
-        logger.info(f"DEBUG: User data fetched successfully for {username}")
-        
-        # Save user
-        self.user_storage.save_user(telegram_id, username, password, token, user_data)
-        
-        # Save grades
-        grades = user_data.get("grades", [])
-        self.grade_storage.save_grades(telegram_id, grades)
-        
-        logger.info(f"DEBUG: Registration completed successfully for user {username}")
-        
-        success_message = f"""
+        try:
+            # Login to university
+            token = await self.university_api.login(username, password)
+            if not token:
+                logger.warning(f"DEBUG: Login failed for user {username}")
+                await loading_message.edit_text(
+                    "❌ **فشل تسجيل الدخول**\n\n"
+                    "تأكد من صحة اسم المستخدم وكلمة المرور وحاول مرة أخرى.\n\n"
+                    "💡 **نصائح:**\n"
+                    "• تأكد من صحة اسم المستخدم (مثال: ENG2324901)\n"
+                    "• تأكد من صحة كلمة المرور\n"
+                    "• تحقق من اتصال الإنترنت",
+                    reply_markup=get_main_keyboard()
+                )
+                return ConversationHandler.END
+            
+            logger.info(f"DEBUG: Login successful for user {username}, token received")
+            await loading_message.edit_text("📊 جاري جلب بياناتك...")
+            
+            # Fetch user data
+            user_data = await self.university_api.get_user_data(token)
+            if not user_data:
+                logger.warning(f"DEBUG: Failed to fetch user data for {username}")
+                await loading_message.edit_text(
+                    "❌ **فشل جلب بيانات الطالب**\n\n"
+                    "حاول لاحقاً أو تواصل مع الدعم الفني.\n\n"
+                    "📞 **الدعم:**\n"
+                    "• المطور: @sisp_t\n"
+                    "• البريد الإلكتروني: abdulrahmanabdulkader59@gmail.com",
+                    reply_markup=get_main_keyboard()
+                )
+                return ConversationHandler.END
+            
+            logger.info(f"DEBUG: User data fetched successfully for {username}")
+            
+            # Save user
+            self.user_storage.save_user(telegram_id, username, password, token, user_data)
+            
+            # Save grades
+            grades = user_data.get("grades", [])
+            self.grade_storage.save_grades(telegram_id, grades)
+            
+            logger.info(f"DEBUG: Registration completed successfully for user {username}")
+            
+            success_message = f"""
 ✅ **تم تسجيل الدخول بنجاح!**
 
 👤 **مرحباً:** {user_data.get('fullname', username)}
@@ -287,13 +380,27 @@ class TelegramBot:
 • 📊 فحص الدرجات الحالية
 • 👤 عرض معلوماتك
 • ⚙️ تعديل الإعدادات
+
+🎯 **للحصول على المساعدة:** اضغط على "❓ المساعدة"
 """
-        
-        await update.message.reply_text(
-            success_message,
-            reply_markup=get_main_keyboard()
-        )
-        return ConversationHandler.END
+            
+            await loading_message.edit_text(
+                success_message,
+                reply_markup=get_main_keyboard()
+            )
+            return ConversationHandler.END
+            
+        except Exception as e:
+            logger.error(f"DEBUG: Unexpected error during registration: {e}")
+            await loading_message.edit_text(
+                "❌ **حدث خطأ غير متوقع**\n\n"
+                "حاول مرة أخرى أو تواصل مع الدعم الفني.\n\n"
+                "📞 **الدعم:**\n"
+                "• المطور: @sisp_t\n"
+                "• البريد الإلكتروني: abdulrahmanabdulkader59@gmail.com",
+                reply_markup=get_main_keyboard()
+            )
+            return ConversationHandler.END
     
     async def _cancel_registration(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Cancel registration"""
@@ -307,66 +414,165 @@ class TelegramBot:
     async def _grades_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /grades command"""
         telegram_id = update.effective_user.id
-        user = self.user_storage.get_user(telegram_id)
         
-        if not user:
+        # Check if user is registered
+        if not self.user_storage.is_user_registered(telegram_id):
             await update.message.reply_text(
                 "❌ لم يتم تسجيلك بعد. اضغط على '🚀 تسجيل الدخول' أولاً.",
                 reply_markup=get_main_keyboard()
             )
             return
         
-        await update.message.reply_text("🔄 جاري فحص الدرجات...")
+        # Show loading message
+        loading_message = await update.message.reply_text("🔄 جاري فحص الدرجات...")
         
-        # Get fresh grades
-        token = user.get("token")
-        if not token or not await self.university_api.test_token(token):
-            token = await self.university_api.login(user.get("username"), user.get("password"))
-            if token:
-                user["token"] = token
-                self.user_storage.update_user(telegram_id, user)
-        
-        if token:
-            fresh_data = await self.university_api.get_user_data(token)
-            if fresh_data:
-                grades = fresh_data.get("grades", [])
-                self.grade_storage.save_grades(telegram_id, grades)
+        try:
+            # Get user session
+            session = self.user_storage.get_user_session(telegram_id)
+            if not session:
+                await loading_message.edit_text(
+                    "❌ جلسة منتهية الصلاحية. اضغط على '🚀 تسجيل الدخول' مرة أخرى.",
+                    reply_markup=get_main_keyboard()
+                )
+                return
+            
+            # Get token from session
+            token = session.get("token")
+            username = session.get("username")
+            
+            logger.info(f"🔍 DEBUG: Grades command - User {username} (ID: {telegram_id})")
+            logger.info(f"🔑 DEBUG: User has token: {'Yes' if token else 'No'}")
+            
+            if not token:
+                await loading_message.edit_text(
+                    "❌ لا يوجد توكن صالح. اضغط على '🔄 إعادة تسجيل الدخول'.",
+                    reply_markup=get_main_keyboard_with_relogin()
+                )
+                return
+            
+            # Test token validity
+            logger.info(f"🔍 DEBUG: Testing token validity for user {username}")
+            if not await self.university_api.test_token(token):
+                await loading_message.edit_text("🔄 جاري تجديد الجلسة...")
+                logger.info(f"⚠️ DEBUG: Token expired for user {username}, attempting re-authentication")
                 
-                if grades:
-                    message = "📊 **درجاتك الحالية:**\n\n"
-                    for grade in grades:
-                        # Safely extract all fields with proper validation
-                        course_name = grade.get('المقرر', 'غير محدد')
-                        course_code = grade.get('كود المادة', '')
-                        ects_credits = grade.get('رصيد ECTS', '')
-                        practical_grade = grade.get('درجة الأعمال', 'لم يتم النشر')
-                        theoretical_grade = grade.get('درجة النظري', 'لم يتم النشر')
-                        final_grade = grade.get('الدرجة', 'لم يتم النشر')
-                        
-                        # Validate and clean the data
-                        course_name = course_name.strip() if course_name else 'غير محدد'
-                        course_code = course_code.strip() if course_code else ''
-                        ects_credits = ects_credits.strip() if ects_credits else ''
-                        practical_grade = practical_grade.strip() if practical_grade else 'لم يتم النشر'
-                        theoretical_grade = theoretical_grade.strip() if theoretical_grade else 'لم يتم النشر'
-                        final_grade = final_grade.strip() if final_grade else 'لم يتم النشر'
-                        
-                        message += f"📚 **{course_name}**\n"
-                        if course_code and course_code != '':
-                            message += f"   🏷️ الكود: {course_code}\n"
-                        if ects_credits and ects_credits != '':
-                            message += f"   📊 الرصيد: {ects_credits} ECTS\n"
-                        message += f"   🔬 درجة الأعمال: {practical_grade}\n"
-                        message += f"   ✍️ درجة النظري: {theoretical_grade}\n"
-                        message += f"   🎯 الدرجة النهائية: {final_grade}\n\n"
+                # Try to re-authenticate using stored credentials
+                password = session.get("password")
+                if not password:
+                    logger.error(f"❌ DEBUG: No password stored for user {username}")
+                    await loading_message.edit_text(
+                        "❌ فشل في تسجيل الدخول. يرجى التحقق من بياناتك وإعادة التسجيل.\n\n"
+                        "💡 **الحل:**\n"
+                        "• اضغط على '🔄 إعادة تسجيل الدخول'\n"
+                        "• أدخل بياناتك مرة أخرى",
+                        reply_markup=get_main_keyboard_with_relogin()
+                    )
+                    return
+                
+                logger.info(f"🔄 DEBUG: Re-authenticating user {username} with stored credentials")
+                new_token = await self.university_api.login(username, password)
+                if new_token:
+                    logger.info(f"✅ DEBUG: Re-authentication successful for user {username}")
+                    token = new_token
+                    # Update token in database
+                    self.user_storage.update_user_token(telegram_id, token)
                 else:
-                    message = "📭 لا توجد درجات متاحة حالياً."
+                    logger.error(f"❌ DEBUG: Re-authentication failed for user {username}")
+                    # Login failed, invalidate session
+                    self.user_storage.invalidate_user_session(telegram_id)
+                    await loading_message.edit_text(
+                        "❌ فشل في تسجيل الدخول. يرجى التحقق من بياناتك وإعادة التسجيل.\n\n"
+                        "💡 **الحل:**\n"
+                        "• اضغط على '🔄 إعادة تسجيل الدخول'\n"
+                        "• أدخل بياناتك مرة أخرى",
+                        reply_markup=get_main_keyboard_with_relogin()
+                    )
+                    return
             else:
-                message = "❌ فشل في جلب الدرجات. حاول مرة أخرى لاحقاً."
-        else:
-            message = "❌ فشل في تسجيل الدخول. حاول مرة أخرى."
-        
-        await update.message.reply_text(message, reply_markup=get_main_keyboard())
+                logger.info(f"✅ DEBUG: Token is valid for user {username}")
+            
+            # Get fresh grades using token
+            if token:
+                await loading_message.edit_text("📊 يتم التحقق من البيانات على النظام...")
+                logger.info(f"📊 DEBUG: Fetching fresh grades for user {username} using token")
+                fresh_data = await self.university_api.get_user_data(token)
+                if fresh_data:
+                    grades = fresh_data.get("grades", [])
+                    logger.info(f"📚 DEBUG: Retrieved {len(grades)} grades for user {username}")
+                    
+                    # Get previous grades for comparison
+                    old_grades = self.grade_storage.get_grades(telegram_id)
+                    logger.info(f"📚 DEBUG: Previous grades count: {len(old_grades)}")
+                    
+                    # Save new grades
+                    self.grade_storage.save_grades(telegram_id, grades)
+                    logger.info(f"💾 DEBUG: Saved grades for user {username}")
+                    
+                    if grades:
+                        message = "📊 **درجاتك الحالية:**\n\n"
+                        for i, grade in enumerate(grades, 1):
+                            # Safely extract all fields with proper validation
+                            course_name = grade.get('المقرر', 'غير محدد')
+                            course_code = grade.get('كود المادة', '')
+                            ects_credits = grade.get('رصيد ECTS', '')
+                            practical_grade = grade.get('درجة الأعمال', 'لم يتم النشر')
+                            theoretical_grade = grade.get('درجة النظري', 'لم يتم النشر')
+                            final_grade = grade.get('الدرجة', 'لم يتم النشر')
+                            
+                            # Validate and clean the data
+                            course_name = course_name.strip() if course_name else 'غير محدد'
+                            course_code = course_code.strip() if course_code else ''
+                            ects_credits = ects_credits.strip() if ects_credits else ''
+                            practical_grade = practical_grade.strip() if practical_grade else 'لم يتم النشر'
+                            theoretical_grade = theoretical_grade.strip() if theoretical_grade else 'لم يتم النشر'
+                            final_grade = final_grade.strip() if final_grade else 'لم يتم النشر'
+                            
+                            message += f"📚 **{i}. {course_name}**\n"
+                            if course_code and course_code != '':
+                                message += f"   🏷️ الكود: {course_code}\n"
+                            if ects_credits and ects_credits != '':
+                                message += f"   📊 الرصيد: {ects_credits} ECTS\n"
+                            message += f"   🔬 درجة الأعمال: {practical_grade}\n"
+                            message += f"   ✍️ درجة النظري: {theoretical_grade}\n"
+                            message += f"   🎯 الدرجة النهائية: {final_grade}\n\n"
+                        
+                        message += f"🕒 **آخر تحديث:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                        
+                        # Check if grades changed
+                        if old_grades != grades:
+                            logger.info(f"🔄 DEBUG: Grades changed for user {username} during manual check")
+                            message += "\n\n🔄 **تم تحديث الدرجات!**"
+                        else:
+                            logger.info(f"✅ DEBUG: No grade changes for user {username} during manual check")
+                    else:
+                        message = "📭 **لا توجد درجات متاحة حالياً.**\n\n"
+                        message += "💡 **الأسباب المحتملة:**\n"
+                        message += "• لم يتم نشر الدرجات بعد\n"
+                        message += "• الفصل الدراسي لم يبدأ\n"
+                        message += "• لا توجد مواد مسجلة\n\n"
+                        message += "🔄 **سيتم فحص الدرجات تلقائياً كل 5 دقائق**"
+                else:
+                    message = "❌ **فشل في جلب الدرجات**\n\n"
+                    message += "حاول مرة أخرى لاحقاً أو تواصل مع الدعم الفني.\n\n"
+                    message += "📞 **الدعم:**\n"
+                    message += "• المطور: @sisp_t\n"
+                    message += "• البريد الإلكتروني: abdulrahmanabdulkader59@gmail.com"
+            else:
+                message = "❌ **فشل في تسجيل الدخول**\n\n"
+                message += "حاول مرة أخرى أو اضغط على '🔄 إعادة تسجيل الدخول'"
+            
+            await loading_message.edit_text(message, reply_markup=get_main_keyboard())
+            
+        except Exception as e:
+            logger.error(f"❌ DEBUG: Unexpected error in grades command: {e}")
+            await loading_message.edit_text(
+                "❌ **حدث خطأ غير متوقع**\n\n"
+                "حاول مرة أخرى أو تواصل مع الدعم الفني.\n\n"
+                "📞 **الدعم:**\n"
+                "• المطور: @sisp_t\n"
+                "• البريد الإلكتروني: abdulrahmanabdulkader59@gmail.com",
+                reply_markup=get_main_keyboard()
+            )
     
     async def _profile_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /profile command"""
@@ -474,6 +680,12 @@ username on other platforms: @sisp_t
         
         if text == "🚀 تسجيل الدخول":
             await self._register_start(update, context)
+        elif text == "🔄 إعادة تسجيل الدخول":
+            # Force re-registration by invalidating session first
+            telegram_id = update.effective_user.id
+            if self.user_storage.is_user_registered(telegram_id):
+                self.user_storage.invalidate_user_session(telegram_id)
+            await self._register_start(update, context)
         elif text == "📊 فحص الدرجات":
             await self._grades_command(update, context)
         elif text == "👤 معلوماتي":
@@ -527,36 +739,63 @@ username on other platforms: @sisp_t
                 await asyncio.sleep(300)  # 5 minutes
     
     async def _check_user_grades(self, user):
-        """Check grades for a specific user"""
+        """Check grades for a specific user using stored token"""
         try:
             telegram_id = user.get("telegram_id")
             username = user.get("username")
-            password = user.get("password")
-            
-            # Try to use stored token first
             token = user.get("token")
-            if not token or not await self.university_api.test_token(token):
-                logger.info(f"Token expired for user {username}, re-authenticating...")
-                token = await self.university_api.login(username, password)
-                if token:
-                    user["token"] = token
-                    self.user_storage.update_user(telegram_id, user)
-                else:
-                    logger.warning(f"Failed to re-authenticate user {username}")
-                    return
             
-            # Get fresh data
-            user_data = await self.university_api.get_user_data(token)
-            if not user_data:
-                logger.warning(f"Failed to fetch data for user {username}")
+            logger.info(f"🔍 DEBUG: Starting grade check for user {username} (ID: {telegram_id})")
+            logger.info(f"🔑 DEBUG: User has token: {'Yes' if token else 'No'}")
+            
+            # Check if user has a valid token
+            if not token:
+                logger.warning(f"❌ DEBUG: No token found for user {username}, skipping grade check")
                 return
             
-            # Compare grades
-            old_grades = self.grade_storage.get_grades(telegram_id)
-            new_grades = user_data.get("grades", [])
+            # Test if token is still valid
+            logger.info(f"🔍 DEBUG: Testing token validity for user {username}")
+            if not await self.university_api.test_token(token):
+                logger.warning(f"⚠️ DEBUG: Token expired for user {username}, attempting re-authentication")
+                
+                # Try to re-authenticate using stored credentials
+                password = user.get("password")
+                if not password:
+                    logger.error(f"❌ DEBUG: No password stored for user {username}, cannot re-authenticate")
+                    return
+                
+                logger.info(f"🔄 DEBUG: Re-authenticating user {username} with stored credentials")
+                new_token = await self.university_api.login(username, password)
+                if new_token:
+                    logger.info(f"✅ DEBUG: Re-authentication successful for user {username}")
+                    token = new_token
+                    # Update token in database
+                    self.user_storage.update_user_token(telegram_id, token)
+                else:
+                    logger.error(f"❌ DEBUG: Re-authentication failed for user {username}")
+                    return
+            else:
+                logger.info(f"✅ DEBUG: Token is valid for user {username}")
             
+            # Get fresh grades using token
+            logger.info(f"📊 DEBUG: Fetching fresh grades for user {username} using token")
+            user_data = await self.university_api.get_user_data(token)
+            if not user_data:
+                logger.warning(f"❌ DEBUG: Failed to fetch data for user {username}")
+                return
+            
+            new_grades = user_data.get("grades", [])
+            logger.info(f"📚 DEBUG: Retrieved {len(new_grades)} grades for user {username}")
+            
+            # Get previous grades for comparison
+            old_grades = self.grade_storage.get_grades(telegram_id)
+            logger.info(f"📚 DEBUG: Previous grades count: {len(old_grades)}")
+            
+            # Compare grades
             if old_grades != new_grades:
-                # Grades changed, notify user
+                logger.info(f"🔄 DEBUG: Grades changed for user {username}")
+                
+                # Find specific changes
                 changes = []
                 for new_grade in new_grades:
                     course_name = new_grade.get("المقرر", "")
@@ -564,9 +803,13 @@ username on other platforms: @sisp_t
                     
                     if not old_grade or old_grade != new_grade:
                         changes.append(new_grade)
+                        logger.info(f"📝 DEBUG: Grade change detected for course '{course_name}'")
+                
+                logger.info(f"📊 DEBUG: Found {len(changes)} grade changes for user {username}")
                 
                 if changes:
-                    message = "🎓 تم تحديث درجاتك:\n\n"
+                    # Notify user about changes
+                    message = "🎓 **تم تحديث درجاتك:**\n\n"
                     for grade in changes:
                         # Safely extract all fields with proper validation
                         course_name = grade.get('المقرر', 'غير محدد')
@@ -591,17 +834,18 @@ username on other platforms: @sisp_t
                     
                     try:
                         await self.app.bot.send_message(chat_id=telegram_id, text=message)
-                        logger.info(f"Sent grade update to user {username}")
+                        logger.info(f"✅ DEBUG: Grade update notification sent to user {username}")
                     except Exception as e:
-                        logger.error(f"Failed to send message to user {username}: {e}")
+                        logger.error(f"❌ DEBUG: Failed to send grade update to user {username}: {e}")
                 
                 # Save new grades
+                logger.info(f"💾 DEBUG: Saving updated grades for user {username}")
                 self.grade_storage.save_grades(telegram_id, new_grades)
             else:
-                logger.info(f"No grade changes for user {username}")
+                logger.info(f"✅ DEBUG: No grade changes detected for user {username} - grades are the same as previous")
                 
         except Exception as e:
-            logger.error(f"Error checking grades for user {user.get('username', 'unknown')}: {e}")
+            logger.error(f"❌ DEBUG: Error checking grades for user {user.get('username', 'unknown')}: {e}")
     
     async def _log_any_update(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Log any incoming update for debugging"""

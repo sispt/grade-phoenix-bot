@@ -156,4 +156,53 @@ class UserStorage:
             
         except Exception as e:
             logger.error(f"Error creating users backup: {e}")
-            return "" 
+            return ""
+    
+    def is_user_registered(self, telegram_id: int) -> bool:
+        """Check if user is registered"""
+        return self.get_user(telegram_id) is not None
+    
+    def get_user_session(self, telegram_id: int) -> Optional[Dict[str, Any]]:
+        """Get user session data (username, password, token)"""
+        user = self.get_user(telegram_id)
+        if user and user.get("is_active", True):
+            return {
+                "username": user.get("username"),
+                "password": user.get("password"),
+                "token": user.get("token"),
+                "last_login": user.get("last_login")
+            }
+        return None
+    
+    def update_user_token(self, telegram_id: int, token: str):
+        """Update user's authentication token"""
+        for i, user in enumerate(self.users):
+            if user.get("telegram_id") == telegram_id:
+                self.users[i]["token"] = token
+                self.users[i]["last_login"] = datetime.now().isoformat()
+                self._save_users()
+                logger.info(f"Token updated for user {telegram_id}")
+                break
+    
+    def invalidate_user_session(self, telegram_id: int):
+        """Invalidate user session (clear token)"""
+        for i, user in enumerate(self.users):
+            if user.get("telegram_id") == telegram_id:
+                self.users[i]["token"] = None
+                self.users[i]["is_active"] = False
+                self._save_users()
+                logger.info(f"Session invalidated for user {telegram_id}")
+                break
+    
+    def get_session_stats(self) -> Dict[str, Any]:
+        """Get session statistics"""
+        total_users = len(self.users)
+        active_users = len([u for u in self.users if u.get("is_active", True)])
+        users_with_tokens = len([u for u in self.users if u.get("token")])
+        
+        return {
+            "total_users": total_users,
+            "active_users": active_users,
+            "users_with_tokens": users_with_tokens,
+            "inactive_users": total_users - active_users
+        } 

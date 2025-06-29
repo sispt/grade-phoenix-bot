@@ -172,7 +172,7 @@ MAX_RETRY_ATTEMPTS=3
 ## 📞 الدعم الفني
 
 Developed by Abdulrahman Abdulkader
-Email: abdulrahmanabdulkader59@gmail.com
+Email: tox098123@gmail.com
 username on other platforms: @sisp_t
 
 

@@ -27,6 +27,32 @@ def get_main_keyboard():
     
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
+def get_main_keyboard_with_relogin():
+    """Get main keyboard with re-login option for users with expired sessions"""
+    keyboard = [
+        [
+            KeyboardButton("🚀 تسجيل الدخول"),
+            KeyboardButton("📊 فحص الدرجات")
+        ],
+        [
+            KeyboardButton("🔄 إعادة تسجيل الدخول"),
+            KeyboardButton("👤 معلوماتي")
+        ],
+        [
+            KeyboardButton("⚙️ الإعدادات"),
+            KeyboardButton("❓ المساعدة")
+        ],
+        [
+            KeyboardButton("📞 الدعم")
+        ]
+    ]
+    
+    # Add admin keyboard if user is admin
+    if CONFIG.get("ADMIN_ID"):
+        keyboard.append([KeyboardButton("🎛️ لوحة التحكم")])
+    
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
+
 def get_admin_keyboard():
     """Get admin keyboard"""
     keyboard = [
@@ -52,9 +78,4 @@ def get_admin_keyboard():
 def get_cancel_keyboard():
     """Get cancel keyboard"""
     keyboard = [[KeyboardButton("❌ إلغاء")]]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
-
-def get_back_keyboard():
-    """Get back keyboard"""
-    keyboard = [[KeyboardButton("🔙 العودة")]]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True) 

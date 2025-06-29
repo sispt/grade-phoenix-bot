@@ -11,14 +11,18 @@ CONFIG = {
     
     # Admin Configuration
     "ADMIN_ID": int(os.getenv("ADMIN_ID", "123456789")),  # Admin Telegram ID
-    "ADMIN_USERNAME": os.getenv("ADMIN_USERNAME", "@Abdulrahman_lab"),
+    "ADMIN_USERNAME": os.getenv("ADMIN_USERNAME", "@sisp_t"),
     "ADMIN_EMAIL": os.getenv("ADMIN_EMAIL", "tox098123@gmail.com"),
+    
+    # Database Configuration
+    "DATABASE_URL": os.getenv("DATABASE_URL", "sqlite:///./data/bot.db"),
+    "USE_POSTGRESQL": bool(os.getenv("DATABASE_URL", "").startswith("postgresql")),
     
     # University API Configuration
     "UNIVERSITY_LOGIN_URL": "https://api.staging.sis.shamuniversity.com/portal",
     "UNIVERSITY_API_URL": "https://api.staging.sis.shamuniversity.com/graphql",
     "UNIVERSITY_NAME": "جامعة الشام",
-    "UNIVERSITY_WEBSITE": "https://sis.shamuniversity.com",
+    "UNIVERSITY_WEBSITE": "https://staging.sis.shamuniversity.com",
     
     # Bot Settings
     "BOT_NAME": "بوت الإشعارات الجامعية",
@@ -32,6 +36,12 @@ CONFIG = {
     "ENABLE_NOTIFICATIONS": True,
     "ENABLE_ERROR_NOTIFICATIONS": True,
     "MAX_RETRY_ATTEMPTS": 3,
+    
+    # User Experience Settings
+    "SHOW_LOADING_MESSAGES": True,
+    "ENABLE_TYPING_INDICATOR": True,
+    "MESSAGE_TIMEOUT_SECONDS": 30,
+    "MAX_MESSAGE_LENGTH": 4096,
     
     # Storage Settings
     "DATA_DIR": "data",
@@ -52,8 +62,8 @@ CONFIG = {
         "Accept": "application/json, text/plain, */*",
         "Accept-Language": "en-US,en;q=0.9",
         "Accept-Encoding": "gzip, deflate",
-        "Referer": "https://sis.shamuniversity.com/",
-        "Origin": "https://sis.shamuniversity.com",
+        "Referer": "https://staging.sis.shamuniversity.com/",
+        "Origin": "https://staging.sis.shamuniversity.com",
         "Connection": "keep-alive",
         "Content-Type": "application/json"
     },

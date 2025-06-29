@@ -88,6 +88,7 @@ class UniversityAPI:
     async def test_token(self, token: str) -> bool:
         """Test if token is still valid"""
         try:
+            logger.info(f"🔍 DEBUG: Testing token validity...")
             test_query = """
             query TestToken {
                 getGUI {
@@ -105,32 +106,46 @@ class UniversityAPI:
                 "query": test_query
             }
             
+            logger.info(f"🌐 DEBUG: Making token test request to {self.api_url}")
             async with aiohttp.ClientSession(timeout=self.timeout) as session:
                 async with session.post(
                     self.api_url,
                     headers=headers,
                     json=payload
                 ) as response:
+                    logger.info(f"📡 DEBUG: Token test response status: {response.status}")
                     if response.status == 200:
                         data = await response.json()
-                        return "data" in data and data["data"] and data["data"]["getGUI"]
+                        logger.info(f"📄 DEBUG: Token test response data: {data}")
+                        is_valid = "data" in data and data["data"] and data["data"]["getGUI"]
+                        logger.info(f"✅ DEBUG: Token is {'valid' if is_valid else 'invalid'}")
+                        return is_valid
                     else:
+                        logger.warning(f"❌ DEBUG: Token test failed with status: {response.status}")
                         return False
                         
         except Exception as e:
-            logger.error(f"Error testing token: {e}")
+            logger.error(f"❌ DEBUG: Error testing token: {e}")
             return False
     
     async def get_user_data(self, token: str) -> Optional[Dict[str, Any]]:
         """Get user data including grades"""
         try:
+            logger.info(f"🔍 DEBUG: Getting user data with token...")
+            
             # Get user info
+            logger.info(f"👤 DEBUG: Fetching user info...")
             user_info = await self._get_user_info(token)
             if not user_info:
+                logger.warning(f"❌ DEBUG: Failed to get user info")
                 return None
             
+            logger.info(f"✅ DEBUG: User info retrieved: {user_info}")
+            
             # Get grades
+            logger.info(f"📊 DEBUG: Fetching grades...")
             grades = await self._get_grades(token)
+            logger.info(f"📚 DEBUG: Grades retrieved: {len(grades)} courses")
             
             # Combine data
             user_data = {
@@ -138,11 +153,11 @@ class UniversityAPI:
                 "grades": grades
             }
             
-            logger.info(f"User data retrieved successfully")
+            logger.info(f"✅ DEBUG: User data retrieved successfully - {len(grades)} grades")
             return user_data
             
         except Exception as e:
-            logger.error(f"Error getting user data: {e}")
+            logger.error(f"❌ DEBUG: Error getting user data: {e}")
             return None
     
     async def _get_user_info(self, token: str) -> Optional[Dict[str, Any]]:
@@ -198,6 +213,7 @@ class UniversityAPI:
     async def _get_grades(self, token: str) -> List[Dict[str, Any]]:
         """Get user grades"""
         try:
+            logger.info(f"🔍 DEBUG: Starting grade fetch with token...")
             grades_query = """
             query getPage($name: String!, $params: [PageParam!]) {
               getPage(name: $name, params: $params) {
@@ -213,32 +229,64 @@ class UniversityAPI:
             
             headers = {**self.api_headers, "Authorization": f"Bearer {token}"}
             
-            variables = {
-                "name": "homepage",
-                "params": []
-            }
+            # Try different page names that might contain grades
+            possible_pages = [
+                "homepage",
+                "grades",
+                "academic_record", 
+                "student_grades",
+                "courses",
+                "transcript",
+                "final_courses_grades_page",
+                "student_academic_record"
+            ]
             
-            payload = {
-                "query": grades_query,
-                "variables": variables
-            }
+            logger.info(f"🔍 DEBUG: Will try {len(possible_pages)} possible pages for grades")
             
-            async with aiohttp.ClientSession(timeout=self.timeout) as session:
-                async with session.post(
-                    self.api_url,
-                    headers=headers,
-                    json=payload
-                ) as response:
-                    if response.status == 200:
-                        data = await response.json()
+            for page_name in possible_pages:
+                logger.info(f"🌐 DEBUG: Trying page: {page_name}")
+                
+                variables = {
+                    "name": page_name,
+                    "params": []
+                }
+                
+                payload = {
+                    "query": grades_query,
+                    "variables": variables
+                }
+                
+                logger.info(f"📡 DEBUG: Making request to {self.api_url} for page: {page_name}")
+                async with aiohttp.ClientSession(timeout=self.timeout) as session:
+                    async with session.post(
+                        self.api_url,
+                        headers=headers,
+                        json=payload
+                    ) as response:
+                        logger.info(f"📡 DEBUG: Page {page_name} response status: {response.status}")
                         
-                        if "data" in data and data["data"] and data["data"]["getPage"]:
-                            return self._parse_grades_from_html(data["data"]["getPage"])
-                    
-                    return []
+                        if response.status == 200:
+                            data = await response.json()
+                            logger.info(f"📄 DEBUG: Page {page_name} response data keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
+                            
+                            if "data" in data and data["data"] and data["data"]["getPage"]:
+                                logger.info(f"✅ DEBUG: Page {page_name} has valid data structure")
+                                grades = self._parse_grades_from_html(data["data"]["getPage"])
+                                if grades:  # If we found grades, return them
+                                    logger.info(f"🎉 DEBUG: Found {len(grades)} grades in page: {page_name}")
+                                    return grades
+                                else:
+                                    logger.info(f"❌ DEBUG: No grades found in page: {page_name}")
+                            else:
+                                logger.info(f"❌ DEBUG: No valid data structure in page: {page_name}")
+                        else:
+                            logger.warning(f"❌ DEBUG: Page {page_name} failed with status: {response.status}")
+            
+            logger.warning(f"❌ DEBUG: No grades found in any of the {len(possible_pages)} pages tried")
+            return []
                     
         except Exception as e:
-            logger.error(f"Error getting grades: {e}")
+            logger.error(f"❌ DEBUG: Error getting grades: {e}")
             return []
     
     def _parse_grades_from_html(self, page_data: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -249,12 +297,16 @@ class UniversityAPI:
             
             if "panels" in page_data:
                 logger.info(f"DEBUG: Found {len(page_data['panels'])} panels")
-                for panel in page_data["panels"]:
+                for panel_index, panel in enumerate(page_data["panels"]):
+                    logger.info(f"DEBUG: Processing panel {panel_index + 1}")
                     if "blocks" in panel:
-                        logger.info(f"DEBUG: Found {len(panel['blocks'])} blocks in panel")
-                        for block in panel["blocks"]:
+                        logger.info(f"DEBUG: Found {len(panel['blocks'])} blocks in panel {panel_index + 1}")
+                        for block_index, block in enumerate(panel["blocks"]):
                             block_title = block.get('title', 'No title')
-                            logger.info(f"DEBUG: Processing block with title: {block_title}")
+                            logger.info(f"DEBUG: Block {block_index + 1} - Title: '{block_title}'")
+                            
+                            # Log the full block structure for debugging
+                            logger.info(f"DEBUG: Block {block_index + 1} full data: {block}")
                             
                             # Skip student card block (بطاقة الطالب) - it contains student info, not grades
                             if block_title == "بطاقة الطالب":
@@ -264,15 +316,25 @@ class UniversityAPI:
                             # Parse any other block that has HTML body content
                             html_body = block.get("body", "")
                             if html_body:
-                                logger.info(f"DEBUG: HTML body length: {len(html_body)}")
-                                parsed_grades = self._extract_grades_from_html(html_body)
-                                if parsed_grades:  # Only add if we found grades
-                                    grades.extend(parsed_grades)
-                                    logger.info(f"DEBUG: Found {len(parsed_grades)} grades in block: {block_title}")
+                                logger.info(f"DEBUG: Block {block_index + 1} HTML body length: {len(html_body)}")
+                                logger.info(f"DEBUG: Block {block_index + 1} HTML body preview: {html_body[:200]}...")
+                                
+                                # Check if this block contains course data by analyzing the HTML content
+                                if self._contains_course_data(html_body):
+                                    logger.info(f"DEBUG: Block {block_index + 1} appears to contain course data")
+                                    parsed_grades = self._extract_grades_from_html(html_body)
+                                    if parsed_grades:  # Only add if we found grades
+                                        grades.extend(parsed_grades)
+                                        logger.info(f"DEBUG: Found {len(parsed_grades)} grades in block: {block_title}")
+                                else:
+                                    logger.info(f"DEBUG: Block {block_index + 1} does not contain course data")
                             else:
-                                logger.info(f"DEBUG: No HTML body in block: {block_title}")
+                                logger.info(f"DEBUG: Block {block_index + 1} has no HTML body")
+                    else:
+                        logger.info(f"DEBUG: Panel {panel_index + 1} has no blocks")
             else:
                 logger.warning("DEBUG: No panels found in page data")
+                logger.info(f"DEBUG: Full page_data structure: {page_data}")
             
             logger.info(f"Parsed {len(grades)} total grades from all blocks")
             return grades
@@ -280,6 +342,95 @@ class UniversityAPI:
         except Exception as e:
             logger.error(f"Error parsing grades from HTML: {e}")
             return []
+    
+    def _contains_course_data(self, html_content: str) -> bool:
+        """Check if HTML content contains course data by analyzing the structure and content"""
+        try:
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            # Look for tables
+            tables = soup.find_all("table")
+            if not tables:
+                logger.info("DEBUG: No tables found in HTML content")
+                return False
+            
+            logger.info(f"DEBUG: Found {len(tables)} tables in HTML content")
+            
+            for table_index, table in enumerate(tables):
+                # Check if this table looks like it contains course data
+                if self._is_course_table(table):
+                    logger.info(f"DEBUG: Table {table_index + 1} appears to contain course data")
+                    return True
+            
+            logger.info("DEBUG: No course tables found in HTML content")
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error checking for course data: {e}")
+            return False
+    
+    def _is_course_table(self, table) -> bool:
+        """Check if a table contains course data by analyzing its structure"""
+        try:
+            # Find thead to get headers
+            thead = table.find("thead")
+            if not thead:
+                return False
+            
+            # Extract headers
+            headers = []
+            for th in thead.find_all("th"):
+                header_text = th.get_text(strip=True)
+                if header_text:
+                    headers.append(header_text)
+            
+            if not headers:
+                return False
+            
+            logger.info(f"DEBUG: Table headers: {headers}")
+            
+            # Skip tables that are clearly student info
+            student_info_indicators = ['sis.code', 'sis.name', 'sis.academy', 'sis.branch', 'sis.program_abs_grade_num', 'student', 'student_id', 'gpa']
+            if any(indicator in ' '.join(headers).lower() for indicator in student_info_indicators):
+                logger.info("DEBUG: Table contains student info, not course data")
+                return False
+            
+            # Look for course-related indicators in headers
+            course_indicators = ['course', 'subject', 'grade', 'mark', 'score', 'credit', 'ects', 'مقرر', 'درجة', 'رصيد', 'كود', 'مادة']
+            has_course_indicators = any(indicator in ' '.join(headers).lower() for indicator in course_indicators)
+            
+            if has_course_indicators:
+                logger.info("DEBUG: Table has course-related headers")
+                return True
+            
+            # If no clear course indicators, check the table content
+            tbody = table.find("tbody")
+            if tbody:
+                rows = tbody.find_all("tr")
+                if len(rows) > 1:  # More than just header row
+                    # Check if any row contains what looks like course data
+                    for row in rows[:3]:  # Check first 3 rows
+                        cells = row.find_all("td")
+                        if len(cells) >= 3:  # At least 3 columns
+                            # Check if any cell contains course-like data
+                            for cell in cells:
+                                cell_text = cell.get_text(strip=True)
+                                if cell_text:
+                                    # Check for course codes (alphanumeric with letters and numbers)
+                                    if any(char.isalpha() for char in cell_text) and any(char.isdigit() for char in cell_text):
+                                        logger.info(f"DEBUG: Found potential course code: {cell_text}")
+                                        return True
+                                    # Check for grades (numbers with possible %)
+                                    if any(char.isdigit() for char in cell_text) and ('%' in cell_text or cell_text.replace('.', '').replace('%', '').isdigit()):
+                                        logger.info(f"DEBUG: Found potential grade: {cell_text}")
+                                        return True
+            
+            logger.info("DEBUG: Table does not appear to contain course data")
+            return False
+            
+        except Exception as e:
+            logger.error(f"Error checking if table contains course data: {e}")
+            return False
     
     def _extract_grades_from_html(self, html_content: str) -> List[Dict[str, Any]]:
         """Extract grades from HTML content"""

@@ -40,7 +40,8 @@ git push -u origin main
 ```bash
 # متغيرات مطلوبة
 TELEGRAM_TOKEN=your_bot_token_here
-ADMIN_ID=your_telegram_id_here
+ADMIN_ID=your_telegram_id
+DATABASE_URL=postgresql://username:password@host:port/database
 
 # متغيرات اختيارية
 ADMIN_USERNAME=@your_username
@@ -194,7 +195,7 @@ git push origin main
 2. **اختبر البوت** محلياً أولاً
 3. **تواصل مع المطور:**
    - البريد الإلكتروني: tox098123@gmail.com
-   - Telegram: @Abdulrahman_lab
+   - Telegram: @sisp_t
 
 ### موارد مفيدة
 - [Railway Documentation](https://docs.railway.app)
@@ -205,3 +206,212 @@ git push origin main
 
 🔔 **بوت الإشعارات الجامعية** - نظام متقدم لإشعارات الدرجات الجامعية
 👨‍💻 المطور: عبدالرحمن عبدالقادر 
+
+# 🚂 Railway Deployment Guide
+
+## 📋 Prerequisites
+
+- Railway account
+- Telegram Bot Token
+- PostgreSQL database (Railway provides this)
+
+## 🗄️ Database Setup
+
+### 1. Create PostgreSQL Database on Railway
+
+1. Go to your Railway project
+2. Click "New" → "Database" → "PostgreSQL"
+3. Wait for the database to be provisioned
+4. Copy the `DATABASE_URL` from the database settings
+
+### 2. Configure Environment Variables
+
+Set these environment variables in your Railway project:
+
+```bash
+# Required
+TELEGRAM_TOKEN=your_bot_token_here
+ADMIN_ID=your_telegram_id
+DATABASE_URL=postgresql://username:password@host:port/database
+
+# Optional
+ADMIN_USERNAME=@your_username
+ADMIN_EMAIL=your_email@example.com
+LOG_LEVEL=INFO
+```
+
+### 3. Database Migration
+
+The bot will automatically run database migrations on startup. If you need to run them manually:
+
+```bash
+python migrations.py
+```
+
+## 🚀 Deployment Steps
+
+### 1. Connect Your Repository
+
+1. Go to Railway dashboard
+2. Click "New Project" → "Deploy from GitHub repo"
+3. Select your bot repository
+4. Railway will automatically detect it's a Python project
+
+### 2. Configure Build Settings
+
+Railway will automatically:
+- Install dependencies from `requirements.txt`
+- Use Python 3.11 (specified in `runtime.txt`)
+- Run the bot using the command in `Procfile`
+
+### 3. Set Environment Variables
+
+In your Railway project settings, add these environment variables:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `TELEGRAM_TOKEN` | Your Telegram bot token | `1234567890:ABCdefGHIjklMNOpqrsTUVwxyz` |
+| `ADMIN_ID` | Your Telegram user ID | `123456789` |
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@host:5432/db` |
+| `ADMIN_USERNAME` | Your Telegram username | `@your_username` |
+| `ADMIN_EMAIL` | Your email address | `admin@example.com` |
+| `LOG_LEVEL` | Logging level | `INFO` |
+
+### 4. Deploy
+
+1. Railway will automatically deploy when you push to your main branch
+2. Monitor the deployment logs for any errors
+3. Check that the database migration completed successfully
+
+## 🔧 Configuration
+
+### Webhook Setup
+
+The bot automatically configures webhooks for Railway:
+
+```python
+webhook_url = f"https://your-app-name.up.railway.app/{TELEGRAM_TOKEN}"
+```
+
+### Database Configuration
+
+The bot automatically detects PostgreSQL from the `DATABASE_URL`:
+
+```python
+"USE_POSTGRESQL": bool(os.getenv("DATABASE_URL", "").startswith("postgresql"))
+```
+
+## 📊 Monitoring
+
+### Railway Dashboard
+
+- **Deployments**: Monitor deployment status and logs
+- **Database**: View database metrics and connection status
+- **Logs**: Real-time application logs
+
+### Bot Commands
+
+Use these commands to monitor your bot:
+
+- `/stats` - View bot statistics (admin only)
+- `/list_users` - List all users (admin only)
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+1. **Database Connection Failed**
+   - Check `DATABASE_URL` is correct
+   - Ensure database is provisioned and running
+   - Check Railway database logs
+
+2. **Webhook Not Working**
+   - Verify `TELEGRAM_TOKEN` is correct
+   - Check Railway app is accessible
+   - Review deployment logs
+
+3. **Migration Errors**
+   - Check database permissions
+   - Verify `DATABASE_URL` format
+   - Review migration logs
+
+### Debug Commands
+
+```bash
+# Check database connection
+python -c "from storage.models import DatabaseManager; from config import CONFIG; db = DatabaseManager(CONFIG['DATABASE_URL']); print(db.test_connection())"
+
+# Run migrations manually
+python migrations.py
+
+# Check database status
+python -c "from migrations import check_database_status; check_database_status()"
+```
+
+## 🔄 Updates
+
+### Automatic Updates
+
+Railway automatically redeploys when you push to your main branch.
+
+### Manual Updates
+
+1. Push changes to your repository
+2. Railway will detect changes and redeploy
+3. Monitor deployment logs
+4. Verify bot functionality
+
+## 📈 Scaling
+
+### Railway Auto-Scaling
+
+Railway automatically scales your application based on traffic.
+
+### Database Scaling
+
+- Railway PostgreSQL automatically handles scaling
+- No additional configuration needed
+- Monitor database usage in Railway dashboard
+
+## 🔒 Security
+
+### Environment Variables
+
+- Never commit sensitive data to your repository
+- Use Railway's environment variable system
+- Rotate tokens regularly
+
+### Database Security
+
+- Railway PostgreSQL includes SSL encryption
+- Automatic backups enabled
+- Access controlled by Railway
+
+## 📞 Support
+
+### Railway Support
+
+- Railway documentation: https://docs.railway.app/
+- Railway Discord: https://discord.gg/railway
+
+### Bot Support
+
+- Check logs in Railway dashboard
+- Use bot admin commands for diagnostics
+- Contact bot developer for issues
+
+## 🎯 Best Practices
+
+1. **Environment Variables**: Always use environment variables for sensitive data
+2. **Logging**: Monitor logs regularly for issues
+3. **Backups**: Railway handles database backups automatically
+4. **Testing**: Test changes locally before deploying
+5. **Monitoring**: Use Railway's monitoring tools
+
+## 📝 Notes
+
+- Railway provides persistent storage for PostgreSQL
+- Webhooks are automatically configured
+- Database migrations run on startup
+- Logs are available in Railway dashboard
+- Environment variables are encrypted and secure 
