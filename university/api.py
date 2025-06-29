@@ -35,18 +35,17 @@ class UniversityAPI:
                     logger.warning(f"DEBUG: Invalid credentials for user {username}")
                     return None
                 
+                # REST API payload
                 payload = {
-                    "operationName": "signinUser",
-                    "variables": {"username": username, "password": password},
-                    "query": """
-                        mutation signinUser($username: String!, $password: String!) {
-                            login(username: $username, password: $password)
-                        }
-                    """
+                    "username": username,
+                    "password": password
                 }
                 
                 logger.info(f"DEBUG: Making login request to {self.login_url}")
+                logger.info(f"DEBUG: Request method: POST")
+                logger.info(f"DEBUG: Request URL: {self.login_url}")
                 logger.info(f"DEBUG: Payload: {payload}")
+                logger.info(f"DEBUG: Headers: {self.api_headers}")
                 
                 async with aiohttp.ClientSession(timeout=self.timeout) as session:
                     async with session.post(
@@ -56,6 +55,7 @@ class UniversityAPI:
                     ) as response:
                         logger.info(f"DEBUG: Login response status: {response.status}")
                         logger.info(f"DEBUG: Response headers: {dict(response.headers)}")
+                        logger.info(f"DEBUG: Response URL: {response.url}")
                         
                         # Get response content type
                         content_type = response.headers.get('Content-Type', '')
@@ -63,10 +63,14 @@ class UniversityAPI:
                         
                         if response.status == 200:
                             try:
+                                # Get response text first for debugging
+                                response_text = await response.text()
+                                logger.info(f"DEBUG: Raw response text: {response_text[:1000]}")
+                                
                                 # Check if response is JSON
                                 if 'application/json' not in content_type.lower():
-                                    response_text = await response.text()
                                     logger.error(f"DEBUG: Expected JSON but got {content_type}. Response: {response_text[:500]}")
+                                    logger.error(f"DEBUG: Full response text: {response_text}")
                                     
                                     # If it's HTML, it might be an error page
                                     if 'text/html' in content_type.lower():
@@ -74,16 +78,21 @@ class UniversityAPI:
                                         logger.error(f"DEBUG: 1. Wrong URL endpoint")
                                         logger.error(f"DEBUG: 2. Server error")
                                         logger.error(f"DEBUG: 3. Authentication required")
+                                        logger.error(f"DEBUG: 4. CORS issue")
+                                        logger.error(f"DEBUG: 5. Wrong HTTP method")
                                     
                                     if attempt < max_retries - 1:
                                         await asyncio.sleep(2 ** attempt)
                                         continue
                                     return None
                                 
-                                data = await response.json()
+                                # Parse JSON from the text we already read
+                                data = json.loads(response_text)
                                 logger.info(f"DEBUG: Login response data: {data}")
+                                logger.info(f"DEBUG: Full response: {data}")
                                 
-                                token = data.get("data", {}).get("login")
+                                # Extract token from REST response
+                                token = data.get("token")
                                 if token:
                                     logger.info(f"✅ Login successful for user: {username}")
                                     return token
@@ -91,7 +100,6 @@ class UniversityAPI:
                                     logger.warning(f"❌ Login failed for user: {username} - no token in response")
                                     return None
                             except json.JSONDecodeError as json_error:
-                                response_text = await response.text()
                                 logger.error(f"DEBUG: JSON decode error: {json_error}")
                                 logger.error(f"DEBUG: Response text: {response_text[:500]}")
                                 if attempt < max_retries - 1:
@@ -172,6 +180,7 @@ class UniversityAPI:
                     if response.status == 200:
                         data = await response.json()
                         logger.info(f"📄 DEBUG: Token test response data: {data}")
+                        logger.info(f"📄 DEBUG: Full token test response: {data}")
                         is_valid = "data" in data and data["data"] and data["data"]["getGUI"]
                         logger.info(f"✅ DEBUG: Token is {'valid' if is_valid else 'invalid'}")
                         return is_valid
@@ -247,6 +256,8 @@ class UniversityAPI:
                 ) as response:
                     if response.status == 200:
                         data = await response.json()
+                        logger.info(f"📄 DEBUG: User info response data keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
+                        logger.info(f"📄 DEBUG: Full user info response: {data}")
                         
                         if "data" in data and data["data"] and data["data"]["getGUI"]:
                             user = data["data"]["getGUI"]["user"]
@@ -258,8 +269,12 @@ class UniversityAPI:
                                 "email": user.get("email"),
                                 "username": user.get("username")
                             }
-                    
-                    return None
+                        else:
+                            logger.error(f"❌ DEBUG: Invalid user info response structure")
+                            return None
+                    else:
+                        logger.error(f"❌ DEBUG: User info request failed with status: {response.status}")
+                        return None
                     
         except Exception as e:
             logger.error(f"Error getting user info: {e}")
@@ -270,18 +285,46 @@ class UniversityAPI:
         try:
             logger.info(f"🔍 DEBUG: Starting grade fetch with token...")
             
-            # Use the correct GraphQL endpoint and query
-            graphql_url = "https://staging.sis.shamuniversity.com/portal/graphql"
+            # First get homepage to get available terms
+            homepage_data = await self._get_homepage(token)
+            if not homepage_data:
+                logger.error(f"❌ DEBUG: Failed to get homepage data")
+                return []
             
-            # GraphQL query for test_student_tracks
-            grades_query = """
-            query {
-              getPage(name: "test_student_tracks") {
-                name
-                title
+            # Extract terms from homepage
+            terms = self._extract_terms_from_homepage(homepage_data)
+            logger.info(f"📚 DEBUG: Found {len(terms)} terms: {terms}")
+            
+            all_grades = []
+            
+            # Get grades for each term
+            for term in terms:
+                logger.info(f"📊 DEBUG: Getting grades for term: {term}")
+                term_grades = await self._get_term_grades(token, term)
+                if term_grades:
+                    all_grades.extend(term_grades)
+                    logger.info(f"✅ DEBUG: Got {len(term_grades)} grades for term {term}")
+                else:
+                    logger.warning(f"⚠️ DEBUG: No grades found for term {term}")
+            
+            logger.info(f"🎉 DEBUG: Total grades retrieved: {len(all_grades)}")
+            return all_grades
+            
+        except Exception as e:
+            logger.error(f"❌ DEBUG: Error getting grades: {e}")
+            return []
+    
+    async def _get_homepage(self, token: str) -> Optional[Dict[str, Any]]:
+        """Get homepage data to extract terms"""
+        try:
+            logger.info(f"🏠 DEBUG: Getting homepage data...")
+            
+            homepage_query = """
+            query getPage($name: String!, $params: [PageParam!]) {
+              getPage(name: $name, params: $params) {
                 panels {
                   blocks {
-                    name
+                    title
                     body
                   }
                 }
@@ -289,53 +332,154 @@ class UniversityAPI:
             }
             """
             
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {token}",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
-                "Accept": "*/*",
-                "Accept-Language": "ar-SA,ar;q=0.9,en;q=0.8",
-                "Accept-Encoding": "gzip, deflate, br, zstd",
-                "Referer": "https://staging.sis.shamuniversity.com/",
-                "Origin": "https://staging.sis.shamuniversity.com",
-                "Connection": "keep-alive",
-                "x-lang": "ar"
-            }
+            headers = {**self.api_headers, "Authorization": f"Bearer {token}"}
             
             payload = {
-                "query": grades_query
+                "query": homepage_query,
+                "variables": {
+                    "name": "homepage",
+                    "params": []
+                }
             }
             
-            logger.info(f"🌐 DEBUG: Making GraphQL request to {graphql_url}")
+            logger.info(f"🌐 DEBUG: Making homepage request to {self.api_url}")
+            
+            async with aiohttp.ClientSession(timeout=self.timeout) as session:
+                async with session.post(
+                    self.api_url,
+                    headers=headers,
+                    json=payload
+                ) as response:
+                    logger.info(f"📡 DEBUG: Homepage response status: {response.status}")
+                    
+                    if response.status == 200:
+                        data = await response.json()
+                        logger.info(f"📄 DEBUG: Homepage response data keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
+                        logger.info(f"📄 DEBUG: Full homepage response: {data}")
+                        
+                        if "data" in data and data["data"] and data["data"]["getPage"]:
+                            return data["data"]["getPage"]
+                        else:
+                            logger.error(f"❌ DEBUG: Invalid homepage response structure")
+                            return None
+                    else:
+                        logger.error(f"❌ DEBUG: Homepage request failed with status: {response.status}")
+                        return None
+                        
+        except Exception as e:
+            logger.error(f"❌ DEBUG: Error getting homepage: {e}")
+            return None
+    
+    def _extract_terms_from_homepage(self, homepage_data: Dict[str, Any]) -> List[str]:
+        """Extract available terms from homepage data"""
+        try:
+            logger.info(f"🔍 DEBUG: Extracting terms from homepage...")
+            terms = []
+            
+            if not homepage_data or "panels" not in homepage_data:
+                logger.warning(f"❌ DEBUG: No panels found in homepage data")
+                return []
+            
+            for panel in homepage_data["panels"]:
+                if "blocks" not in panel:
+                    continue
+                
+                for block in panel["blocks"]:
+                    body = block.get("body", "")
+                    if not body:
+                        continue
+                    
+                    # Look for term tabs in the HTML
+                    soup = BeautifulSoup(body, 'html.parser')
+                    
+                    # Look for tabs or buttons that might contain term information
+                    tabs = soup.find_all(['button', 'a', 'div'], class_=lambda x: x and ('tab' in x.lower() or 'term' in x.lower()))
+                    
+                    for tab in tabs:
+                        tab_text = tab.get_text(strip=True)
+                        if tab_text and any(keyword in tab_text.lower() for keyword in ['فصل', 'semester', 'term']):
+                            # Extract t_grade_id from data attributes or href
+                            t_grade_id = tab.get('data-id') or tab.get('href', '').split('=')[-1]
+                            if t_grade_id:
+                                terms.append(t_grade_id)
+                                logger.info(f"📚 DEBUG: Found term: {tab_text} (ID: {t_grade_id})")
+            
+            # If no terms found, try a default term
+            if not terms:
+                logger.warning(f"⚠️ DEBUG: No terms found, using default")
+                terms = ["1"]  # Default to first term
+            
+            logger.info(f"📚 DEBUG: Extracted terms: {terms}")
+            return terms
+            
+        except Exception as e:
+            logger.error(f"❌ DEBUG: Error extracting terms: {e}")
+            return ["1"]  # Default fallback
+    
+    async def _get_term_grades(self, token: str, t_grade_id: str) -> List[Dict[str, Any]]:
+        """Get grades for a specific term"""
+        try:
+            logger.info(f"📊 DEBUG: Getting grades for term {t_grade_id}...")
+            
+            grades_query = """
+            query getPage($name: String!, $params: [PageParam!]) {
+              getPage(name: $name, params: $params) {
+                panels {
+                  blocks {
+                    title
+                    body
+                  }
+                }
+              }
+            }
+            """
+            
+            headers = {**self.api_headers, "Authorization": f"Bearer {token}"}
+            
+            payload = {
+                "query": grades_query,
+                "variables": {
+                    "name": "test_student_tracks",
+                    "params": [
+                        {
+                            "name": "t_grade_id",
+                            "value": t_grade_id
+                        }
+                    ]
+                }
+            }
+            
+            logger.info(f"🌐 DEBUG: Making grades request to {self.api_url}")
             logger.info(f"📡 DEBUG: Request payload: {payload}")
             
             async with aiohttp.ClientSession(timeout=self.timeout) as session:
                 async with session.post(
-                    graphql_url,
+                    self.api_url,
                     headers=headers,
                     json=payload
                 ) as response:
-                    logger.info(f"📡 DEBUG: GraphQL response status: {response.status}")
+                    logger.info(f"📡 DEBUG: Grades response status: {response.status}")
                     
                     if response.status == 200:
                         data = await response.json()
-                        logger.info(f"📄 DEBUG: GraphQL response data keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
+                        logger.info(f"📄 DEBUG: Grades response data keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
+                        logger.info(f"📄 DEBUG: Full grades response: {data}")
                         
                         if "data" in data and data["data"] and data["data"]["getPage"]:
                             page_content = data["data"]["getPage"]
-                            logger.info(f"✅ DEBUG: Got page content: {page_content.get('name', 'Unknown')}")
+                            logger.info(f"✅ DEBUG: Got grades page content")
                             
                             # Parse grades from the page content
                             grades = self._parse_grades_from_graphql(page_content)
-                            logger.info(f"🎉 DEBUG: Parsed {len(grades)} grades from GraphQL")
+                            logger.info(f"🎉 DEBUG: Parsed {len(grades)} grades for term {t_grade_id}")
                             return grades
                         else:
-                            logger.error(f"❌ DEBUG: Invalid GraphQL response structure")
+                            logger.error(f"❌ DEBUG: Invalid grades response structure")
                             if "errors" in data:
                                 logger.error(f"❌ DEBUG: GraphQL errors: {data['errors']}")
                             return []
                     else:
-                        logger.error(f"❌ DEBUG: GraphQL request failed with status: {response.status}")
+                        logger.error(f"❌ DEBUG: Grades request failed with status: {response.status}")
                         try:
                             error_text = await response.text()
                             logger.error(f"❌ DEBUG: Error response: {error_text}")
@@ -344,7 +488,7 @@ class UniversityAPI:
                     return []
                     
         except Exception as e:
-            logger.error(f"❌ DEBUG: Error getting grades from GraphQL: {e}")
+            logger.error(f"❌ DEBUG: Error getting term grades: {e}")
             return []
     
     def _parse_grades_from_graphql(self, page_data: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -409,73 +553,97 @@ class UniversityAPI:
             
             soup = BeautifulSoup(html_content, 'html.parser')
             
-            # Find the table
-            table = soup.find('table')
-            if not table:
-                logger.error("❌ DEBUG: No table found in HTML")
+            # Find all tables
+            tables = soup.find_all('table')
+            if not tables:
+                logger.error("❌ DEBUG: No tables found in HTML")
                 return []
             
-            # Find thead to get headers
-            thead = table.find('thead')
-            if not thead:
-                logger.error("❌ DEBUG: No thead found in table")
-                return []
+            logger.info(f"📋 DEBUG: Found {len(tables)} tables in HTML")
             
-            # Extract headers
-            headers = []
-            for th in thead.find_all('th'):
-                header_text = th.get_text(strip=True)
-                if header_text:
-                    headers.append(header_text)
-                    logger.info(f"📋 DEBUG: Found header: {header_text}")
-            
-            if not headers:
-                logger.error("❌ DEBUG: No headers found in table")
-                return []
-            
-            logger.info(f"📋 DEBUG: Table headers: {headers}")
-            
-            # Find tbody to get rows
-            tbody = table.find('tbody')
-            if not tbody:
-                logger.error("❌ DEBUG: No tbody found in table")
-                return []
-            
-            rows = tbody.find_all('tr')
-            logger.info(f"📋 DEBUG: Found {len(rows)} rows in table")
-            
-            # Parse each row
-            for row_idx, row in enumerate(rows):
-                cells = row.find_all('td')
-                if len(cells) != len(headers):
-                    logger.warning(f"⚠️ DEBUG: Row {row_idx + 1} has {len(cells)} cells but {len(headers)} headers")
+            for table_idx, table in enumerate(tables):
+                logger.info(f"📋 DEBUG: Processing table {table_idx + 1}")
+                
+                # Find thead to get headers
+                thead = table.find('thead')
+                if not thead:
+                    logger.info(f"❌ DEBUG: No thead found in table {table_idx + 1}")
                     continue
                 
-                # Extract data from each cell
-                row_data = {}
-                for i, cell in enumerate(cells):
-                    if i < len(headers):
-                        cell_text = cell.get_text(strip=True)
-                        row_data[headers[i]] = cell_text
+                # Extract headers
+                headers = []
+                for th in thead.find_all('th'):
+                    header_text = th.get_text(strip=True)
+                    if header_text:
+                        headers.append(header_text)
+                        logger.info(f"📋 DEBUG: Found header: {header_text}")
                 
-                # Convert to standard format
-                grade_entry = {
-                    "name": row_data.get("المقرر", ""),
-                    "code": row_data.get("كود المادة", ""),
-                    "ects": row_data.get("رصيد ECTS", ""),
-                    "coursework": row_data.get("درجة الأعمال", ""),
-                    "final_exam": row_data.get("درجة النظري", ""),
-                    "total": row_data.get("الدرجة", "")
-                }
+                if not headers:
+                    logger.info(f"❌ DEBUG: No headers found in table {table_idx + 1}")
+                    continue
                 
-                # Only add if we have meaningful data
-                if grade_entry["name"] and grade_entry["code"]:
-                    grades.append(grade_entry)
-                    logger.info(f"✅ DEBUG: Added grade: {grade_entry}")
-                else:
-                    logger.info(f"⏭️ DEBUG: Skipped row with insufficient data: {row_data}")
+                logger.info(f"📋 DEBUG: Table {table_idx + 1} headers: {headers}")
+                
+                # Check if this table contains course data
+                course_indicators = ['مقرر', 'كود', 'درجة', 'رصيد', 'course', 'code', 'grade', 'credit']
+                has_course_data = any(any(indicator in header for indicator in course_indicators) for header in headers)
+                
+                if not has_course_data:
+                    logger.info(f"⏭️ DEBUG: Table {table_idx + 1} does not contain course data")
+                    continue
+                
+                # Find tbody to get rows
+                tbody = table.find('tbody')
+                if not tbody:
+                    logger.info(f"❌ DEBUG: No tbody found in table {table_idx + 1}")
+                    continue
+                
+                rows = tbody.find_all('tr')
+                logger.info(f"📋 DEBUG: Found {len(rows)} rows in table {table_idx + 1}")
+                
+                # Parse each row
+                for row_idx, row in enumerate(rows):
+                    cells = row.find_all('td')
+                    if len(cells) != len(headers):
+                        logger.warning(f"⚠️ DEBUG: Row {row_idx + 1} has {len(cells)} cells but {len(headers)} headers")
+                        continue
+                    
+                    # Extract data from each cell
+                    row_data = {}
+                    for i, cell in enumerate(cells):
+                        if i < len(headers):
+                            cell_text = cell.get_text(strip=True)
+                            row_data[headers[i]] = cell_text
+                    
+                    # Convert to standard format based on actual headers
+                    grade_entry = {}
+                    
+                    # Map headers to standard fields
+                    for header, value in row_data.items():
+                        if 'مقرر' in header or 'course' in header.lower():
+                            grade_entry["name"] = value
+                        elif 'كود' in header or 'code' in header.lower():
+                            grade_entry["code"] = value
+                        elif 'رصيد' in header or 'ects' in header.lower() or 'credit' in header.lower():
+                            grade_entry["ects"] = value
+                        elif 'أعمال' in header or 'activity' in header.lower() or 'coursework' in header.lower():
+                            grade_entry["coursework"] = value
+                        elif 'نظري' in header or 'theoretical' in header.lower() or 'exam' in header.lower():
+                            grade_entry["final_exam"] = value
+                        elif 'الدرجة' in header or 'total' in header.lower() or 'grade' in header.lower():
+                            grade_entry["total"] = value
+                        else:
+                            # Store unknown headers as-is
+                            grade_entry[header] = value
+                    
+                    # Only add if we have meaningful data
+                    if grade_entry.get("name") and grade_entry.get("code"):
+                        grades.append(grade_entry)
+                        logger.info(f"✅ DEBUG: Added grade: {grade_entry}")
+                    else:
+                        logger.info(f"⏭️ DEBUG: Skipped row with insufficient data: {row_data}")
             
-            logger.info(f"🎉 DEBUG: Parsed {len(grades)} grades from table")
+            logger.info(f"🎉 DEBUG: Parsed {len(grades)} grades from all tables")
             return grades
             
         except Exception as e:

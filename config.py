@@ -19,10 +19,10 @@ CONFIG = {
     "USE_POSTGRESQL": bool(os.getenv("DATABASE_URL", "").startswith("postgresql")),
     
     # University API Configuration
-    "UNIVERSITY_LOGIN_URL": "https://staging.sis.shamuniversity.com/portal/graphql",
-    "UNIVERSITY_API_URL": "https://staging.sis.shamuniversity.com/portal/graphql",
+    "UNIVERSITY_LOGIN_URL": "https://api.staging.sis.shamuniversity.com/portal/login",
+    "UNIVERSITY_API_URL": "https://api.staging.sis.shamuniversity.com/graphql",
     "UNIVERSITY_NAME": "جامعة الشام",
-    "UNIVERSITY_WEBSITE": "https://staging.sis.shamuniversity.com",
+    "UNIVERSITY_WEBSITE": "https://api.staging.sis.shamuniversity.com",
     
     # Bot Settings
     "BOT_NAME": "بوت الإشعارات الجامعية",
@@ -59,11 +59,11 @@ CONFIG = {
     # API Headers
     "API_HEADERS": {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
-        "Accept": "*/*",
+        "Accept": "application/json",
         "Accept-Language": "ar-SA,ar;q=0.9,en;q=0.8",
         "Accept-Encoding": "gzip, deflate, br, zstd",
-        "Referer": "https://staging.sis.shamuniversity.com/",
-        "Origin": "https://staging.sis.shamuniversity.com",
+        "Referer": "https://api.staging.sis.shamuniversity.com/",
+        "Origin": "https://api.staging.sis.shamuniversity.com",
         "Connection": "keep-alive",
         "Content-Type": "application/json",
         "x-lang": "ar"
@@ -130,16 +130,9 @@ ADMIN_CONFIG = {
 # University API Queries
 UNIVERSITY_QUERIES = {
     "LOGIN": """
-    mutation Login($username: String!, $password: String!) {
-        login(username: $username, password: $password) {
-            token
-            user {
-                id
-                username
-                fullname
-                email
-            }
-        }
+    {
+        "username": "{username}",
+        "password": "{password}"
     }
     """,
     
@@ -153,6 +146,19 @@ UNIVERSITY_QUERIES = {
           fullname
           email
           username
+        }
+      }
+    }
+    """,
+    
+    "GET_HOMEPAGE": """
+    query getPage($name: String!, $params: [PageParam!]) {
+      getPage(name: $name, params: $params) {
+        panels {
+          blocks {
+            title
+            body
+          }
         }
       }
     }
