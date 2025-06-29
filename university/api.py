@@ -45,6 +45,9 @@ class UniversityAPI:
                     """
                 }
                 
+                logger.info(f"DEBUG: Making login request to {self.login_url}")
+                logger.info(f"DEBUG: Payload: {payload}")
+                
                 async with aiohttp.ClientSession(timeout=self.timeout) as session:
                     async with session.post(
                         self.login_url,
@@ -52,9 +55,31 @@ class UniversityAPI:
                         json=payload
                     ) as response:
                         logger.info(f"DEBUG: Login response status: {response.status}")
+                        logger.info(f"DEBUG: Response headers: {dict(response.headers)}")
+                        
+                        # Get response content type
+                        content_type = response.headers.get('Content-Type', '')
+                        logger.info(f"DEBUG: Content-Type: {content_type}")
                         
                         if response.status == 200:
                             try:
+                                # Check if response is JSON
+                                if 'application/json' not in content_type.lower():
+                                    response_text = await response.text()
+                                    logger.error(f"DEBUG: Expected JSON but got {content_type}. Response: {response_text[:500]}")
+                                    
+                                    # If it's HTML, it might be an error page
+                                    if 'text/html' in content_type.lower():
+                                        logger.error(f"DEBUG: Server returned HTML instead of JSON. This might indicate:")
+                                        logger.error(f"DEBUG: 1. Wrong URL endpoint")
+                                        logger.error(f"DEBUG: 2. Server error")
+                                        logger.error(f"DEBUG: 3. Authentication required")
+                                    
+                                    if attempt < max_retries - 1:
+                                        await asyncio.sleep(2 ** attempt)
+                                        continue
+                                    return None
+                                
                                 data = await response.json()
                                 logger.info(f"DEBUG: Login response data: {data}")
                                 
@@ -66,7 +91,9 @@ class UniversityAPI:
                                     logger.warning(f"❌ Login failed for user: {username} - no token in response")
                                     return None
                             except json.JSONDecodeError as json_error:
+                                response_text = await response.text()
                                 logger.error(f"DEBUG: JSON decode error: {json_error}")
+                                logger.error(f"DEBUG: Response text: {response_text[:500]}")
                                 if attempt < max_retries - 1:
                                     await asyncio.sleep(2 ** attempt)
                                     continue
@@ -80,8 +107,13 @@ class UniversityAPI:
                                 await asyncio.sleep(2 ** attempt)
                                 continue
                             return None
+                        elif response.status == 404:
+                            logger.error(f"❌ Login endpoint not found: {self.login_url}")
+                            return None
                         else:
+                            response_text = await response.text()
                             logger.error(f"❌ Login request failed with status: {response.status}")
+                            logger.error(f"DEBUG: Response text: {response_text[:500]}")
                             if attempt < max_retries - 1:
                                 await asyncio.sleep(2 ** attempt)
                                 continue

@@ -19,7 +19,7 @@ CONFIG = {
     "USE_POSTGRESQL": bool(os.getenv("DATABASE_URL", "").startswith("postgresql")),
     
     # University API Configuration
-    "UNIVERSITY_LOGIN_URL": "https://staging.sis.shamuniversity.com/portal",
+    "UNIVERSITY_LOGIN_URL": "https://staging.sis.shamuniversity.com/portal/graphql",
     "UNIVERSITY_API_URL": "https://staging.sis.shamuniversity.com/portal/graphql",
     "UNIVERSITY_NAME": "جامعة الشام",
     "UNIVERSITY_WEBSITE": "https://staging.sis.shamuniversity.com",
@@ -62,8 +62,8 @@ CONFIG = {
         "Accept": "*/*",
         "Accept-Language": "ar-SA,ar;q=0.9,en;q=0.8",
         "Accept-Encoding": "gzip, deflate, br, zstd",
-        "Referer": "https://sis.shamuniversity.com/",
-        "Origin": "https://sis.shamuniversity.com",
+        "Referer": "https://staging.sis.shamuniversity.com/",
+        "Origin": "https://staging.sis.shamuniversity.com",
         "Connection": "keep-alive",
         "Content-Type": "application/json",
         "x-lang": "ar"
