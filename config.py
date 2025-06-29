@@ -19,8 +19,8 @@ CONFIG = {
     "USE_POSTGRESQL": bool(os.getenv("DATABASE_URL", "").startswith("postgresql")),
     
     # University API Configuration
-    "UNIVERSITY_LOGIN_URL": "https://api.staging.sis.shamuniversity.com/portal",
-    "UNIVERSITY_API_URL": "https://api.staging.sis.shamuniversity.com/graphql",
+    "UNIVERSITY_LOGIN_URL": "https://api.sis.shamuniversity.com/portal",
+    "UNIVERSITY_API_URL": "https://api.sis.shamuniversity.com/portal/graphql",
     "UNIVERSITY_NAME": "جامعة الشام",
     "UNIVERSITY_WEBSITE": "https://staging.sis.shamuniversity.com",
     
@@ -62,8 +62,8 @@ CONFIG = {
         "Accept": "*/*",
         "Accept-Language": "ar-SA,ar;q=0.9,en;q=0.8",
         "Accept-Encoding": "gzip, deflate, br, zstd",
-        "Referer": "https://staging.sis.shamuniversity.com/",
-        "Origin": "https://staging.sis.shamuniversity.com",
+        "Referer": "https://sis.shamuniversity.com/",
+        "Origin": "https://sis.shamuniversity.com",
         "Connection": "keep-alive",
         "Content-Type": "application/json",
         "x-lang": "ar"
@@ -235,12 +235,12 @@ MESSAGE_TEMPLATES = {
 
 # Error Messages
 ERROR_MESSAGES = {
-    "LOGIN_FAILED": "❌ فشل تسجيل الدخول. تأكد من صحة بياناتك.",
-    "NETWORK_ERROR": "🌐 خطأ في الاتصال. تحقق من الإنترنت.",
-    "API_ERROR": "🔧 خطأ في النظام. حاول لاحقاً.",
-    "TOKEN_EXPIRED": "⏰ انتهت صلاحية الجلسة. سجل دخولك مرة أخرى.",
-    "NO_GRADES": "📭 لا توجد درجات متاحة حالياً.",
-    "GENERAL_ERROR": "❌ حدث خطأ. حاول مرة أخرى.",
+    "LOGIN_FAILED": "🔐 تأكد من بياناتك وحاول مرة أخرى.",
+    "NETWORK_ERROR": "🌐 تحقق من الاتصال وحاول مرة أخرى.",
+    "API_ERROR": "🔧 جاري إصلاح النظام، حاول بعد قليل.",
+    "TOKEN_EXPIRED": "⏰ انتهت الجلسة، سجل دخولك مرة أخرى.",
+    "NO_GRADES": "📚 لا توجد درجات حالياً، سنخبرك فور توفرها.",
+    "GENERAL_ERROR": "🤝 حدث شيء غير متوقع، نحن هنا لمساعدتك.",
 }
 
 # Success Messages

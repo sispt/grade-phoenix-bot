@@ -325,16 +325,17 @@ class TelegramBot:
             if not token:
                 logger.warning(f"DEBUG: Login failed for user {username}")
                 await self._edit_message_no_keyboard(loading_message, 
-                    "❌ **فشل تسجيل الدخول**\n\n"
-                    "تأكد من صحة اسم المستخدم وكلمة المرور وحاول مرة أخرى.\n\n"
-                    "💡 **نصائح:**\n"
-                    "• تأكد من صحة اسم المستخدم (مثال: ENG2324901)\n"
-                    "• تأكد من صحة كلمة المرور\n"
-                    "• تحقق من اتصال الإنترنت"
+                    "🔐 **تأكد من بياناتك**\n\n"
+                    "يرجى التحقق من اسم المستخدم وكلمة المرور.\n\n"
+                    "💡 **الحل:**\n"
+                    "• اضغط على '🔄 إعادة تسجيل الدخول'\n"
+                    "• أدخل بياناتك مرة أخرى\n\n"
+                    "🤝 **نحن هنا لمساعدتك**",
+                    reply_markup=get_main_keyboard_with_relogin()
                 )
                 await self._send_message_with_keyboard(
                     update,
-                    "🔙 اضغط على '🚀 تسجيل الدخول' للمحاولة مرة أخرى",
+                    "🔄 اضغط على '🚀 تسجيل الدخول' للمحاولة مرة أخرى",
                     "main"
                 )
                 return ConversationHandler.END
@@ -410,69 +411,40 @@ class TelegramBot:
             
             logger.info(f"DEBUG: Registration completed successfully for user {username}")
             
-            success_message = f"""
-✅ **تم تسجيل الدخول بنجاح!**
-
-👤 **مرحباً:** {user_data.get('fullname', username)}
-📧 **البريد:** {user_data.get('email', 'غير محدد')}
-📚 **عدد المواد:** {len(grades)}
-
-🔔 **ستتلقى إشعارات عند تحديث درجاتك تلقائياً!**
-
-💡 **يمكنك الآن:**
-• 📊 فحص الدرجات الحالية
-• 👤 عرض معلوماتك
-• ⚙️ تعديل الإعدادات
-
-🎯 **للحصول على المساعدة:** اضغط على "❓ المساعدة"
-"""
-            
-            logger.info(f"DEBUG: Sending success message for {username}")
-            await loading_message.edit_text(success_message)
+            # Registration successful
+            logger.info(f"DEBUG: Registration successful for user {username}")
+            await self._edit_message_no_keyboard(loading_message, 
+                f"✅ تم تسجيل الدخول بنجاح.\n\n"
+                f"مرحباً {username}.\n\n"
+                f"يمكنك الآن متابعة درجاتك الأكاديمية.\n\n"
+                f"— THE DIE IS CAST · based on beehouse"
+            )
             # Send keyboard in a separate message
             await update.message.reply_text(
-                "🎉 تم التسجيل بنجاح! استخدم الأزرار أدناه:",
+                "تم التسجيل. يمكنك استخدام القائمة الرئيسية.",
                 reply_markup=get_main_keyboard()
             )
             return ConversationHandler.END
             
         except Exception as e:
-            logger.error(f"DEBUG: Unexpected error during registration: {e}")
-            logger.error(f"DEBUG: Error type: {type(e)}")
-            logger.error(f"DEBUG: Error details: {str(e)}")
-            import traceback
-            logger.error(f"DEBUG: Full traceback: {traceback.format_exc()}")
-            try:
-                await loading_message.edit_text(
-                    "❌ **حدث خطأ غير متوقع**\n\n"
-                    "حاول مرة أخرى أو تواصل مع الدعم الفني.\n\n"
-                    "📞 **الدعم:**\n"
-                    "• المطور: @sisp_t\n"
-                    "• البريد الإلكتروني: abdulrahmanabdulkader59@gmail.com"
-                )
-                # Send keyboard in a separate message
-                await update.message.reply_text(
-                    "🔙 اضغط على '🚀 تسجيل الدخول' للمحاولة مرة أخرى",
-                    reply_markup=get_main_keyboard()
-                )
-            except Exception as edit_error:
-                logger.error(f"DEBUG: Failed to edit message: {edit_error}")
-                # Try sending a new message instead
-                await update.message.reply_text(
-                    "❌ **حدث خطأ غير متوقع**\n\n"
-                    "حاول مرة أخرى أو تواصل مع الدعم الفني.\n\n"
-                    "📞 **الدعم:**\n"
-                    "• المطور: @sisp_t\n"
-                    "• البريد الإلكتروني: abdulrahmanabdulkader59@gmail.com",
-                    reply_markup=get_main_keyboard()
-                )
+            logger.error(f"DEBUG: Network error during login: {e}")
+            await self._edit_message_no_keyboard(loading_message, 
+                "🌐 **تحقق من الاتصال**\n\n"
+                "تأكد من اتصال الإنترنت وحاول مرة أخرى.\n\n"
+                "💡 **يمكنك المحاولة بعد قليل**\n\n"
+                "🤝 **سنكون هنا عندما تعود**"
+            )
+            await self._send_message_with_keyboard(
+                update,
+                "🔄 اضغط على '🚀 تسجيل الدخول' للمحاولة مرة أخرى",
+                "main"
+            )
             return ConversationHandler.END
     
     async def _cancel_registration(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Cancel registration"""
         await update.message.reply_text(
-            "❌ **تم إلغاء التسجيل**\n\n"
-            "يمكنك المحاولة مرة أخرى في أي وقت.",
+            "تم إلغاء العملية. يمكنك البدء مجددًا في أي وقت.\n— THE DIE IS CAST · based on beehouse",
             reply_markup=get_main_keyboard()
         )
         return ConversationHandler.END
@@ -480,176 +452,76 @@ class TelegramBot:
     async def _grades_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /grades command"""
         telegram_id = update.effective_user.id
-        
-        # Check if user is registered
         if not self.user_storage.is_user_registered(telegram_id):
             await update.message.reply_text(
-                "❌ لم يتم تسجيلك بعد. اضغط على '🚀 تسجيل الدخول' أولاً.",
+                "يرجى تسجيل الدخول أولاً من القائمة الرئيسية.\n— THE DIE IS CAST · based on beehouse",
                 reply_markup=get_main_keyboard()
             )
             return
-        
         # Show loading message
-        loading_message = await update.message.reply_text("🔄 جاري فحص الدرجات...")
-        
+        loading_message = await update.message.reply_text("جاري فحص الدرجات...")
         try:
-            # Get user session
             session = self.user_storage.get_user_session(telegram_id)
             if not session:
                 await loading_message.edit_text(
-                    "❌ جلسة منتهية الصلاحية. اضغط على '🚀 تسجيل الدخول' مرة أخرى.",
+                    "انتهت الجلسة. سجل الدخول مجددًا.\n— THE DIE IS CAST · based on beehouse",
                     reply_markup=get_main_keyboard()
                 )
                 return
-            
-            # Get token from session
             token = session.get("token")
             username = session.get("username")
-            
-            logger.info(f"🔍 DEBUG: Grades command - User {username} (ID: {telegram_id})")
-            logger.info(f"🔑 DEBUG: User has token: {'Yes' if token else 'No'}")
-            
             if not token:
                 await loading_message.edit_text(
-                    "❌ لا يوجد توكن صالح. اضغط على '🔄 إعادة تسجيل الدخول'.",
-                    reply_markup=get_main_keyboard_with_relogin()
+                    "انتهت الجلسة. سجل الدخول مجددًا.\n— THE DIE IS CAST · based on beehouse",
+                    reply_markup=get_main_keyboard()
                 )
                 return
-            
-            # Test token validity
-            logger.info(f"🔍 DEBUG: Testing token validity for user {username}")
             if not await self.university_api.test_token(token):
-                await loading_message.edit_text("🔄 جاري تجديد الجلسة...")
-                logger.info(f"⚠️ DEBUG: Token expired for user {username}, attempting re-authentication")
-                
-                # Try to re-authenticate using stored credentials
+                await loading_message.edit_text("جاري تجديد الجلسة...")
                 password = session.get("password")
                 if not password:
-                    logger.error(f"❌ DEBUG: No password stored for user {username}")
                     await loading_message.edit_text(
-                        "❌ فشل في تسجيل الدخول. يرجى التحقق من بياناتك وإعادة التسجيل.\n\n"
-                        "💡 **الحل:**\n"
-                        "• اضغط على '🔄 إعادة تسجيل الدخول'\n"
-                        "• أدخل بياناتك مرة أخرى",
+                        "تعذر تسجيل الدخول. تحقق من بياناتك.\n— THE DIE IS CAST · based on beehouse",
                         reply_markup=get_main_keyboard_with_relogin()
                     )
                     return
-                
-                logger.info(f"🔄 DEBUG: Re-authenticating user {username} with stored credentials")
                 new_token = await self.university_api.login(username, password)
                 if new_token:
-                    logger.info(f"✅ DEBUG: Re-authentication successful for user {username}")
                     token = new_token
-                    # Update token in database
                     self.user_storage.update_user_token(telegram_id, token)
                 else:
-                    logger.error(f"❌ DEBUG: Re-authentication failed for user {username}")
-                    # Login failed, invalidate session
                     self.user_storage.invalidate_user_session(telegram_id)
                     await loading_message.edit_text(
-                        "❌ فشل في تسجيل الدخول. يرجى التحقق من بياناتك وإعادة التسجيل.\n\n"
-                        "💡 **الحل:**\n"
-                        "• اضغط على '🔄 إعادة تسجيل الدخول'\n"
-                        "• أدخل بياناتك مرة أخرى",
+                        "تعذر تسجيل الدخول. تحقق من بياناتك.\n— THE DIE IS CAST · based on beehouse",
                         reply_markup=get_main_keyboard_with_relogin()
                     )
                     return
-            else:
-                logger.info(f"✅ DEBUG: Token is valid for user {username}")
-            
-            # Get fresh grades using token
             if token:
-                await loading_message.edit_text("📊 يتم التحقق من البيانات على النظام...")
-                logger.info(f"📊 DEBUG: Fetching fresh grades for user {username} using token")
+                await loading_message.edit_text("يتم التحقق من البيانات...")
                 fresh_data = await self.university_api.get_user_data(token)
                 if fresh_data:
                     grades = fresh_data.get("grades", [])
-                    logger.info(f"📚 DEBUG: Retrieved {len(grades)} grades for user {username}")
-                    
-                    # Get previous grades for comparison
                     old_grades = self.grade_storage.get_grades(telegram_id)
-                    logger.info(f"📚 DEBUG: Previous grades count: {len(old_grades)}")
-                    
-                    # Save new grades
                     self.grade_storage.save_grades(telegram_id, grades)
-                    logger.info(f"💾 DEBUG: Saved grades for user {username}")
-                    
                     if grades:
-                        message = "📊 **درجاتك الحالية:**\n\n"
-                        for i, grade in enumerate(grades, 1):
-                            # Safely extract all fields with proper validation
-                            course_name = grade.get('المقرر', 'غير محدد')
-                            course_code = grade.get('كود المادة', '')
-                            ects_credits = grade.get('رصيد ECTS', '')
-                            practical_grade = grade.get('درجة الأعمال', 'لم يتم النشر')
-                            theoretical_grade = grade.get('درجة النظري', 'لم يتم النشر')
-                            final_grade = grade.get('الدرجة', 'لم يتم النشر')
-                            
-                            # Validate and clean the data
-                            course_name = course_name.strip() if course_name else 'غير محدد'
-                            course_code = course_code.strip() if course_code else ''
-                            ects_credits = ects_credits.strip() if ects_credits else ''
-                            practical_grade = practical_grade.strip() if practical_grade else 'لم يتم النشر'
-                            theoretical_grade = theoretical_grade.strip() if theoretical_grade else 'لم يتم النشر'
-                            final_grade = final_grade.strip() if final_grade else 'لم يتم النشر'
-                            
-                            message += f"📚 **{i}. {course_name}**\n"
-                            if course_code and course_code != '':
-                                message += f"   🏷️ الكود: {course_code}\n"
-                            if ects_credits and ects_credits != '':
-                                message += f"   📊 الرصيد: {ects_credits} ECTS\n"
-                            message += f"   🔬 درجة الأعمال: {practical_grade}\n"
-                            message += f"   ✍️ درجة النظري: {theoretical_grade}\n"
-                            message += f"   🎯 الدرجة النهائية: {final_grade}\n\n"
-                        
-                        message += f"🕒 **آخر تحديث:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-                        
-                        # Check if grades changed
-                        if old_grades != grades:
-                            logger.info(f"🔄 DEBUG: Grades changed for user {username} during manual check")
-                            message += "\n\n🔄 **تم تحديث الدرجات!**"
-                        else:
-                            logger.info(f"✅ DEBUG: No grade changes for user {username} during manual check")
+                        message = "\n".join([
+                            "📊 نتائجك الحالية:",
+                            *[
+                                f"{i}. {g.get('المقرر', 'غير محدد')} | {g.get('الدرجة', 'غير متاح')}"
+                                for i, g in enumerate(grades, 1)
+                            ],
+                            f"— THE DIE IS CAST · based on beehouse"
+                        ])
                     else:
-                        message = "📭 **لا توجد درجات متاحة حالياً.**\n\n"
-                        message += "💡 **الأسباب المحتملة:**\n"
-                        message += "• لم يتم نشر الدرجات بعد\n"
-                        message += "• الفصل الدراسي لم يبدأ\n"
-                        message += "• لا توجد مواد مسجلة\n\n"
-                        message += "🔄 **سيتم فحص الدرجات تلقائياً كل 5 دقائق**"
+                        message = "لا توجد بيانات درجات متاحة حاليًا.\n— THE DIE IS CAST · based on beehouse"
                 else:
-                    message = "❌ **فشل في جلب الدرجات**\n\n"
-                    message += "حاول مرة أخرى لاحقاً أو تواصل مع الدعم الفني.\n\n"
-                    message += "📞 **الدعم:**\n"
-                    message += "• المطور: @sisp_t\n"
-                    message += "• البريد الإلكتروني: abdulrahmanabdulkader59@gmail.com"
+                    message = "تعذر جلب البيانات. حاول لاحقًا.\n— THE DIE IS CAST · based on beehouse"
             else:
-                message = "❌ **فشل في تسجيل الدخول**\n\n"
-                message += "حاول مرة أخرى أو اضغط على '🔄 إعادة تسجيل الدخول'"
-            
-            await loading_message.edit_text(message)
-            # Send keyboard in a separate message if needed
-            if "لا توجد درجات متاحة" in message or "فشل في جلب الدرجات" in message:
-                await update.message.reply_text(
-                    "🔙 استخدم الأزرار أدناه:",
-                    reply_markup=get_main_keyboard()
-                )
-            else:
-                # For successful grade display, add keyboard to the same message
-                await loading_message.edit_text(message, reply_markup=get_main_keyboard())
-            
+                message = "تعذر تسجيل الدخول. تحقق من بياناتك.\n— THE DIE IS CAST · based on beehouse"
+            await loading_message.edit_text(message, reply_markup=get_main_keyboard())
         except Exception as e:
-            logger.error(f"❌ DEBUG: Unexpected error in grades command: {e}")
-            await loading_message.edit_text(
-                "❌ **حدث خطأ غير متوقع**\n\n"
-                "حاول مرة أخرى أو تواصل مع الدعم الفني.\n\n"
-                "📞 **الدعم:**\n"
-                "• المطور: @sisp_t\n"
-                "• البريد الإلكتروني: abdulrahmanabdulkader59@gmail.com"
-            )
-            # Send keyboard in a separate message
             await update.message.reply_text(
-                "🔙 استخدم الأزرار أدناه:",
+                "النظام غير متاح مؤقتًا. حاول لاحقًا.\n— THE DIE IS CAST · based on beehouse",
                 reply_markup=get_main_keyboard()
             )
     

@@ -211,15 +211,22 @@ class UniversityAPI:
             return None
     
     async def _get_grades(self, token: str) -> List[Dict[str, Any]]:
-        """Get user grades"""
+        """Get user grades from GraphQL endpoint"""
         try:
             logger.info(f"🔍 DEBUG: Starting grade fetch with token...")
+            
+            # Use the correct GraphQL endpoint and query
+            graphql_url = "https://api.sis.shamuniversity.com/portal/graphql"
+            
+            # GraphQL query for test_student_tracks
             grades_query = """
-            query getPage($name: String!, $params: [PageParam!]) {
-              getPage(name: $name, params: $params) {
+            query {
+              getPage(name: "test_student_tracks") {
+                name
+                title
                 panels {
                   blocks {
-                    title
+                    name
                     body
                   }
                 }
@@ -227,199 +234,79 @@ class UniversityAPI:
             }
             """
             
-            headers = {**self.api_headers, "Authorization": f"Bearer {token}"}
-            
-            # Try different page names that might contain grades
-            possible_pages = [
-                ("test_student_tracks", [{"name": "t_grade_id", "value": "10459"}]),
-                ("homepage", [])
-            ]
-            
-            logger.info(f"🔍 DEBUG: Will try {len(possible_pages)} possible pages for grades")
-            
-            for page_name, page_params in possible_pages:
-                logger.info(f"🌐 DEBUG: Trying page: {page_name}")
-                
-                variables = {
-                    "name": page_name,
-                    "params": page_params
-                }
-                
-                payload = {
-                    "query": grades_query,
-                    "variables": variables
-                }
-                
-                logger.info(f"📡 DEBUG: Making request to {self.api_url} for page: {page_name}")
-                logger.info(f"📡 DEBUG: Request payload: {payload}")
-                logger.info(f"📡 DEBUG: Request headers: {headers}")
-                
-                async with aiohttp.ClientSession(timeout=self.timeout) as session:
-                    async with session.post(
-                        self.api_url,
-                        headers=headers,
-                        json=payload
-                    ) as response:
-                        logger.info(f"📡 DEBUG: Page {page_name} response status: {response.status}")
-                        
-                        if response.status == 200:
-                            data = await response.json()
-                            logger.info(f"📄 DEBUG: Page {page_name} response data keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
-                            
-                            # Log the full response structure for debugging
-                            logger.info(f"🔍 DEBUG: Full response for {page_name}: {data}")
-                            
-                            if "data" in data and data["data"] and data["data"]["getPage"]:
-                                logger.info(f"✅ DEBUG: Page {page_name} has valid data structure")
-                                page_content = data["data"]["getPage"]
-                                logger.info(f"📋 DEBUG: Page {page_name} content structure: {page_content}")
-                                
-                                # Log each panel and block in detail
-                                if "panels" in page_content:
-                                    logger.info(f"📋 DEBUG: Found {len(page_content['panels'])} panels")
-                                    for panel_idx, panel in enumerate(page_content["panels"]):
-                                        logger.info(f"📋 DEBUG: Panel {panel_idx + 1}: {panel}")
-                                        if "blocks" in panel:
-                                            logger.info(f"📋 DEBUG: Panel {panel_idx + 1} has {len(panel['blocks'])} blocks")
-                                            for block_idx, block in enumerate(panel["blocks"]):
-                                                logger.info(f"📋 DEBUG: Block {block_idx + 1} in panel {panel_idx + 1}:")
-                                                logger.info(f"   Title: {block.get('title', 'No title')}")
-                                                logger.info(f"   Body length: {len(block.get('body', ''))}")
-                                                logger.info(f"   Body preview: {block.get('body', '')[:500]}...")
-                                
-                                grades = self._parse_grades_from_html(page_content)
-                                if grades:  # If we found grades, return them
-                                    logger.info(f"🎉 DEBUG: Found {len(grades)} grades in page: {page_name}")
-                                    return grades
-                                else:
-                                    logger.info(f"❌ DEBUG: No grades found in page: {page_name}")
-                            else:
-                                logger.info(f"❌ DEBUG: No valid data structure in page: {page_name}")
-                                if "data" in data:
-                                    logger.info(f"📄 DEBUG: Data content: {data['data']}")
-                                if "errors" in data:
-                                    logger.info(f"❌ DEBUG: GraphQL errors: {data['errors']}")
-                        else:
-                            logger.warning(f"❌ DEBUG: Page {page_name} failed with status: {response.status}")
-                            try:
-                                error_text = await response.text()
-                                logger.info(f"❌ DEBUG: Error response: {error_text}")
-                            except:
-                                logger.info(f"❌ DEBUG: Could not read error response")
-            
-            logger.warning(f"❌ DEBUG: No grades found in homepage")
-            
-            # Try direct HTTP request to homepage as fallback
-            logger.info("🔄 DEBUG: Trying direct HTTP request to homepage...")
-            try:
-                homepage_url = "https://staging.sis.shamuniversity.com/page/home"
-                logger.info(f"🌐 DEBUG: Making direct request to: {homepage_url}")
-                
-                async with aiohttp.ClientSession(timeout=self.timeout) as session:
-                    async with session.get(
-                        homepage_url,
-                        headers={**self.api_headers, "Authorization": f"Bearer {token}"}
-                    ) as response:
-                        logger.info(f"📡 DEBUG: Direct homepage response status: {response.status}")
-                        if response.status == 200:
-                            html_content = await response.text()
-                            logger.info(f"📄 DEBUG: Direct homepage HTML length: {len(html_content)}")
-                            logger.info(f"📄 DEBUG: Direct homepage HTML preview: {html_content[:1000]}...")
-                            
-                            # Try to parse grades from the direct HTML
-                            soup = BeautifulSoup(html_content, 'html.parser')
-                            tables = soup.find_all("table")
-                            logger.info(f"📋 DEBUG: Found {len(tables)} tables in direct homepage HTML")
-                            
-                            for table_idx, table in enumerate(tables):
-                                logger.info(f"📋 DEBUG: Table {table_idx + 1} HTML: {table}")
-                        else:
-                            logger.info(f"❌ DEBUG: Direct homepage request failed with status: {response.status}")
-            except Exception as e:
-                logger.error(f"❌ DEBUG: Direct homepage request failed: {e}")
-            
-            # Try alternative GraphQL queries as fallback
-            logger.info("🔄 DEBUG: Trying alternative GraphQL queries...")
-            
-            # Try a more generic query
-            alternative_query = """
-            query {
-              grades {
-                courseName
-                courseCode
-                grade
-                credits
-              }
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {token}",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+                "Accept": "*/*",
+                "Accept-Language": "ar-SA,ar;q=0.9,en;q=0.8",
+                "Accept-Encoding": "gzip, deflate, br, zstd",
+                "Referer": "https://staging.sis.shamuniversity.com/",
+                "Origin": "https://staging.sis.shamuniversity.com",
+                "Connection": "keep-alive",
+                "x-lang": "ar"
             }
-            """
             
-            try:
-                logger.info("🔍 DEBUG: Trying alternative grades query...")
-                async with aiohttp.ClientSession(timeout=self.timeout) as session:
-                    async with session.post(
-                        self.api_url,
-                        headers=headers,
-                        json={"query": alternative_query}
-                    ) as response:
-                        if response.status == 200:
-                            data = await response.json()
-                            logger.info(f"📄 DEBUG: Alternative query response: {data}")
-                            if "data" in data and data["data"] and data["data"]["grades"]:
-                                logger.info("🎉 DEBUG: Found grades with alternative query!")
-                                return data["data"]["grades"]
-            except Exception as e:
-                logger.error(f"❌ DEBUG: Alternative query failed: {e}")
-            
-            # Try another alternative query
-            courses_query = """
-            query {
-              courses {
-                name
-                code
-                grade
-                ects
-              }
+            payload = {
+                "query": grades_query
             }
-            """
             
-            try:
-                logger.info("🔍 DEBUG: Trying courses query...")
-                async with aiohttp.ClientSession(timeout=self.timeout) as session:
-                    async with session.post(
-                        self.api_url,
-                        headers=headers,
-                        json={"query": courses_query}
-                    ) as response:
-                        if response.status == 200:
-                            data = await response.json()
-                            logger.info(f"📄 DEBUG: Courses query response: {data}")
-                            if "data" in data and data["data"] and data["data"]["courses"]:
-                                logger.info("🎉 DEBUG: Found courses with courses query!")
-                                return data["data"]["courses"]
-            except Exception as e:
-                logger.error(f"❌ DEBUG: Courses query failed: {e}")
+            logger.info(f"🌐 DEBUG: Making GraphQL request to {graphql_url}")
+            logger.info(f"📡 DEBUG: Request payload: {payload}")
             
-            return []
+            async with aiohttp.ClientSession(timeout=self.timeout) as session:
+                async with session.post(
+                    graphql_url,
+                    headers=headers,
+                    json=payload
+                ) as response:
+                    logger.info(f"📡 DEBUG: GraphQL response status: {response.status}")
                     
+                    if response.status == 200:
+                        data = await response.json()
+                        logger.info(f"📄 DEBUG: GraphQL response data keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
+                        
+                        if "data" in data and data["data"] and data["data"]["getPage"]:
+                            page_content = data["data"]["getPage"]
+                            logger.info(f"✅ DEBUG: Got page content: {page_content.get('name', 'Unknown')}")
+                            
+                            # Parse grades from the page content
+                            grades = self._parse_grades_from_graphql(page_content)
+                            logger.info(f"🎉 DEBUG: Parsed {len(grades)} grades from GraphQL")
+                            return grades
+                        else:
+                            logger.error(f"❌ DEBUG: Invalid GraphQL response structure")
+                            if "errors" in data:
+                                logger.error(f"❌ DEBUG: GraphQL errors: {data['errors']}")
+                            return []
+                    else:
+                        logger.error(f"❌ DEBUG: GraphQL request failed with status: {response.status}")
+                        try:
+                            error_text = await response.text()
+                            logger.error(f"❌ DEBUG: Error response: {error_text}")
+                        except:
+                            logger.error(f"❌ DEBUG: Could not read error response")
+                        return []
+                        
         except Exception as e:
-            logger.error(f"❌ DEBUG: Error getting grades: {e}")
+            logger.error(f"❌ DEBUG: Error getting grades from GraphQL: {e}")
             return []
     
-    def _parse_grades_from_html(self, page_data: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Parse grades from page data"""
+    def _parse_grades_from_graphql(self, page_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Parse grades from GraphQL page data"""
         try:
-            logger.info("🔍 DEBUG: Starting to parse grades from page data")
+            logger.info("🔍 DEBUG: Starting to parse grades from GraphQL data")
             grades = []
             
             if not page_data or "panels" not in page_data:
-                logger.warning("❌ DEBUG: No panels found in page data")
+                logger.warning("❌ DEBUG: No panels found in GraphQL data")
                 return []
             
             panels = page_data["panels"]
-            logger.info(f"📋 DEBUG: Found {len(panels)} panels")
+            logger.info(f"📋 DEBUG: Found {len(panels)} panels in GraphQL data")
             
             for panel_idx, panel in enumerate(panels):
-                logger.info(f"📋 DEBUG: Processing panel {panel_idx + 1}: {panel.get('name', 'No name')}")
+                logger.info(f"📋 DEBUG: Processing panel {panel_idx + 1}")
                 
                 if "blocks" not in panel:
                     logger.info(f"❌ DEBUG: No blocks found in panel {panel_idx + 1}")
@@ -430,14 +317,6 @@ class UniversityAPI:
                 
                 for block_idx, block in enumerate(blocks):
                     logger.info(f"📋 DEBUG: Processing block {block_idx + 1} in panel {panel_idx + 1}")
-                    logger.info(f"   Title: {block.get('title', 'No title')}")
-                    logger.info(f"   Type: {block.get('type', 'No type')}")
-                    
-                    # Skip blocks that are clearly not course data
-                    title = block.get('title', '').lower()
-                    if any(skip_word in title for skip_word in ['student', 'info', 'card', 'بطاقة', 'طالب', 'معلومات']):
-                        logger.info(f"⏭️ DEBUG: Skipping block with student info title: {title}")
-                        continue
                     
                     body = block.get('body', '')
                     if not body:
@@ -445,21 +324,107 @@ class UniversityAPI:
                         continue
                     
                     logger.info(f"📄 DEBUG: Block {block_idx + 1} body length: {len(body)}")
-                    logger.info(f"📄 DEBUG: Block {block_idx + 1} body preview: {body[:500]}...")
                     
-                    # Parse HTML content from the block body
-                    block_grades = self._extract_grades_from_html(body)
-                    if block_grades:
-                        logger.info(f"✅ DEBUG: Found {len(block_grades)} grades in block {block_idx + 1}")
-                        grades.extend(block_grades)
+                    # Check if this block contains the grades table (look for "كود المادة")
+                    if "كود المادة" in body:
+                        logger.info(f"✅ DEBUG: Found grades table in block {block_idx + 1}")
+                        
+                        # Parse the HTML table
+                        block_grades = self._parse_grades_table_html(body)
+                        if block_grades:
+                            logger.info(f"🎉 DEBUG: Found {len(block_grades)} grades in block {block_idx + 1}")
+                            grades.extend(block_grades)
+                        else:
+                            logger.info(f"❌ DEBUG: No grades parsed from block {block_idx + 1}")
                     else:
-                        logger.info(f"❌ DEBUG: No grades found in block {block_idx + 1}")
+                        logger.info(f"⏭️ DEBUG: Block {block_idx + 1} does not contain grades table")
             
-            logger.info(f"🎉 DEBUG: Total grades parsed from all blocks: {len(grades)}")
+            logger.info(f"🎉 DEBUG: Total grades parsed from GraphQL: {len(grades)}")
             return grades
             
         except Exception as e:
-            logger.error(f"❌ DEBUG: Error parsing grades from page data: {e}")
+            logger.error(f"❌ DEBUG: Error parsing grades from GraphQL data: {e}")
+            return []
+    
+    def _parse_grades_table_html(self, html_content: str) -> List[Dict[str, Any]]:
+        """Parse grades from HTML table with Arabic headers"""
+        try:
+            logger.info("🔍 DEBUG: Starting to parse grades table HTML")
+            grades = []
+            
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            # Find the table
+            table = soup.find('table')
+            if not table:
+                logger.error("❌ DEBUG: No table found in HTML")
+                return []
+            
+            # Find thead to get headers
+            thead = table.find('thead')
+            if not thead:
+                logger.error("❌ DEBUG: No thead found in table")
+                return []
+            
+            # Extract headers
+            headers = []
+            for th in thead.find_all('th'):
+                header_text = th.get_text(strip=True)
+                if header_text:
+                    headers.append(header_text)
+                    logger.info(f"📋 DEBUG: Found header: {header_text}")
+            
+            if not headers:
+                logger.error("❌ DEBUG: No headers found in table")
+                return []
+            
+            logger.info(f"📋 DEBUG: Table headers: {headers}")
+            
+            # Find tbody to get rows
+            tbody = table.find('tbody')
+            if not tbody:
+                logger.error("❌ DEBUG: No tbody found in table")
+                return []
+            
+            rows = tbody.find_all('tr')
+            logger.info(f"📋 DEBUG: Found {len(rows)} rows in table")
+            
+            # Parse each row
+            for row_idx, row in enumerate(rows):
+                cells = row.find_all('td')
+                if len(cells) != len(headers):
+                    logger.warning(f"⚠️ DEBUG: Row {row_idx + 1} has {len(cells)} cells but {len(headers)} headers")
+                    continue
+                
+                # Extract data from each cell
+                row_data = {}
+                for i, cell in enumerate(cells):
+                    if i < len(headers):
+                        cell_text = cell.get_text(strip=True)
+                        row_data[headers[i]] = cell_text
+                
+                # Convert to standard format
+                grade_entry = {
+                    "name": row_data.get("المقرر", ""),
+                    "code": row_data.get("كود المادة", ""),
+                    "ects": row_data.get("رصيد ECTS", ""),
+                    "coursework": row_data.get("درجة الأعمال", ""),
+                    "final_exam": row_data.get("درجة النظري", ""),
+                    "total": row_data.get("الدرجة", "")
+                }
+                
+                # Only add if we have meaningful data
+                if grade_entry["name"] and grade_entry["code"]:
+                    grades.append(grade_entry)
+                    logger.info(f"✅ DEBUG: Added grade: {grade_entry}")
+                else:
+                    logger.info(f"⏭️ DEBUG: Skipped row with insufficient data: {row_data}")
+            
+            logger.info(f"🎉 DEBUG: Parsed {len(grades)} grades from table")
+            return grades
+            
+        except Exception as e:
+            logger.error(f"❌ DEBUG: Error parsing grades table HTML: {e}")
             return []
     
     def _contains_course_data(self, html_content: str) -> bool:
