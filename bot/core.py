@@ -113,10 +113,6 @@ class TelegramBot:
             
             # Dynamic webhook URL
             webhook_url = os.getenv("WEBHOOK_URL")
-            if not webhook_url:
-                # Fallback to Railway URL
-                webhook_url = f"https://shamunibot-production.up.railway.app/{CONFIG['TELEGRAM_TOKEN']}"
-            
             logger.info(f"DEBUG: Setting up webhook on port {port}")
             logger.info(f"DEBUG: Webhook URL: {webhook_url}")
             
