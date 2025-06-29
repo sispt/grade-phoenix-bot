@@ -179,7 +179,7 @@ class TelegramBot:
         return ASK_USERNAME
     
     async def _register_username(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle username input"""
+        logger.info("DEBUG: _register_username called")
         username = update.message.text.strip()
         if not username:
             await update.message.reply_text("اسم المستخدم غير صالح، حاول مرة أخرى:")
