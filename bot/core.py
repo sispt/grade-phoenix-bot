@@ -104,14 +104,14 @@ class TelegramBot:
         self.app.add_handler(CommandHandler("list_users", self._list_users_command))
         self.app.add_handler(CommandHandler("restart", self._restart_command))
         
-        # Conversation handlers
+        # Conversation handlers (registration and broadcast) - these must come BEFORE the generic message handler
         self.app.add_handler(self._get_registration_handler())
         self.app.add_handler(self._get_broadcast_handler())
         
         # Callback query handler
         self.app.add_handler(CallbackQueryHandler(self._handle_callback))
         
-        # Message handler for buttons
+        # Message handler for buttons (should be last)
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message))
     
     def _get_registration_handler(self):
