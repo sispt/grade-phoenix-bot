@@ -1,13 +1,15 @@
 """
-🌐 Flask Health Check Server
+🌐 Health Check Server
 """
+import asyncio
+import logging
 import os
 import threading
-import logging
 from datetime import datetime
 from flask import Flask, jsonify
+import requests
 
-from ..config import CONFIG
+from config import CONFIG
 
 logger = logging.getLogger(__name__)
 

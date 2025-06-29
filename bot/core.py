@@ -15,14 +15,15 @@ from telegram.ext import (
     ConversationHandler,
 )
 
-from ..config import CONFIG
-from ..storage.users import UserStorage
-from ..storage.grades import GradeStorage
-from ..university.api import UniversityAPI
-from ..admin.dashboard import AdminDashboard
-from ..admin.broadcast import BroadcastSystem
-from ..utils.keyboards import get_main_keyboard, get_admin_keyboard
-from ..utils.messages import get_welcome_message, get_help_message
+# Absolute imports
+from config import CONFIG
+from storage.users import UserStorage
+from storage.grades import GradeStorage
+from university.api import UniversityAPI
+from admin.dashboard import AdminDashboard
+from admin.broadcast import BroadcastSystem
+from utils.keyboards import get_main_keyboard, get_admin_keyboard
+from utils.messages import get_welcome_message, get_help_message
 
 logger = logging.getLogger(__name__)
 

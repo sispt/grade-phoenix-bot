@@ -1,7 +1,7 @@
 """
-💬 Message Utilities
+📝 Message Templates
 """
-from ..config import CONFIG
+from config import CONFIG
 
 def get_welcome_message(first_name: str = "عزيزي") -> str:
     """Get welcome message"""

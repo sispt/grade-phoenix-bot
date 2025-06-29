@@ -7,10 +7,10 @@ from typing import Dict, List, Optional, Any
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
-from ..config import CONFIG
-from ..storage.users import UserStorage
-from ..storage.grades import GradeStorage
-from ..university.api import UniversityAPI
+from config import CONFIG
+from storage.users import UserStorage
+from storage.grades import GradeStorage
+from university.api import UniversityAPI
 
 logger = logging.getLogger(__name__)
 

@@ -1,8 +1,8 @@
 """
-⌨️ Keyboard Utilities
+⌨️ Keyboard Layouts
 """
-from telegram import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
-from ..config import CONFIG
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
+from config import CONFIG
 
 def get_main_keyboard():
     """Get main keyboard for regular users"""

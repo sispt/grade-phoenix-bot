@@ -1,14 +1,15 @@
 """
 🏫 University API Integration
 """
-import aiohttp
 import asyncio
-import json
 import logging
+import aiohttp
+import json
+from datetime import datetime
 from typing import Dict, List, Optional, Any
 from bs4 import BeautifulSoup
 
-from ..config import CONFIG
+from config import CONFIG
 
 logger = logging.getLogger(__name__)
 
