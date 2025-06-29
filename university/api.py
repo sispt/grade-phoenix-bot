@@ -253,18 +253,24 @@ class UniversityAPI:
                     if "blocks" in panel:
                         logger.info(f"DEBUG: Found {len(panel['blocks'])} blocks in panel")
                         for block in panel["blocks"]:
-                            logger.info(f"DEBUG: Processing block with title: {block.get('title', 'No title')}")
+                            block_title = block.get('title', 'No title')
+                            logger.info(f"DEBUG: Processing block with title: {block_title}")
                             
-                            # Parse any block that has HTML body content
+                            # Skip student card block (بطاقة الطالب) - it contains student info, not grades
+                            if block_title == "بطاقة الطالب":
+                                logger.info("DEBUG: Skipping student card block - contains student info, not grades")
+                                continue
+                            
+                            # Parse any other block that has HTML body content
                             html_body = block.get("body", "")
                             if html_body:
                                 logger.info(f"DEBUG: HTML body length: {len(html_body)}")
                                 parsed_grades = self._extract_grades_from_html(html_body)
                                 if parsed_grades:  # Only add if we found grades
                                     grades.extend(parsed_grades)
-                                    logger.info(f"DEBUG: Found {len(parsed_grades)} grades in block: {block.get('title', 'No title')}")
+                                    logger.info(f"DEBUG: Found {len(parsed_grades)} grades in block: {block_title}")
                             else:
-                                logger.info(f"DEBUG: No HTML body in block: {block.get('title', 'No title')}")
+                                logger.info(f"DEBUG: No HTML body in block: {block_title}")
             else:
                 logger.warning("DEBUG: No panels found in page data")
             
@@ -313,6 +319,25 @@ class UniversityAPI:
                 
                 logger.info(f"DEBUG: Table {table_index + 1} headers: {headers}")
                 
+                # Skip tables that are clearly student info (not course grades)
+                # These are common student info headers that we want to skip
+                student_info_indicators = ['sis.code', 'sis.name', 'sis.academy', 'sis.branch', 'sis.program_abs_grade_num', 'student', 'student_id', 'gpa']
+                if any(indicator in ' '.join(headers).lower() for indicator in student_info_indicators):
+                    logger.info(f"DEBUG: Skipping table {table_index + 1} - appears to contain student info")
+                    continue
+                
+                # Check if this table looks like it contains course data
+                # Look for any indication of courses, grades, or academic data
+                course_indicators = ['course', 'subject', 'grade', 'mark', 'score', 'credit', 'ects', 'مقرر', 'درجة', 'رصيد', 'كود']
+                has_course_indicators = any(indicator in ' '.join(headers).lower() for indicator in course_indicators)
+                
+                # If no clear course indicators, but table has multiple columns and rows, still process it
+                # (it might be course data with different naming)
+                if not has_course_indicators:
+                    logger.info(f"DEBUG: Table {table_index + 1} has no clear course indicators, but will process anyway")
+                
+                logger.info(f"DEBUG: Processing table {table_index + 1} for potential course data")
+                
                 # Find tbody to get rows
                 tbody = table.find("tbody")
                 if not tbody:
@@ -328,21 +353,45 @@ class UniversityAPI:
                     
                     # Extract data from each cell as raw text
                     row_data = {}
-                    has_data = False
+                    has_meaningful_data = False
                     
                     for i, cell in enumerate(cells):
                         cell_text = cell.get_text(strip=True)
                         row_data[headers[i]] = cell_text
                         logger.info(f"DEBUG: Cell {i} ({headers[i]}): {cell_text}")
                         
-                        # Check if this row has any meaningful data
-                        if cell_text and cell_text.strip():
-                            has_data = True
+                        # Check if this row has any meaningful data (not empty or just whitespace)
+                        if cell_text and cell_text.strip() and cell_text.strip() != "":
+                            has_meaningful_data = True
                     
-                    # Only add rows that have some data
-                    if has_data:
-                        grades.append(row_data)
-                        logger.info(f"DEBUG: Added grade entry: {row_data}")
+                    # Only add rows that have some meaningful data
+                    if has_meaningful_data:
+                        # Additional validation: skip rows that look like headers or empty data
+                        # Check if this looks like a real course row (not just headers repeated)
+                        is_likely_course_row = False
+                        
+                        # If any cell contains what looks like a course code (alphanumeric with letters)
+                        for value in row_data.values():
+                            if value and any(char.isalpha() for char in value) and any(char.isdigit() for char in value):
+                                is_likely_course_row = True
+                                break
+                        
+                        # Or if any cell contains what looks like a grade (numbers with possible %)
+                        for value in row_data.values():
+                            if value and any(char.isdigit() for char in value) and ('%' in value or value.replace('.', '').replace('%', '').isdigit()):
+                                is_likely_course_row = True
+                                break
+                        
+                        # Or if we have at least 3 non-empty cells (likely course data)
+                        non_empty_cells = sum(1 for v in row_data.values() if v and v.strip())
+                        if non_empty_cells >= 3:
+                            is_likely_course_row = True
+                        
+                        if is_likely_course_row:
+                            grades.append(row_data)
+                            logger.info(f"DEBUG: Added grade entry: {row_data}")
+                        else:
+                            logger.info(f"DEBUG: Skipped row that doesn't look like course data: {row_data}")
                     else:
                         logger.info(f"DEBUG: Skipped empty row: {row_data}")
             
