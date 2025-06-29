@@ -164,7 +164,7 @@ class TelegramBot:
         await update.message.reply_text(
             "🚀 **تسجيل الدخول للجامعة**\n\n"
             "يرجى إرسال اسم المستخدم الجامعي الخاص بك:\n"
-            "(مثال: ENG2425041)",
+            "(مثال: ENG2324901)",
             reply_markup=ReplyKeyboardMarkup([["❌ إلغاء"]], resize_keyboard=True)
         )
         return ASK_USERNAME
