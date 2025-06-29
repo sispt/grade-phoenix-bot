@@ -99,6 +99,9 @@ class TelegramBot:
             # Initialize bot application
             self.app = Application.builder().token(CONFIG["TELEGRAM_TOKEN"]).build()
             
+            # Update bot information
+            await self._update_bot_info()
+            
             # Add handlers
             self._add_handlers()
             
@@ -142,6 +145,28 @@ class TelegramBot:
         except Exception as e:
             logger.error(f"❌ Failed to start bot: {e}")
             raise
+    
+    async def _update_bot_info(self):
+        """Update bot name and description"""
+        try:
+            logger.info("🔄 Updating bot information...")
+            
+            # Update bot name
+            await self.app.bot.set_my_name(CONFIG["BOT_NAME"])
+            logger.info(f"✅ Bot name updated to: {CONFIG['BOT_NAME']}")
+            
+            # Update bot description
+            await self.app.bot.set_my_description(CONFIG["BOT_DESCRIPTION"])
+            logger.info(f"✅ Bot description updated")
+            
+            # Update bot short description
+            short_description = "بوت إشعارات الدرجات الجامعية - جامعة الشام"
+            await self.app.bot.set_my_short_description(short_description)
+            logger.info(f"✅ Bot short description updated")
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to update bot info: {e}")
+            # Continue anyway, this is not critical
     
     async def stop(self):
         """Stop the bot"""

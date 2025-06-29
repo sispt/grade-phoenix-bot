@@ -61,12 +61,23 @@ class UniversityAPI:
                         content_type = response.headers.get('Content-Type', '')
                         logger.info(f"DEBUG: Content-Type: {content_type}")
                         
+                        # ALWAYS capture the complete response body for debugging
+                        try:
+                            response_text = await response.text()
+                            logger.info(f"🔍 DEBUG: COMPLETE RESPONSE BODY:")
+                            logger.info(f"🔍 DEBUG: Response length: {len(response_text)} characters")
+                            logger.info(f"🔍 DEBUG: Raw response text (first 2000 chars): {response_text[:2000]}")
+                            if len(response_text) > 2000:
+                                logger.info(f"🔍 DEBUG: Response text (chars 2000-4000): {response_text[2000:4000]}")
+                            if len(response_text) > 4000:
+                                logger.info(f"🔍 DEBUG: Response text (chars 4000-6000): {response_text[4000:6000]}")
+                            logger.info(f"🔍 DEBUG: Full response text: {response_text}")
+                        except Exception as read_error:
+                            logger.error(f"❌ DEBUG: Failed to read response body: {read_error}")
+                            response_text = ""
+                        
                         if response.status == 200:
                             try:
-                                # Get response text first for debugging
-                                response_text = await response.text()
-                                logger.info(f"DEBUG: Raw response text: {response_text[:1000]}")
-                                
                                 # Check if response is JSON
                                 if 'application/json' not in content_type.lower():
                                     logger.error(f"DEBUG: Expected JSON but got {content_type}. Response: {response_text[:500]}")
@@ -98,6 +109,7 @@ class UniversityAPI:
                                     return token
                                 else:
                                     logger.warning(f"❌ Login failed for user: {username} - no token in response")
+                                    logger.warning(f"❌ DEBUG: Response data keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
                                     return None
                             except json.JSONDecodeError as json_error:
                                 logger.error(f"DEBUG: JSON decode error: {json_error}")
@@ -108,20 +120,33 @@ class UniversityAPI:
                                 return None
                         elif response.status == 401:
                             logger.error(f"❌ Login failed for user: {username} - invalid credentials")
+                            logger.error(f"❌ DEBUG: 401 Response body: {response_text}")
                             return None
                         elif response.status == 429:
                             logger.warning(f"⚠️ Rate limited for user {username}, retrying...")
+                            logger.warning(f"⚠️ DEBUG: 429 Response body: {response_text}")
                             if attempt < max_retries - 1:
                                 await asyncio.sleep(2 ** attempt)
                                 continue
                             return None
                         elif response.status == 404:
                             logger.error(f"❌ Login endpoint not found: {self.login_url}")
+                            logger.error(f"❌ DEBUG: 404 Response body: {response_text}")
+                            return None
+                        elif response.status == 403:
+                            logger.error(f"❌ Login forbidden for user: {username}")
+                            logger.error(f"❌ DEBUG: 403 Response body: {response_text}")
+                            return None
+                        elif response.status == 500:
+                            logger.error(f"❌ Server error during login for user: {username}")
+                            logger.error(f"❌ DEBUG: 500 Response body: {response_text}")
+                            if attempt < max_retries - 1:
+                                await asyncio.sleep(2 ** attempt)
+                                continue
                             return None
                         else:
-                            response_text = await response.text()
                             logger.error(f"❌ Login request failed with status: {response.status}")
-                            logger.error(f"DEBUG: Response text: {response_text[:500]}")
+                            logger.error(f"❌ DEBUG: {response.status} Response body: {response_text}")
                             if attempt < max_retries - 1:
                                 await asyncio.sleep(2 ** attempt)
                                 continue

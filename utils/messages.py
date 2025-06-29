@@ -6,7 +6,7 @@ from config import CONFIG
 def get_welcome_message() -> str:
     """Get welcome message"""
     return (
-        "مرحباً بك في بوت إشعارات الدرجات.\n\n"
+        "مرحباً بك في نظام الإشعارات الجامعية.\n\n"
         "سجل دخولك لمتابعة درجاتك.\n\n"
         "المطور: @sisp_t\n"
         "— THE DIE IS CAST · based on beehouse"
@@ -62,6 +62,6 @@ def get_registration_success_message(username: str) -> str:
     return (
         f"تم تسجيل الدخول بنجاح.\n\n"
         f"مرحباً {username}.\n\n"
-        f"يمكنك الآن متابعة درجاتك.\n\n"
+        f"يمكنك الآن متابعة درجاتك في نظام الإشعارات الجامعية.\n\n"
         f"— THE DIE IS CAST · based on beehouse"
     ) 
