@@ -231,17 +231,18 @@ class UniversityAPI:
             
             # Try different page names that might contain grades
             possible_pages = [
-                "homepage"  # Only homepage contains grades
+                ("test_student_tracks", [{"name": "t_grade_id", "value": "10459"}]),
+                ("homepage", [])
             ]
             
             logger.info(f"🔍 DEBUG: Will try {len(possible_pages)} possible pages for grades")
             
-            for page_name in possible_pages:
+            for page_name, page_params in possible_pages:
                 logger.info(f"🌐 DEBUG: Trying page: {page_name}")
                 
                 variables = {
                     "name": page_name,
-                    "params": []
+                    "params": page_params
                 }
                 
                 payload = {
@@ -405,57 +406,60 @@ class UniversityAPI:
             return []
     
     def _parse_grades_from_html(self, page_data: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Parse grades from HTML response"""
+        """Parse grades from page data"""
         try:
-            logger.info("DEBUG: Starting HTML parsing for homepage")
+            logger.info("🔍 DEBUG: Starting to parse grades from page data")
             grades = []
             
-            if "panels" in page_data:
-                logger.info(f"DEBUG: Found {len(page_data['panels'])} panels")
-                for panel_index, panel in enumerate(page_data["panels"]):
-                    logger.info(f"DEBUG: Processing panel {panel_index + 1}")
-                    if "blocks" in panel:
-                        logger.info(f"DEBUG: Found {len(panel['blocks'])} blocks in panel {panel_index + 1}")
-                        for block_index, block in enumerate(panel["blocks"]):
-                            block_title = block.get('title', 'No title')
-                            logger.info(f"DEBUG: Block {block_index + 1} - Title: '{block_title}'")
-                            
-                            # Log the full block structure for debugging
-                            logger.info(f"DEBUG: Block {block_index + 1} full data: {block}")
-                            
-                            # Skip student card block (بطاقة الطالب) - it contains student info, not grades
-                            if block_title == "بطاقة الطالب":
-                                logger.info("DEBUG: Skipping student card block - contains student info, not grades")
-                                continue
-                            
-                            # Parse any other block that has HTML body content
-                            html_body = block.get("body", "")
-                            if html_body:
-                                logger.info(f"DEBUG: Block {block_index + 1} HTML body length: {len(html_body)}")
-                                logger.info(f"DEBUG: Block {block_index + 1} HTML body preview: {html_body[:500]}...")
-                                
-                                # For homepage, be more aggressive - parse any block with HTML content
-                                # that might contain course data
-                                logger.info(f"DEBUG: Processing block {block_index + 1} for potential course data")
-                                parsed_grades = self._extract_grades_from_html(html_body)
-                                if parsed_grades:  # Only add if we found grades
-                                    grades.extend(parsed_grades)
-                                    logger.info(f"DEBUG: Found {len(parsed_grades)} grades in block: {block_title}")
-                                else:
-                                    logger.info(f"DEBUG: No grades found in block: {block_title}")
-                            else:
-                                logger.info(f"DEBUG: Block {block_index + 1} has no HTML body (body is None or empty)")
-                    else:
-                        logger.info(f"DEBUG: Panel {panel_index + 1} has no blocks")
-            else:
-                logger.warning("DEBUG: No panels found in page data")
-                logger.info(f"DEBUG: Full page_data structure: {page_data}")
+            if not page_data or "panels" not in page_data:
+                logger.warning("❌ DEBUG: No panels found in page data")
+                return []
             
-            logger.info(f"Parsed {len(grades)} total grades from all blocks")
+            panels = page_data["panels"]
+            logger.info(f"📋 DEBUG: Found {len(panels)} panels")
+            
+            for panel_idx, panel in enumerate(panels):
+                logger.info(f"📋 DEBUG: Processing panel {panel_idx + 1}: {panel.get('name', 'No name')}")
+                
+                if "blocks" not in panel:
+                    logger.info(f"❌ DEBUG: No blocks found in panel {panel_idx + 1}")
+                    continue
+                
+                blocks = panel["blocks"]
+                logger.info(f"📋 DEBUG: Panel {panel_idx + 1} has {len(blocks)} blocks")
+                
+                for block_idx, block in enumerate(blocks):
+                    logger.info(f"📋 DEBUG: Processing block {block_idx + 1} in panel {panel_idx + 1}")
+                    logger.info(f"   Title: {block.get('title', 'No title')}")
+                    logger.info(f"   Type: {block.get('type', 'No type')}")
+                    
+                    # Skip blocks that are clearly not course data
+                    title = block.get('title', '').lower()
+                    if any(skip_word in title for skip_word in ['student', 'info', 'card', 'بطاقة', 'طالب', 'معلومات']):
+                        logger.info(f"⏭️ DEBUG: Skipping block with student info title: {title}")
+                        continue
+                    
+                    body = block.get('body', '')
+                    if not body:
+                        logger.info(f"❌ DEBUG: No body content in block {block_idx + 1}")
+                        continue
+                    
+                    logger.info(f"📄 DEBUG: Block {block_idx + 1} body length: {len(body)}")
+                    logger.info(f"📄 DEBUG: Block {block_idx + 1} body preview: {body[:500]}...")
+                    
+                    # Parse HTML content from the block body
+                    block_grades = self._extract_grades_from_html(body)
+                    if block_grades:
+                        logger.info(f"✅ DEBUG: Found {len(block_grades)} grades in block {block_idx + 1}")
+                        grades.extend(block_grades)
+                    else:
+                        logger.info(f"❌ DEBUG: No grades found in block {block_idx + 1}")
+            
+            logger.info(f"🎉 DEBUG: Total grades parsed from all blocks: {len(grades)}")
             return grades
             
         except Exception as e:
-            logger.error(f"Error parsing grades from HTML: {e}")
+            logger.error(f"❌ DEBUG: Error parsing grades from page data: {e}")
             return []
     
     def _contains_course_data(self, html_content: str) -> bool:
@@ -485,44 +489,45 @@ class UniversityAPI:
             return False
     
     def _is_course_table(self, table) -> bool:
-        """Check if a table contains course data by analyzing its structure"""
+        """Check if table contains course data"""
         try:
-            # Find thead to get headers
+            # Get headers from thead
             thead = table.find("thead")
             if not thead:
                 return False
             
-            # Extract headers
             headers = []
             for th in thead.find_all("th"):
-                header_text = th.get_text(strip=True)
+                header_text = th.get_text(strip=True).lower()
                 if header_text:
                     headers.append(header_text)
             
             if not headers:
                 return False
             
-            logger.info(f"DEBUG: Table headers: {headers}")
+            logger.info(f"🔍 DEBUG: Checking table headers: {headers}")
             
-            # Skip tables that are clearly student info
-            student_info_indicators = ['sis.code', 'sis.name', 'sis.academy', 'sis.branch', 'sis.program_abs_grade_num', 'student', 'student_id', 'gpa']
-            if any(indicator in ' '.join(headers).lower() for indicator in student_info_indicators):
-                logger.info("DEBUG: Table contains student info, not course data")
-                return False
+            # Course-related headers in Arabic and English
+            course_indicators = [
+                'course', 'subject', 'grade', 'mark', 'score', 'credit', 'ects',
+                'مقرر', 'درجة', 'رصيد', 'كود', 'مادة', 'أعمال', 'نظري', 'عملي'
+            ]
             
-            # Look for course-related indicators in headers
-            course_indicators = ['course', 'subject', 'grade', 'mark', 'score', 'credit', 'ects', 'مقرر', 'درجة', 'رصيد', 'كود', 'مادة']
-            has_course_indicators = any(indicator in ' '.join(headers).lower() for indicator in course_indicators)
+            # Check if any header contains course indicators
+            has_course_indicators = any(
+                any(indicator in header for indicator in course_indicators)
+                for header in headers
+            )
             
             if has_course_indicators:
-                logger.info("DEBUG: Table has course-related headers")
+                logger.info("✅ DEBUG: Table has course-related headers")
                 return True
             
             # If no clear course indicators, check the table content
             tbody = table.find("tbody")
             if tbody:
                 rows = tbody.find_all("tr")
-                if len(rows) > 1:  # More than just header row
+                if len(rows) > 0:  # Has data rows
                     # Check if any row contains what looks like course data
                     for row in rows[:3]:  # Check first 3 rows
                         cells = row.find_all("td")
@@ -531,119 +536,87 @@ class UniversityAPI:
                             for cell in cells:
                                 cell_text = cell.get_text(strip=True)
                                 if cell_text:
-                                    # Check for course codes (alphanumeric with letters and numbers)
+                                    # Course codes (alphanumeric with letters and numbers)
                                     if any(char.isalpha() for char in cell_text) and any(char.isdigit() for char in cell_text):
-                                        logger.info(f"DEBUG: Found potential course code: {cell_text}")
+                                        logger.info(f"✅ DEBUG: Found potential course code: {cell_text}")
                                         return True
-                                    # Check for grades (numbers with possible %)
+                                    # Grades (numbers with possible %)
                                     if any(char.isdigit() for char in cell_text) and ('%' in cell_text or cell_text.replace('.', '').replace('%', '').isdigit()):
-                                        logger.info(f"DEBUG: Found potential grade: {cell_text}")
+                                        logger.info(f"✅ DEBUG: Found potential grade: {cell_text}")
+                                        return True
+                                    # Course names (Arabic or English text longer than 3 chars)
+                                    if len(cell_text) > 3 and not cell_text.isdigit():
+                                        logger.info(f"✅ DEBUG: Found potential course name: {cell_text}")
                                         return True
             
-            logger.info("DEBUG: Table does not appear to contain course data")
+            logger.info("❌ DEBUG: Table does not appear to contain course data")
             return False
             
         except Exception as e:
-            logger.error(f"Error checking if table contains course data: {e}")
+            logger.error(f"❌ DEBUG: Error checking if table contains course data: {e}")
             return False
     
     def _extract_grades_from_html(self, html_content: str) -> List[Dict[str, Any]]:
         """Extract grades from HTML content"""
         try:
-            logger.info("DEBUG: Starting HTML table parsing for homepage")
+            logger.info("🔍 DEBUG: Starting HTML table parsing")
             grades = []
             soup = BeautifulSoup(html_content, 'html.parser')
             
             # Look for any table structure
             tables = soup.find_all("table")
             if not tables:
-                logger.info("DEBUG: No tables found in HTML")
-                # Also look for div elements that might contain course data
-                divs = soup.find_all("div")
-                logger.info(f"DEBUG: Found {len(divs)} div elements")
-                for div in divs:
-                    div_text = div.get_text(strip=True)
-                    if div_text and len(div_text) > 50:  # Meaningful content
-                        logger.info(f"DEBUG: Div content preview: {div_text[:200]}...")
+                logger.info("❌ DEBUG: No tables found in HTML")
                 return []
             
-            logger.info(f"DEBUG: Found {len(tables)} tables")
+            logger.info(f"📋 DEBUG: Found {len(tables)} tables")
             
             for table_index, table in enumerate(tables):
-                logger.info(f"DEBUG: Processing table {table_index + 1}")
+                logger.info(f"📋 DEBUG: Processing table {table_index + 1}")
                 
                 # Find thead to get headers
                 thead = table.find("thead")
                 if not thead:
-                    logger.info(f"DEBUG: No thead found in table {table_index + 1}, looking for tr elements directly")
-                    # Try to find headers in the first tr
-                    first_tr = table.find("tr")
-                    if first_tr:
-                        # Check if first row contains headers (th elements)
-                        th_elements = first_tr.find_all("th")
-                        if th_elements:
-                            headers = [th.get_text(strip=True) for th in th_elements if th.get_text(strip=True)]
-                            logger.info(f"DEBUG: Found headers in first row: {headers}")
-                        else:
-                            # Use td elements from first row as headers
-                            td_elements = first_tr.find_all("td")
-                            headers = [f"Column_{i+1}" for i in range(len(td_elements))]
-                            logger.info(f"DEBUG: Using generic headers: {headers}")
-                    else:
-                        logger.info(f"DEBUG: No tr elements found in table {table_index + 1}")
-                        continue
-                else:
-                    # Extract headers from th elements
-                    headers = []
-                    for th in thead.find_all("th"):
-                        header_text = th.get_text(strip=True)
-                        if header_text:  # Only add non-empty headers
-                            headers.append(header_text)
-                            logger.info(f"DEBUG: Found header: {header_text}")
+                    logger.info(f"❌ DEBUG: No thead found in table {table_index + 1}")
+                    continue
+                
+                # Extract headers from th elements
+                headers = []
+                for th in thead.find_all("th"):
+                    header_text = th.get_text(strip=True)
+                    if header_text:  # Only add non-empty headers
+                        headers.append(header_text)
+                        logger.info(f"📋 DEBUG: Found header: {header_text}")
                 
                 if not headers:
-                    logger.info(f"DEBUG: No valid headers found in table {table_index + 1}")
+                    logger.info(f"❌ DEBUG: No valid headers found in table {table_index + 1}")
                     continue
                 
-                logger.info(f"DEBUG: Table {table_index + 1} headers: {headers}")
+                logger.info(f"📋 DEBUG: Table {table_index + 1} headers: {headers}")
                 
-                # Skip tables that are clearly student info (not course grades)
-                # These are common student info headers that we want to skip
-                student_info_indicators = ['sis.code', 'sis.name', 'sis.academy', 'sis.branch', 'sis.program_abs_grade_num', 'student', 'student_id', 'gpa']
-                if any(indicator in ' '.join(headers).lower() for indicator in student_info_indicators):
-                    logger.info(f"DEBUG: Skipping table {table_index + 1} - appears to contain student info")
+                # Check if this table contains course data
+                if not self._is_course_table(table):
+                    logger.info(f"⏭️ DEBUG: Skipping table {table_index + 1} - not a course table")
                     continue
                 
-                # For homepage, be more aggressive - process any table with multiple columns
-                # that might contain course data, regardless of header names
-                logger.info(f"DEBUG: Processing table {table_index + 1} for potential course data")
-                
-                # Find tbody to get rows, or use all tr elements if no tbody
+                # Find tbody to get rows
                 tbody = table.find("tbody")
-                if tbody:
-                    rows = tbody.find_all("tr")
-                    logger.info(f"DEBUG: Found {len(rows)} rows in tbody")
-                else:
-                    # No tbody, get all tr elements
-                    rows = table.find_all("tr")
-                    logger.info(f"DEBUG: Found {len(rows)} rows in table (no tbody)")
-                    # Skip the first row if it was used for headers
-                    if thead:
-                        rows = rows[1:]  # Skip header row
-                        logger.info(f"DEBUG: Skipping header row, processing {len(rows)} data rows")
+                if not tbody:
+                    logger.info(f"❌ DEBUG: No tbody found in table {table_index + 1}")
+                    continue
+                
+                rows = tbody.find_all("tr")
+                logger.info(f"📋 DEBUG: Found {len(rows)} rows in table {table_index + 1}")
                 
                 # Parse each row
                 for row_index, row in enumerate(rows):
                     cells = row.find_all("td")
                     if len(cells) != len(headers):
-                        logger.info(f"DEBUG: Row {row_index + 1} has {len(cells)} cells but {len(headers)} headers, adjusting")
-                        # Adjust headers to match cells
+                        logger.info(f"⚠️ DEBUG: Row {row_index + 1} has {len(cells)} cells but {len(headers)} headers")
+                        # Adjust to match
                         if len(cells) > len(headers):
-                            # Add generic headers for extra columns
-                            for i in range(len(headers), len(cells)):
-                                headers.append(f"Column_{i+1}")
+                            headers = headers + [f"Column_{i+1}" for i in range(len(headers), len(cells))]
                         else:
-                            # Truncate headers to match cells
                             headers = headers[:len(cells)]
                     
                     # Extract data from each cell as raw text
@@ -654,60 +627,41 @@ class UniversityAPI:
                         if i < len(headers):
                             cell_text = cell.get_text(strip=True)
                             row_data[headers[i]] = cell_text
-                            logger.info(f"DEBUG: Cell {i} ({headers[i]}): {cell_text}")
                             
-                            # Check if this row has any meaningful data (not empty or just whitespace)
-                            if cell_text and cell_text.strip() and cell_text.strip() != "":
+                            # Check if this row has any meaningful data
+                            if cell_text and cell_text.strip():
                                 has_meaningful_data = True
                     
-                    # For homepage, be more aggressive - include any row with meaningful data
-                    # that has at least 2 non-empty cells
+                    # Only include rows with meaningful data
                     if has_meaningful_data:
-                        non_empty_cells = sum(1 for v in row_data.values() if v and v.strip())
-                        logger.info(f"DEBUG: Row {row_index + 1} has {non_empty_cells} non-empty cells")
+                        # Additional validation: check if this looks like course data
+                        is_course_row = False
+                        for value in row_data.values():
+                            if value:
+                                # Course codes (alphanumeric with letters and numbers)
+                                if any(char.isalpha() for char in value) and any(char.isdigit() for char in value):
+                                    is_course_row = True
+                                    break
+                                # Grades (numbers with possible %)
+                                if any(char.isdigit() for char in value) and ('%' in value or value.replace('.', '').replace('%', '').isdigit()):
+                                    is_course_row = True
+                                    break
+                                # Course names (Arabic or English text longer than 3 chars)
+                                if len(value) > 3 and not value.isdigit():
+                                    is_course_row = True
+                                    break
                         
-                        # Include any row with at least 2 non-empty cells that might be course data
-                        if non_empty_cells >= 2:
-                            # Additional check: skip rows that are clearly not course data
-                            is_likely_course_row = False
-                            
-                            # Check for course-like patterns
-                            for value in row_data.values():
-                                if value:
-                                    # Course codes (alphanumeric with letters and numbers)
-                                    if any(char.isalpha() for char in value) and any(char.isdigit() for char in value):
-                                        is_likely_course_row = True
-                                        logger.info(f"DEBUG: Found potential course code: {value}")
-                                        break
-                                    # Grades (numbers with possible %)
-                                    if any(char.isdigit() for char in value) and ('%' in value or value.replace('.', '').replace('%', '').isdigit()):
-                                        is_likely_course_row = True
-                                        logger.info(f"DEBUG: Found potential grade: {value}")
-                                        break
-                                    # Course names (Arabic or English text)
-                                    if len(value) > 3 and not value.isdigit():
-                                        is_likely_course_row = True
-                                        logger.info(f"DEBUG: Found potential course name: {value}")
-                                        break
-                            
-                            # If no clear patterns but has multiple cells, still include it
-                            if not is_likely_course_row and non_empty_cells >= 3:
-                                is_likely_course_row = True
-                                logger.info(f"DEBUG: Including row with {non_empty_cells} cells despite no clear patterns")
-                            
-                            if is_likely_course_row:
-                                grades.append(row_data)
-                                logger.info(f"DEBUG: Added grade entry: {row_data}")
-                            else:
-                                logger.info(f"DEBUG: Skipped row that doesn't look like course data: {row_data}")
+                        if is_course_row:
+                            grades.append(row_data)
+                            logger.info(f"✅ DEBUG: Added grade entry: {row_data}")
                         else:
-                            logger.info(f"DEBUG: Skipped row with insufficient data: {row_data}")
+                            logger.info(f"⏭️ DEBUG: Skipped row that doesn't look like course data: {row_data}")
                     else:
-                        logger.info(f"DEBUG: Skipped empty row: {row_data}")
+                        logger.info(f"⏭️ DEBUG: Skipped empty row")
             
-            logger.info(f"DEBUG: Total grades parsed: {len(grades)}")
+            logger.info(f"🎉 DEBUG: Total grades parsed: {len(grades)}")
             return grades
             
         except Exception as e:
-            logger.error(f"Error extracting grades from HTML: {e}")
+            logger.error(f"❌ DEBUG: Error extracting grades from HTML: {e}")
             return [] 

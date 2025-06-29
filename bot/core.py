@@ -57,15 +57,20 @@ class TelegramBot:
             if CONFIG.get("USE_POSTGRESQL", False):
                 # Use PostgreSQL
                 logger.info("🗄️ Initializing PostgreSQL storage...")
-                self.db_manager = DatabaseManager(CONFIG["DATABASE_URL"])
-                
-                # Test database connection
-                if self.db_manager.test_connection():
-                    self.user_storage = PostgreSQLUserStorage(self.db_manager)
-                    self.grade_storage = PostgreSQLGradeStorage(self.db_manager)
-                    logger.info("✅ PostgreSQL storage initialized successfully")
-                else:
-                    logger.error("❌ PostgreSQL connection failed, falling back to file storage")
+                try:
+                    self.db_manager = DatabaseManager(CONFIG["DATABASE_URL"])
+                    
+                    # Test database connection
+                    if self.db_manager.test_connection():
+                        self.user_storage = PostgreSQLUserStorage(self.db_manager)
+                        self.grade_storage = PostgreSQLGradeStorage(self.db_manager)
+                        logger.info("✅ PostgreSQL storage initialized successfully")
+                    else:
+                        logger.error("❌ PostgreSQL connection failed, falling back to file storage")
+                        self._initialize_file_storage()
+                except Exception as e:
+                    logger.error(f"❌ PostgreSQL initialization failed: {e}")
+                    logger.info("🔄 Falling back to file-based storage...")
                     self._initialize_file_storage()
             else:
                 # Use file-based storage
@@ -366,7 +371,9 @@ class TelegramBot:
             except Exception as save_error:
                 logger.error(f"DEBUG: Failed to save user data: {save_error}")
                 # If PostgreSQL fails, try to fall back to file storage
-                if "NumericValueOutOfRange" in str(save_error) or "integer out of range" in str(save_error):
+                if ("NumericValueOutOfRange" in str(save_error) or 
+                    "integer out of range" in str(save_error) or
+                    "psycopg2.errors.NumericValueOutOfRange" in str(save_error)):
                     logger.info("DEBUG: PostgreSQL integer overflow detected, falling back to file storage")
                     try:
                         # Initialize file storage as fallback
@@ -394,7 +401,11 @@ class TelegramBot:
             except Exception as grade_error:
                 logger.error(f"DEBUG: Failed to save grades: {grade_error}")
                 # If PostgreSQL fails, grades should already be saved with file storage above
-                if "NumericValueOutOfRange" not in str(grade_error) and "integer out of range" not in str(grade_error):
+                if not any(error_type in str(grade_error) for error_type in [
+                    "NumericValueOutOfRange", 
+                    "integer out of range", 
+                    "psycopg2.errors.NumericValueOutOfRange"
+                ]):
                     raise
             
             logger.info(f"DEBUG: Registration completed successfully for user {username}")

@@ -58,14 +58,15 @@ CONFIG = {
     
     # API Headers
     "API_HEADERS": {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json, text/plain, */*",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "gzip, deflate",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+        "Accept": "*/*",
+        "Accept-Language": "ar-SA,ar;q=0.9,en;q=0.8",
+        "Accept-Encoding": "gzip, deflate, br, zstd",
         "Referer": "https://staging.sis.shamuniversity.com/",
         "Origin": "https://staging.sis.shamuniversity.com",
         "Connection": "keep-alive",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "x-lang": "ar"
     },
     
     # Timezone
