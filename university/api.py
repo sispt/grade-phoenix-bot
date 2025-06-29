@@ -39,14 +39,14 @@ class UniversityAPI:
                             login(username: $username, password: $password)
                         }
                     """
-                }
-                
-                async with aiohttp.ClientSession(timeout=self.timeout) as session:
-                    async with session.post(
+            }
+            
+            async with aiohttp.ClientSession(timeout=self.timeout) as session:
+                async with session.post(
                         self.login_url,
                         headers=self.api_headers,
-                        json=payload
-                    ) as response:
+                    json=payload
+                ) as response:
                         logger.info(f"DEBUG: Login response status: {response.status}")
                         
                         if response.status == 200:
@@ -55,35 +55,35 @@ class UniversityAPI:
                             
                             token = data.get("data", {}).get("login")
                             if token:
-                                logger.info(f"Login successful for user: {username}")
-                                return token
-                            else:
+                            logger.info(f"Login successful for user: {username}")
+                            return token
+                        else:
                                 logger.warning(f"Login failed for user: {username} - no token in response")
                                 return None
                         elif response.status == 401:
                             logger.error(f"Login failed for user: {username} - invalid credentials")
                             return None
-                        else:
-                            logger.error(f"Login request failed with status: {response.status}")
+                    else:
+                        logger.error(f"Login request failed with status: {response.status}")
                             if attempt < max_retries - 1:
                                 await asyncio.sleep(2 ** attempt)  # Exponential backoff
                                 continue
-                            return None
-                            
+                        return None
+                        
             except asyncio.TimeoutError:
                 logger.error(f"Login timeout for user {username} (attempt {attempt + 1})")
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2 ** attempt)
                     continue
                 return None
-            except Exception as e:
+        except Exception as e:
                 logger.error(f"Error during login for user {username} (attempt {attempt + 1}): {e}")
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2 ** attempt)
                     continue
                 return None
         
-        return None
+            return None
     
     async def test_token(self, token: str) -> bool:
         """Test if token is still valid"""
@@ -216,7 +216,7 @@ class UniversityAPI:
             logger.info(f"🔍 DEBUG: Starting grade fetch with token...")
             
             # Use the correct GraphQL endpoint and query
-            graphql_url = "https://api.sis.shamuniversity.com/portal/graphql"
+            graphql_url = "https://staging.sis.shamuniversity.com/portal/graphql"
             
             # GraphQL query for test_student_tracks
             grades_query = """
@@ -286,8 +286,8 @@ class UniversityAPI:
                             logger.error(f"❌ DEBUG: Error response: {error_text}")
                         except:
                             logger.error(f"❌ DEBUG: Could not read error response")
-                        return []
-                        
+                    return []
+                    
         except Exception as e:
             logger.error(f"❌ DEBUG: Error getting grades from GraphQL: {e}")
             return []

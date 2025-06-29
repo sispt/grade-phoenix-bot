@@ -324,17 +324,11 @@ class TelegramBot:
             if not token:
                 logger.warning(f"DEBUG: Login failed for user {username}")
                 await self._edit_message_no_keyboard(loading_message, 
-                    "🔐 **تأكد من بياناتك**\n\n"
-                    "يرجى التحقق من اسم المستخدم وكلمة المرور.\n\n"
-                    "💡 **الحل:**\n"
-                    "• اضغط على '🔄 إعادة تسجيل الدخول'\n"
-                    "• أدخل بياناتك مرة أخرى\n\n"
-                    "🤝 **نحن هنا لمساعدتك**",
-                    reply_markup=get_main_keyboard_with_relogin()
+                    "فشل تسجيل الدخول. تحقق من بياناتك.\n— THE DIE IS CAST · based on beehouse"
                 )
                 await self._send_message_with_keyboard(
                     update,
-                    "🔄 اضغط على '🚀 تسجيل الدخول' للمحاولة مرة أخرى",
+                    "اضغط '🚀 تسجيل الدخول' للمحاولة مرة أخرى",
                     "main"
                 )
                 return ConversationHandler.END
@@ -413,14 +407,14 @@ class TelegramBot:
             # Registration successful
             logger.info(f"DEBUG: Registration successful for user {username}")
             await self._edit_message_no_keyboard(loading_message, 
-                f"✅ تم تسجيل الدخول بنجاح.\n\n"
+                f"تم تسجيل الدخول بنجاح.\n\n"
                 f"مرحباً {username}.\n\n"
-                f"يمكنك الآن متابعة درجاتك الأكاديمية.\n\n"
+                f"يمكنك الآن متابعة درجاتك.\n\n"
                 f"— THE DIE IS CAST · based on beehouse"
             )
             # Send keyboard in a separate message
             await update.message.reply_text(
-                "تم التسجيل. يمكنك استخدام القائمة الرئيسية.",
+                "تم التسجيل. استخدم القائمة الرئيسية.",
                 reply_markup=get_main_keyboard()
             )
             return ConversationHandler.END
@@ -428,14 +422,11 @@ class TelegramBot:
         except Exception as e:
             logger.error(f"DEBUG: Network error during login: {e}")
             await self._edit_message_no_keyboard(loading_message, 
-                "🌐 **تحقق من الاتصال**\n\n"
-                "تأكد من اتصال الإنترنت وحاول مرة أخرى.\n\n"
-                "💡 **يمكنك المحاولة بعد قليل**\n\n"
-                "🤝 **سنكون هنا عندما تعود**"
+                "خطأ في الاتصال. حاول لاحقاً.\n— THE DIE IS CAST · based on beehouse"
             )
             await self._send_message_with_keyboard(
                 update,
-                "🔄 اضغط على '🚀 تسجيل الدخول' للمحاولة مرة أخرى",
+                "اضغط '🚀 تسجيل الدخول' للمحاولة مرة أخرى",
                 "main"
             )
             return ConversationHandler.END
@@ -443,7 +434,7 @@ class TelegramBot:
     async def _cancel_registration(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Cancel registration"""
         await update.message.reply_text(
-            "تم إلغاء العملية. يمكنك البدء مجددًا في أي وقت.\n— THE DIE IS CAST · based on beehouse",
+            "تم إلغاء العملية. يمكنك المحاولة مرة أخرى.\n— THE DIE IS CAST · based on beehouse",
             reply_markup=get_main_keyboard()
         )
         return ConversationHandler.END
@@ -453,7 +444,7 @@ class TelegramBot:
         telegram_id = update.effective_user.id
         if not self.user_storage.is_user_registered(telegram_id):
             await update.message.reply_text(
-                "يرجى تسجيل الدخول أولاً من القائمة الرئيسية.\n— THE DIE IS CAST · based on beehouse",
+                "سجل دخولك أولاً.\n— THE DIE IS CAST · based on beehouse",
                 reply_markup=get_main_keyboard()
             )
             return
@@ -463,7 +454,7 @@ class TelegramBot:
             session = self.user_storage.get_user_session(telegram_id)
             if not session:
                 await loading_message.edit_text(
-                    "انتهت الجلسة. سجل الدخول مجددًا.\n— THE DIE IS CAST · based on beehouse",
+                    "انتهت الجلسة. سجل دخولك مجدداً.\n— THE DIE IS CAST · based on beehouse",
                     reply_markup=get_main_keyboard()
                 )
                 return
@@ -471,7 +462,7 @@ class TelegramBot:
             username = session.get("username")
             if not token:
                 await loading_message.edit_text(
-                    "انتهت الجلسة. سجل الدخول مجددًا.\n— THE DIE IS CAST · based on beehouse",
+                    "انتهت الجلسة. سجل دخولك مجدداً.\n— THE DIE IS CAST · based on beehouse",
                     reply_markup=get_main_keyboard()
                 )
                 return
@@ -480,7 +471,7 @@ class TelegramBot:
                 password = session.get("password")
                 if not password:
                     await loading_message.edit_text(
-                        "تعذر تسجيل الدخول. تحقق من بياناتك.\n— THE DIE IS CAST · based on beehouse",
+                        "فشل تسجيل الدخول. تحقق من بياناتك.\n— THE DIE IS CAST · based on beehouse",
                         reply_markup=get_main_keyboard_with_relogin()
                     )
                     return
@@ -491,7 +482,7 @@ class TelegramBot:
                 else:
                     self.user_storage.invalidate_user_session(telegram_id)
                     await loading_message.edit_text(
-                        "تعذر تسجيل الدخول. تحقق من بياناتك.\n— THE DIE IS CAST · based on beehouse",
+                        "فشل تسجيل الدخول. تحقق من بياناتك.\n— THE DIE IS CAST · based on beehouse",
                         reply_markup=get_main_keyboard_with_relogin()
                     )
                     return
@@ -504,7 +495,7 @@ class TelegramBot:
                     self.grade_storage.save_grades(telegram_id, grades)
                     if grades:
                         message = "\n".join([
-                            "📊 نتائجك الحالية:",
+                            "نتائجك الحالية:",
                             *[
                                 f"{i}. {g.get('المقرر', 'غير محدد')} | {g.get('الدرجة', 'غير متاح')}"
                                 for i, g in enumerate(grades, 1)
@@ -512,15 +503,15 @@ class TelegramBot:
                             f"— THE DIE IS CAST · based on beehouse"
                         ])
                     else:
-                        message = "لا توجد بيانات درجات متاحة حاليًا.\n— THE DIE IS CAST · based on beehouse"
+                        message = "لا توجد درجات متاحة حالياً.\n— THE DIE IS CAST · based on beehouse"
                 else:
-                    message = "تعذر جلب البيانات. حاول لاحقًا.\n— THE DIE IS CAST · based on beehouse"
+                    message = "تعذر جلب البيانات. حاول لاحقاً.\n— THE DIE IS CAST · based on beehouse"
             else:
-                message = "تعذر تسجيل الدخول. تحقق من بياناتك.\n— THE DIE IS CAST · based on beehouse"
+                message = "فشل تسجيل الدخول. تحقق من بياناتك.\n— THE DIE IS CAST · based on beehouse"
             await loading_message.edit_text(message, reply_markup=get_main_keyboard())
         except Exception as e:
             await update.message.reply_text(
-                "النظام غير متاح مؤقتًا. حاول لاحقًا.\n— THE DIE IS CAST · based on beehouse",
+                "النظام غير متاح. حاول لاحقاً.\n— THE DIE IS CAST · based on beehouse",
                 reply_markup=get_main_keyboard()
             )
     
