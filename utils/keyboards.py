@@ -1,81 +1,38 @@
 """
-⌨️ Keyboard Layouts
+⌨️ Custom Keyboards
 """
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
-from config import CONFIG
+from telegram import ReplyKeyboardMarkup
 
-def get_main_keyboard():
-    """Returns the main keyboard layout for the bot."""
+def get_main_keyboard() -> ReplyKeyboardMarkup:
+    """Returns the main keyboard layout."""
     keyboard = [
-        [
-            KeyboardButton("🚀 تسجيل الدخول"),
-            KeyboardButton("📊 فحص الدرجات")
-        ],
-        [
-            KeyboardButton("👤 معلوماتي"),
-            KeyboardButton("⚙️ الإعدادات")
-        ],
-        [
-            KeyboardButton("❓ المساعدة"),
-            KeyboardButton("📞 الدعم")
-        ]
+        ["📊 فحص الدرجات", "❓ المساعدة"],
+        ["👤 معلوماتي", "⚙️ الإعدادات"],
+        ["📞 الدعم", "🎛️ لوحة التحكم"]
     ]
-    
-    # Add admin keyboard if user is admin
-    if CONFIG.get("ADMIN_ID"):
-        keyboard.append([KeyboardButton("🎛️ لوحة التحكم")])
-    
+    # Key: resize_keyboard=True makes it fit the screen better.
+    # Key: one_time_keyboard=False makes it persistent.
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
-def get_main_keyboard_with_relogin():
-    """Get main keyboard with re-login option for users with expired sessions"""
+def get_main_keyboard_with_relogin() -> ReplyKeyboardMarkup:
+    """Returns the main keyboard with a 'relogin' option (e.g., when token expires)."""
     keyboard = [
-        [
-            KeyboardButton("🚀 تسجيل الدخول"),
-            KeyboardButton("📊 فحص الدرجات")
-        ],
-        [
-            KeyboardButton("🔄 إعادة تسجيل الدخول"),
-            KeyboardButton("👤 معلوماتي")
-        ],
-        [
-            KeyboardButton("⚙️ الإعدادات"),
-            KeyboardButton("❓ المساعدة")
-        ],
-        [
-            KeyboardButton("📞 الدعم")
-        ]
+        ["🚀 تسجيل الدخول", "📊 فحص الدرجات"], # Added explicit "Register" button
+        ["👤 معلوماتي", "⚙️ الإعدادات"],
+        ["📞 الدعم", "🎛️ لوحة التحكم"]
     ]
-    
-    # Add admin keyboard if user is admin
-    if CONFIG.get("ADMIN_ID"):
-        keyboard.append([KeyboardButton("🎛️ لوحة التحكم")])
-    
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
-def get_admin_keyboard():
-    """Get admin keyboard"""
+def get_admin_keyboard() -> ReplyKeyboardMarkup:
+    """Returns the admin keyboard layout."""
     keyboard = [
-        [
-            InlineKeyboardButton("📊 إحصائيات مفصلة", callback_data="admin_stats"),
-            InlineKeyboardButton("👥 إدارة المستخدمين", callback_data="admin_users")
-        ],
-        [
-            InlineKeyboardButton("🔔 إشعار عام", callback_data="admin_broadcast"),
-            InlineKeyboardButton("🔄 فحص جميع الدرجات", callback_data="admin_check_grades")
-        ],
-        [
-            InlineKeyboardButton("💾 نسخة احتياطية", callback_data="admin_backup"),
-            InlineKeyboardButton("⚙️ الإعدادات", callback_data="admin_settings")
-        ],
-        [
-            InlineKeyboardButton("🔙 العودة", callback_data="admin_dashboard")
-        ]
+        ["📊 إحصائيات", "👥 إدارة المستخدمين"],
+        ["🔔 إشعار عام", "⚙️ حالة الخادم"], # Changed button text to match dashboard
+        ["🔙 العودة"]
     ]
-    
-    return InlineKeyboardMarkup(keyboard)
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
-def get_cancel_keyboard():
-    """Get cancel keyboard"""
-    keyboard = [[KeyboardButton("❌ إلغاء")]]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True) 
+def get_cancel_keyboard() -> ReplyKeyboardMarkup:
+    """Returns a simple keyboard with a cancel button for conversations."""
+    keyboard = [["❌ إلغاء"]]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True) # One-time so it disappears after cancel

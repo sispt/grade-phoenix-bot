@@ -83,7 +83,9 @@ class UniversityAPI:
     async def _get_grades(self, token: str) -> List[Dict[str, Any]]:
         logger.info("🔍 DEBUG: Starting direct grade fetch with hardcoded known term IDs...")
         all_grades = []
-        known_term_ids = ["10459", "8530"] 
+        known_term_ids = ["10459"] 
+        # 1st term 2024-2025: 8530
+        # 2nd term 2024-2025: 10459
         for term_id in known_term_ids:
             logger.info(f"📊 DEBUG: Directly fetching grades for known term ID: {term_id}")
             term_grades = await self._get_term_grades(token, term_id)
