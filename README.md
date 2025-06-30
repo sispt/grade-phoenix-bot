@@ -105,8 +105,8 @@ Set these in your Railway/Heroku/OS environment:
 ---
 
 ## Credits | المطور
-- Developed by: {CONFIG['ADMIN_NAME']}
-- Contact: {CONFIG['ADMIN_EMAIL']} | Telegram: {CONFIG['ADMIN_USERNAME']}
+- Developed by: Abdulrahman Abdulkader
+- Contact: abdulrahmanabdulkader59@gmail.com | Telegram: @sisp_t
 
 ---
 
