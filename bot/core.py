@@ -5,7 +5,7 @@
 """
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters,
@@ -139,21 +139,9 @@ class TelegramBot:
         except Exception: pass 
 
     async def _start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if self.user_storage.is_user_registered(update.effective_user.id):
-            await self._send_message_with_keyboard(update, (
-                "مرحباً بك مجدداً في نظام إشعارات الدرجات الجامعية!\n\n"
-                "يمكنك استخدام الأزرار أدناه لفحص درجاتك، تعديل الإعدادات، أو طلب الدعم.\n\n"
-                "- لفحص الدرجات: اضغط على '📊 فحص الدرجات'\n"
-                "- لتعديل الإعدادات: اضغط على '⚙️ الإعدادات'\n"
-                "- للمساعدة: اضغط على '❓ المساعدة'\n"
-                "- للدعم الفني: اضغط على '📞 الدعم'\n"
-            ), "main")
-        else:
-            await self._send_message_with_keyboard(update, (
-                "مرحباً بك في نظام إشعارات الدرجات الجامعية!\n\n"
-                "للبدء، اضغط على زر '🚀 تسجيل الدخول' أدناه وأدخل بياناتك الجامعية.\n\n"
-                "إذا احتجت للمساعدة، اضغط على '❓ المساعدة' أو تواصل مع الدعم."
-            ), "unregistered")
+        user = self.user_storage.get_user(update.effective_user.id)
+        fullname = user.get('fullname') if user else None
+        await self._send_message_with_keyboard(update, get_welcome_message(fullname), "main" if user else "unregistered")
 
     async def _help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
@@ -173,7 +161,7 @@ class TelegramBot:
     async def _grades_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             # ... existing grade fetching logic ...
-            pass # placeholder for actual logic
+            await update.message.reply_text("📚 سيتم عرض الدرجات هنا قريبًا.")
         except Exception as e:
             await update.message.reply_text(
                 "عذراً، حدث خطأ أثناء جلب الدرجات. يرجى المحاولة لاحقاً أو التواصل مع الدعم الفني."
@@ -181,16 +169,25 @@ class TelegramBot:
             logger.error(f"Error in _grades_command: {e}", exc_info=True)
 
     async def _profile_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        # ... existing profile command implementation ...
-        pass
+        try:
+            await update.message.reply_text("👤 سيتم عرض معلوماتك هنا قريبًا.")
+        except Exception as e:
+            await update.message.reply_text("عذراً، حدث خطأ أثناء عرض المعلومات.")
+            logger.error(f"Error in _profile_command: {e}", exc_info=True)
 
     async def _settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        # ... existing settings command implementation ...
-        pass
+        try:
+            await update.message.reply_text("⚙️ سيتم عرض الإعدادات هنا قريبًا.")
+        except Exception as e:
+            await update.message.reply_text("عذراً، حدث خطأ أثناء عرض الإعدادات.")
+            logger.error(f"Error in _settings_command: {e}", exc_info=True)
 
     async def _support_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        # ... existing support command implementation ...
-        pass
+        try:
+            await update.message.reply_text("📞 للدعم الفني تواصل مع المطور: " + str(CONFIG.get("ADMIN_USERNAME", "@admin")))
+        except Exception as e:
+            await update.message.reply_text("عذراً، حدث خطأ أثناء عرض الدعم.")
+            logger.error(f"Error in _support_command: {e}", exc_info=True)
 
     async def _admin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         # The admin command should send the *inline* keyboard via the dashboard.
@@ -254,70 +251,101 @@ class TelegramBot:
     async def _notify_all_users_grades(self):
         users = self.user_storage.get_all_users()
         notified_count = 0
+        semaphore = asyncio.Semaphore(CONFIG.get('MAX_CONCURRENT_REQUESTS', 5))
+        tasks = []
+        results = []
+
+        async def check_user(user):
+            async with semaphore:
+                try:
+                    return await self._check_and_notify_user_grades(user)
+                except Exception as e:
+                    logger.error(f"❌ Error in parallel grade check for user {user.get('username', 'Unknown')}: {e}", exc_info=True)
+                    return False
+
         for user in users:
-            try:
-                changed = await self._check_and_notify_user_grades(user)
-                if changed:
-                    notified_count += 1
-            except Exception as e:
-                logger.error(f"❌ Error checking grades for user {user.get('username', 'Unknown')}: {e}", exc_info=True)
+            tasks.append(asyncio.create_task(check_user(user)))
+        if tasks:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            notified_count = sum(1 for r in results if r is True)
         return notified_count
 
     async def _check_and_notify_user_grades(self, user):
-        telegram_id = user.get("telegram_id")
-        username = user.get("username")
-        token = user.get("token")
-        password = user.get("password")
-        if not token:
-            return False
-        # Re-authenticate if needed
-        if not await self.university_api.test_token(token):
-            if not password:
-                return False
-            logger.info(f"🔄 Token expired for {username}. Re-authenticating...")
-            token = await self.university_api.login(username, password)
+        try:
+            telegram_id = user.get("telegram_id")
+            username = user.get("username")
+            token = user.get("token")
+            password = user.get("password")
             if not token:
-                logger.warning(f"❌ Re-authentication failed for {username}.")
                 return False
-            self.user_storage.update_user_token(telegram_id, token)
-        user_data = await self.university_api.get_user_data(token)
-        if not user_data or "grades" not in user_data:
-            logger.info(f"No grade data available for {username} in this check.")
-            return False
-        new_grades = user_data.get("grades", [])
-        old_grades = self.grade_storage.get_grades(telegram_id)
-        changed_courses = self._compare_grades(old_grades, new_grades)
-        if changed_courses:
-            logger.info(f"🔄 Found {len(changed_courses)} grade changes for user {username}. Sending notification.")
-            message = self._build_grade_update_message(changed_courses)
-            await self.app.bot.send_message(chat_id=telegram_id, text=message, parse_mode='Markdown')
-            self.grade_storage.save_grades(telegram_id, new_grades)
-            return True
-        else:
-            # Always update the grades in DB, even if not changed
-            self.grade_storage.save_grades(telegram_id, new_grades)
+            # Re-authenticate if needed
+            if not await self.university_api.test_token(token):
+                if not password:
+                    return False
+                logger.info(f"🔄 Token expired for {username}. Re-authenticating...")
+                token = await self.university_api.login(username, password)
+                if not token:
+                    logger.warning(f"❌ Re-authentication failed for {username}.")
+                    return False
+                self.user_storage.update_user_token(telegram_id, token)
+            user_data = await self.university_api.get_user_data(token)
+            if not user_data or "grades" not in user_data:
+                logger.info(f"No grade data available for {username} in this check.")
+                return False
+            new_grades = user_data.get("grades", [])
+            old_grades = self.grade_storage.get_grades(telegram_id)
+            changed_courses = self._compare_grades(old_grades, new_grades)
+            if changed_courses:
+                logger.warning(f"GRADE CHECK: Found {len(changed_courses)} grade changes for user {username}. Sending notification.")
+                display_name = user.get('fullname') or user.get('username', 'المستخدم')
+                message = f"🎓 **{display_name}، تم تحديث درجاتك:**\n\n"
+                for grade in changed_courses:
+                    name = grade.get('name', 'N/A')
+                    code = grade.get('code', '-')
+                    coursework = grade.get('coursework', 'لم يتم النشر')
+                    final_exam = grade.get('final_exam', 'لم يتم النشر')
+                    total = grade.get('total', 'لم يتم النشر')
+                    message += f"📚 **{name}** ({code})\n • الأعمال: {coursework}\n • النظري: {final_exam}\n • النهائي: {total}\n\n"
+                # Add update time in UTC+3
+                now_utc3 = datetime.now(timezone.utc) + timedelta(hours=3)
+                message += f"🕒 وقت التحديث: {now_utc3.strftime('%Y-%m-%d %H:%M')} (UTC+3)"
+                try:
+                    await self.app.bot.send_message(chat_id=telegram_id, text=message, parse_mode='Markdown')
+                    logger.warning(f"GRADE CHECK: Grade update notification sent to user {username} (ID: {telegram_id}).")
+                except Exception as e:
+                    logger.error(f"❌ Error sending grade update notification: {e}", exc_info=True)
+                self.grade_storage.save_grades(telegram_id, new_grades)
+                return True
+            else:
+                # Always update the grades in DB, even if not changed
+                self.grade_storage.save_grades(telegram_id, new_grades)
+                return False
+        except Exception as e:
+            logger.error(f"❌ Exception in _check_and_notify_user_grades for user {user.get('username', 'Unknown')}: {e}", exc_info=True)
             return False
 
     def _compare_grades(self, old_grades: List[Dict], new_grades: List[Dict]) -> List[Dict]:
-        old_grades_map = {g.get('code') or g.get('name'): g for g in old_grades if g.get('code') or g.get('name')}
-        changes = []
+        """
+        Return only courses where important fields (total, coursework, final_exam) changed.
+        """
+        def extract_relevant(grade):
+            return {
+                'code': grade.get('code') or grade.get('name'),
+                'total': grade.get('total'),
+                'coursework': grade.get('coursework'),
+                'final_exam': grade.get('final_exam'),
+            }
+        old_map = {g.get('code') or g.get('name'): extract_relevant(g) for g in old_grades if g.get('code') or g.get('name')}
+        changed = []
         for new_grade in new_grades:
             key = new_grade.get('code') or new_grade.get('name')
             if not key:
                 continue
-            if key not in old_grades_map or old_grades_map[key] != new_grade:
-                changes.append(new_grade)
-        return changes
-
-    def _build_grade_update_message(self, changed_courses: List[Dict]) -> str:
-        message = "🎓 تم تحديث درجاتك!\n\nالمواد التي تغيرت درجاتها:\n\n"
-        for grade in changed_courses:
-            message += f"📚 المادة: {grade.get('name', 'N/A')} ({grade.get('code', '-')})\n"
-            message += f"• الأعمال: {grade.get('coursework', '-')}\n"
-            message += f"• النظري: {grade.get('final_exam', '-')}\n"
-            message += f"• النهائي: {grade.get('total', '-')}\n\n"
-        message += f"🕒 وقت التحديث: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-        return message
+            relevant_new = extract_relevant(new_grade)
+            relevant_old = old_map.get(key)
+            if relevant_old is None or relevant_new != relevant_old:
+                changed.append(new_grade)
+        return changed
 
     async def _register_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
@@ -338,7 +366,7 @@ class TelegramBot:
         # For now, just simulate success
         user_data = {"username": username, "fullname": username, "email": "-"}
         self.user_storage.save_user(telegram_id, username, password, token="dummy_token", user_data=user_data)
-        await update.message.reply_text(f"تم تسجيل المستخدم {username} بنجاح.")
+        await update.message.reply_text(get_welcome_message(user_data.get('fullname')))
         return ConversationHandler.END
 
     async def _cancel_registration(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

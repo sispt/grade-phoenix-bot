@@ -4,10 +4,11 @@
 from config import CONFIG
 from storage.models import Base, DatabaseManager
 
-def get_welcome_message() -> str:
-    """Returns the welcome message for the user."""
+def get_welcome_message(fullname: str = None) -> str:
+    """Returns the welcome message for the user, mentioning their university fullname if available."""
+    name_line = f"مرحباً {fullname} في نظام الإشعارات الجامعية!\n\n" if fullname else "مرحباً بك في نظام الإشعارات الجامعية!\n\n"
     return (
-        "مرحباً بك في نظام الإشعارات الجامعية!\n\n"
+        name_line
         "سجّل دخولك لمتابعة درجاتك الأكاديمية بسهولة.\n\n"
         f"المطور: {CONFIG['ADMIN_USERNAME']}\n"
         f"Version: {CONFIG['BOT_VERSION']}\n"
