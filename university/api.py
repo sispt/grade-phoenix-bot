@@ -23,7 +23,7 @@ class UniversityAPI:
         self.timeout = aiohttp.ClientTimeout(total=CONFIG.get("REQUEST_TIMEOUT_SECONDS", 30))
     
     async def login(self, username: str, password: str) -> Optional[str]:
-        """Login to university system using GraphQL mutation"""
+        """Login to university system, now with robust empty response handling."""
         max_retries = CONFIG.get("MAX_RETRY_ATTEMPTS", 3)
         for attempt in range(max_retries):
             try:
@@ -31,32 +31,56 @@ class UniversityAPI:
                 if not username or not password:
                     logger.warning(f"DEBUG: Invalid credentials for user {username}")
                     return None
-                payload = {"operationName": "signinUser", "variables": {"username": username, "password": password}, "query": UNIVERSITY_QUERIES["LOGIN"]}
+                
+                payload = {
+                    "operationName": "signinUser",
+                    "variables": {"username": username, "password": password},
+                    "query": UNIVERSITY_QUERIES["LOGIN"]
+                }
+                
                 async with aiohttp.ClientSession(timeout=self.timeout) as session:
                     async with session.post(self.login_url, headers=self.api_headers, json=payload) as response:
                         response_text = await response.text()
                         logger.info(f"DEBUG: Login response status: {response.status}")
+                        
                         if response.status == 200:
+                            if not response_text.strip():
+                                logger.error(f"❌ Login failed for user {username}: Server returned status 200 but with an EMPTY response. This could be a server or network issue.")
+                                if attempt < max_retries - 1:
+                                    await asyncio.sleep(2 ** attempt)
+                                    continue
+                                return None
+                            
                             data = json.loads(response_text)
                             token = data.get("data", {}).get("login")
+                            
                             if token:
                                 logger.info(f"✅ Login successful for user: {username}")
                                 return token
                             else:
                                 logger.warning(f"❌ Login failed for user: {username} - no token in response. Errors: {data.get('errors')}")
                                 return None
+                        
                         else:
                             logger.error(f"❌ Login request failed with status: {response.status}. Response: {response_text[:500]}")
                             if response.status in [429, 500, 502, 503, 504] and attempt < max_retries - 1:
                                 await asyncio.sleep(2 ** attempt)
                                 continue
                             return None
+
+            except json.JSONDecodeError as json_error:
+                logger.error(f"❌ JSON Decode Error during login for {username}: {json_error}. Response text: {response_text[:500]}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2 ** attempt)
+                    continue
+                return None
             except Exception as e:
                 logger.error(f"❌ Unexpected error during login for user {username} (attempt {attempt + 1}): {e}")
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2 ** attempt)
                     continue
                 return None
+            
         return None
 
     async def test_token(self, token: str) -> bool:

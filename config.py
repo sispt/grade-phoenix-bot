@@ -58,20 +58,23 @@ CONFIG = {
     "SESSION_TIMEOUT_HOURS": 24,
     
     # API Headers - Updated to match BeeHouse v2.1 exact structure
-    "API_HEADERS": {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Content-Type": "application/json",
-        "x-lang": "ar",
-        "Accept": "application/json, text/plain, */*",
-        "Accept-Language": "ar,en-US;q=0.9,en;q=0.8",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Origin": "https://staging.sis.shamuniversity.com",
-        "Referer": "https://staging.sis.shamuniversity.com/",
-        "Connection": "keep-alive",
-        "Sec-Fetch-Dest": "empty",
-        "Sec-Fetch-Mode": "cors",
-        "Sec-Fetch-Site": "same-origin",
-    },
+ # In your config.py file, replace the API_HEADERS dictionary with this one:
+
+"API_HEADERS": {
+    "Accept": "*/*",
+    "Accept-Encoding": "gzip, deflate, br, zstd",
+    "Accept-Language": "en-US,en;q=0.9,ar;q=0.8",
+    "Connection": "keep-alive",
+    "Content-Type": "application/json",
+    "Origin": "https://staging.sis.shamuniversity.com",
+    "Referer": "https://staging.sis.shamuniversity.com/",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-site",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+    "x-lang": "ar"
+    # Note: We don't need the 'sec-ch-ua' headers, they are not usually critical.
+},
     
     # Timezone
     "TIMEZONE": "UTC+3",
