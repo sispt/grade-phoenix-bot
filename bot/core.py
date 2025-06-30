@@ -79,6 +79,7 @@ class TelegramBot:
         await self._update_bot_info()
         self._add_handlers()
         if CONFIG["ENABLE_NOTIFICATIONS"]:
+            logger.warning("GRADE CHECK LOOP SHOULD START NOW")
             self.grade_check_task = asyncio.create_task(self._grade_checking_loop())
         await self.app.initialize()
         await self.app.start()
@@ -307,46 +308,50 @@ class TelegramBot:
         await self.admin_dashboard.handle_callback(update, context)
         
     async def _grade_checking_loop(self):
+        logger.warning("GRADE CHECK LOOP IS RUNNING")
         while self.running:
             try:
-                logger.info("🔍 DEBUG: Starting grade check cycle...")
+                logger.warning("GRADE CHECK: Starting grade check cycle...")
                 users = self.user_storage.get_all_users()
+                logger.warning(f"GRADE CHECK: USERS TO CHECK: {users}")
                 await asyncio.gather(*(self._check_user_grades(user) for user in users))
-                logger.info(f"✅ Grade check completed. Next check in {CONFIG['GRADE_CHECK_INTERVAL']} minutes")
+                logger.warning(f"GRADE CHECK: Completed. Next check in {CONFIG['GRADE_CHECK_INTERVAL']} minutes")
             except asyncio.CancelledError:
-                logger.info("🛑 Grade checking task cancelled")
+                logger.warning("GRADE CHECK: Grade checking task cancelled")
                 break
             except Exception as e:
-                logger.error(f"❌ Error in grade checking loop: {e}", exc_info=True)
+                logger.error(f"GRADE CHECK: Error in grade checking loop: {e}", exc_info=True)
                 await asyncio.sleep(60) # Wait 1 minute before next attempt after an error
-            
             await asyncio.sleep(CONFIG["GRADE_CHECK_INTERVAL"] * 60)
             
     async def _check_user_grades(self, user):
+        logger.warning(f"GRADE CHECK: CHECKING GRADES FOR USER: {user}")
         try:
             telegram_id, username, token, password = user.get("telegram_id"), user.get("username"), user.get("token"), user.get("password")
-            if not token: return
-
+            if not token:
+                logger.warning(f"GRADE CHECK: User {username} has no token, skipping.")
+                return
             if not await self.university_api.test_token(token):
-                if not password: return
-                logger.info(f"🔄 Token expired for {username}. Re-authenticating...")
+                if not password:
+                    logger.warning(f"GRADE CHECK: User {username} has no password for re-auth, skipping.")
+                    return
+                logger.warning(f"GRADE CHECK: Token expired for {username}. Re-authenticating...")
                 token = await self.university_api.login(username, password)
-                if not token: 
-                    logger.warning(f"❌ Re-authentication failed for {username}.")
+                if not token:
+                    logger.warning(f"GRADE CHECK: Re-authentication failed for {username}.")
                     return
                 self.user_storage.update_user_token(telegram_id, token)
-                logger.info(f"✅ DEBUG: Re-authentication successful for {username}. Token updated.")
-
+                logger.warning(f"GRADE CHECK: Re-authentication successful for {username}. Token updated.")
             user_data = await self.university_api.get_user_data(token)
-            if not user_data or "grades" not in user_data: return
-
+            if not user_data or "grades" not in user_data:
+                logger.warning(f"GRADE CHECK: No user data or grades for {username}.")
+                return
             new_grades = user_data.get("grades", [])
             old_grades = self.grade_storage.get_grades(telegram_id)
-            
             changed_courses = self._compare_grades(old_grades, new_grades)
-
+            logger.warning(f"GRADE CHECK: {username} - Changed courses: {changed_courses}")
             if changed_courses:
-                logger.info(f"🔄 DEBUG: Found {len(changed_courses)} grade changes for user {username}. Sending notification.")
+                logger.warning(f"GRADE CHECK: Found {len(changed_courses)} grade changes for user {username}. Sending notification.")
                 message = "🎓 **تم تحديث درجاتك:**\n\n"
                 for grade in changed_courses:
                     name = grade.get('name', 'N/A')
@@ -354,22 +359,18 @@ class TelegramBot:
                     coursework = grade.get('coursework', 'لم يتم النشر')
                     final_exam = grade.get('final_exam', 'لم يتم النشر')
                     total = grade.get('total', 'لم يتم النشر')
-                    
                     message += f"📚 **{name}** ({code})\n • الأعمال: {coursework}\n • النظري: {final_exam}\n • النهائي: {total}\n\n"
-                
                 try:
                     await self.app.bot.send_message(chat_id=telegram_id, text=message, parse_mode='Markdown')
-                    logger.info(f"✅ DEBUG: Grade update notification sent to user {username} (ID: {telegram_id}).")
+                    logger.warning(f"GRADE CHECK: Grade update notification sent to user {username} (ID: {telegram_id}).")
                 except Exception as e:
-                    logger.error(f"❌ DEBUG: Failed to send notification to {username} (ID: {telegram_id}): {e}", exc_info=True)
-                
+                    logger.error(f"GRADE CHECK: Failed to send notification to {username} (ID: {telegram_id}): {e}", exc_info=True)
                 self.grade_storage.save_grades(telegram_id, new_grades)
-                logger.info(f"💾 DEBUG: Updated grades saved for user {username}.")
+                logger.warning(f"GRADE CHECK: Updated grades saved for user {username}.")
             else:
-                logger.info(f"✅ DEBUG: No grade changes for user {username}.")
-                
+                logger.warning(f"GRADE CHECK: No grade changes for user {username}.")
         except Exception as e:
-            logger.error(f"❌ DEBUG: Error checking grades for user {user.get('username', 'Unknown')}: {e}", exc_info=True)
+            logger.error(f"GRADE CHECK: Error checking grades for user {user.get('username', 'Unknown')}: {e}", exc_info=True)
 
     def _compare_grades(self, old_grades: List[Dict], new_grades: List[Dict]) -> List[Dict]:
         old_grades_map = {g.get('code') or g.get('name'): g for g in old_grades if g.get('code') or g.get('name')}

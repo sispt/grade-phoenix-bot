@@ -102,3 +102,9 @@ class PostgreSQLGradeStorage:
         except Exception as e:
             logger.error(f"❌ Unexpected error in get_grades_summary: {e}", exc_info=True)
             return {"total_courses": 0, "recent_updates": 0}
+
+    def __init__(self, db_manager: DatabaseManager):
+        self.db_manager = db_manager
+        logger.warning(f"USING DATABASE_URL: {CONFIG['DATABASE_URL']}")
+        users = self.user_storage.get_all_users()
+        logger.warning(f"USERS FROM DB: {users}")
