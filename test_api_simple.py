@@ -6,7 +6,7 @@ import asyncio
 import aiohttp
 import json
 import logging
-from config import CONFIG
+from config import CONFIG, UNIVERSITY_QUERIES
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -66,7 +66,7 @@ async def test_login_endpoint():
             "username": "test_user",
             "password": "test_pass"
         },
-        "query": CONFIG["UNIVERSITY_QUERIES"]["LOGIN"]
+        "query": UNIVERSITY_QUERIES["LOGIN"]
     }
     
     try:

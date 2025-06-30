@@ -180,6 +180,61 @@ UNIVERSITY_QUERIES = {
     }
     """,
     
+    "GET_COURSE_GRADES": """
+    query getStudentGrades($t_grade_id: String!) {
+      getStudentGrades(t_grade_id: $t_grade_id) {
+        courses {
+          id
+          name
+          code
+          ects
+          coursework
+          final_exam
+          total_grade
+          letter_grade
+          semester
+          year
+        }
+      }
+    }
+    """,
+    
+    "GET_STUDENT_COURSES": """
+    query getStudentCourses($t_grade_id: String!) {
+      getStudentCourses(t_grade_id: $t_grade_id) {
+        courses {
+          id
+          name
+          code
+          ects
+          instructor
+          semester
+          year
+        }
+      }
+    }
+    """,
+    
+    "GET_GRADE_DETAILS": """
+    query getGradeDetails($course_id: String!) {
+      getGradeDetails(course_id: $course_id) {
+        course {
+          id
+          name
+          code
+        }
+        grades {
+          component
+          grade
+          weight
+          max_grade
+        }
+        total_grade
+        letter_grade
+      }
+    }
+    """,
+    
     "TEST_TOKEN": """
     query TestToken {
         getGUI {

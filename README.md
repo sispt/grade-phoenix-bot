@@ -1,88 +1,90 @@
-# 🎓 Telegram University Bot - Sham University
+# 🎓 Telegram University Bot (BeeHouse Notif)
 
-**بوت إشعارات الدرجات الجامعية - جامعة الشام**
+## Overview | نظرة عامة
+A robust Telegram bot for university students to fetch and display their course grades. Supports both direct API extraction and HTML fallback for maximum reliability.
 
-## ✨ المميزات الجديدة
-
-### 🔄 نظام مزدوج لجلب الدرجات
-- **API أولي**: جلب الدرجات مباشرة من API الجامعة
-- **HTML احتياطي**: استخراج الدرجات من ملفات HTML محفوظة عند فشل API
-- **مرونة كاملة**: يعمل مع أي بنية HTML تحتوي على جداول درجات
-
-### 🛡️ نظام متين ومحسن
-- **إعادة المحاولة التلقائية**: عند فشل الاتصال
-- **تجديد الجلسات**: تلقائي عند انتهاء صلاحية التوكن
-- **معالجة الأخطاء الشاملة**: مع رسائل واضحة للمستخدم
-
-### 📊 عرض محسن للدرجات
-- **تفاصيل كاملة**: اسم المادة، الكود، درجات الأعمال والنظري والنهائي
-- **تقسيم الرسائل**: للرسائل الطويلة
-- **تنسيق عربي**: مع دعم كامل للغة العربية
-
-## 🚀 التثبيت والتشغيل
-
-### المتطلبات
-```bash
-pip install -r requirements.txt
-```
-
-### الإعداد
-1. انسخ `config.py` وعدل الإعدادات
-2. أضف توكن البوت وبيانات الجامعة
-3. شغل البوت: `python main.py`
-
-## 🔧 الاستخدام
-
-### للمستخدمين
-- `/start` - بدء البوت
-- `/grades` - عرض الدرجات
-- `/profile` - معلومات الحساب
-- `/help` - المساعدة
-
-### للمطورين
-- **API Methods**: كل طرق API الأصلية محفوظة
-- **HTML Extraction**: `api.parse_html_grades_file()`
-- **Fallback System**: تلقائي عند فشل API
-
-## 📁 هيكل المشروع
-
-```
-telegram_university_bot/
-├── bot/
-│   ├── core.py          # البوت الرئيسي مع HTML fallback
-│   └── __init__.py
-├── university/
-│   ├── api.py           # API مع استخراج HTML
-│   └── __init__.py
-├── storage/             # نظام التخزين
-├── admin/               # لوحة التحكم
-├── utils/               # الأدوات المساعدة
-├── main.py              # نقطة البداية
-├── config.py            # الإعدادات
-└── requirements.txt     # المكتبات المطلوبة
-```
-
-## 🔄 التحديثات الأخيرة
-
-### ✅ تم إنجازه
-- [x] دمج استخراج HTML في البوت
-- [x] نظام fallback تلقائي
-- [x] حذف الملفات غير الضرورية
-- [x] تحديث شامل للكود
-- [x] الحفاظ على كل طرق API الأصلية
-
-### 🎯 المميزات
-- **مرونة كاملة**: يعمل مع أي HTML
-- **أداء محسن**: معالجة سريعة للبيانات
-- **موثوقية عالية**: نظام احتياطي متعدد المستويات
-- **سهولة الاستخدام**: واجهة بسيطة وواضحة
-
-## 📞 الدعم
-
-**المطور:** عبد الرحمن عبد القادر  
-**البريد الإلكتروني:** abdulrahmanabdulkader59@gmail.com  
-**المستخدم:** @sisp_t
+بوت متكامل لجلب الدرجات الجامعية من نظام الجامعة وعرضها عبر تيليجرام. يدعم استخراج الدرجات من API أو من ملفات HTML عند الحاجة.
 
 ---
 
-**— THE DIE IS CAST · based on beehouse** 
+## Features | الميزات
+- **Dual Extraction System**: Fetch grades via university API or fallback to HTML parsing.
+- **Robust Error Handling**: Retries, logging, and graceful fallback.
+- **Flexible Data Parsing**: Supports Arabic and English table headers.
+- **Extensible Storage**: Save grades in JSON files or PostgreSQL.
+- **Modular Design**: Easy to maintain and extend.
+
+---
+
+## Architecture | بنية النظام
+```
+[User]
+   |
+[Telegram Bot]
+   |
+[UniversityAPI]
+   |-------------------|
+[API Extraction]   [HTML Fallback]
+   |                    |
+[Grades Data] <---[Storage Layer]
+```
+
+---
+
+## Main Modules | الوحدات الرئيسية
+- `university/api.py`: API integration, login, token, grades extraction (API & HTML)
+- `config.py`: All GraphQL queries and configuration
+- `bot/core.py`: Telegram bot logic, user interaction, fallback handling
+- `storage/grades.py` & `storage/postgresql_grades.py`: Grades storage (file/DB)
+- `test_graphql_grades_parser.py`: Test for grades extraction logic
+
+---
+
+## How Grades Extraction Works | كيف يعمل استخراج الدرجات
+1. **API First**: Attempts to fetch grades using GraphQL API queries.
+2. **Fallback**: If API fails or returns no grades, parses saved HTML files for grades tables.
+3. **Unified Format**: Both methods produce the same data structure for seamless storage and display.
+
+### Example Data Structure | مثال على بنية البيانات
+```python
+{
+  "course": "اللغة العربية (1)",
+  "code": "ARAB100",
+  "ects": 2,
+  "practical": "38",
+  "theoretical": "49",
+  "total": "87 %"
+}
+```
+
+---
+
+## Setup | الإعداد
+1. Install requirements:
+   ```bash
+   pip install -r requirements.txt
+   ```
+2. Configure `config.py` with your university and bot credentials.
+3. Run the bot:
+   ```bash
+   python main.py
+   ```
+
+---
+
+## Extensibility | قابلية التوسعة
+- Add new GraphQL queries in `config.py` as needed.
+- Extend HTML parsing logic in `api.py` for new table formats.
+- Switch storage backend by updating the storage module.
+
+---
+
+## Credits | المطور
+- Developed by Abdulrahman Abdelkader
+- Contact: tox098123@gmail.com | Telegram: @sisp_t
+
+---
+
+**This project is designed for reliability, flexibility, and easy maintenance.**
+
+مشروع مصمم للموثوقية والمرونة وسهولة الصيانة. 
