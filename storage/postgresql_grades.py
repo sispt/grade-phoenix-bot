@@ -26,21 +26,35 @@ class PostgreSQLGradeStorage:
                 # Delete old grades for this user to ensure a clean update
                 session.query(Grade).filter_by(telegram_id=telegram_id).delete()
                 
-                for grade_data_item in grades_data: # Renamed loop variable to avoid confusion
-                    # Map incoming dictionary keys to database column names
+                saved_count = 0
+                skipped_count = 0
+                for grade_data_item in grades_data:
+                    # Direct mapping from API parser keys
+                    name = grade_data_item.get('name')
+                    code = grade_data_item.get('code')
+                    ects = grade_data_item.get('ects')
+                    coursework = grade_data_item.get('coursework')
+                    final_exam = grade_data_item.get('final_exam')
+                    total = grade_data_item.get('total')
+
+                    if not name:
+                        logger.warning(f"⏭️ Skipping grade for user {telegram_id} due to missing course name. Raw data: {grade_data_item}")
+                        skipped_count += 1
+                        continue
                     grade = Grade(
                         telegram_id=telegram_id,
-                        course_name=grade_data_item.get('name'),
-                        course_code=grade_data_item.get('code'),
-                        ects_credits=grade_data_item.get('ects'),
-                        coursework_grade=grade_data_item.get('coursework'),
-                        final_exam_grade=grade_data_item.get('final_exam'),
-                        total_grade_value=grade_data_item.get('total'),
+                        course_name=name,
+                        course_code=code,
+                        ects_credits=ects,
+                        coursework_grade=coursework,
+                        final_exam_grade=final_exam,
+                        total_grade_value=total,
                         last_updated=datetime.utcnow()
                     )
                     session.add(grade)
+                    saved_count += 1
                 session.commit()
-                logger.info(f"✅ Saved {len(grades_data)} grades for user {telegram_id} to PostgreSQL.")
+                logger.info(f"✅ Saved {saved_count} grades for user {telegram_id} to PostgreSQL. Skipped {skipped_count} grades due to missing name.")
         except SQLAlchemyError as e:
             session.rollback()
             logger.error(f"❌ Error saving grades to PostgreSQL for user {telegram_id}: {e}", exc_info=True)
