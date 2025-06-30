@@ -16,6 +16,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from bot.core import TelegramBot
 from config import CONFIG
+from storage.models import Base, DatabaseManager
 
 # Set up logging
 logging.basicConfig(
@@ -48,8 +49,12 @@ class BotRunner:
             # Create necessary directories
             self.create_directories()
             
-            # Run database migrations
-            await self.run_migrations()
+            # Automatically create all tables (schema) before starting the bot
+            if CONFIG.get("USE_POSTGRESQL", False):
+                logger.info("🗄️ Creating database tables (if not exist) using SQLAlchemy models...")
+                db_manager = DatabaseManager(CONFIG["DATABASE_URL"])
+                Base.metadata.create_all(bind=db_manager.engine)
+                logger.info("✅ Database tables checked/created.")
             
             # Start the bot
             await self.bot.start()
