@@ -1,23 +1,29 @@
 """
-⌨️ Custom Keyboards
+⌨️ Custom Keyboards (Final Version)
 """
 from telegram import ReplyKeyboardMarkup
 
 def get_main_keyboard() -> ReplyKeyboardMarkup:
-    """Returns the main keyboard layout."""
+    """Returns the main keyboard layout for REGISTERED users."""
     keyboard = [
         ["📊 فحص الدرجات", "❓ المساعدة"],
         ["👤 معلوماتي", "⚙️ الإعدادات"],
         ["📞 الدعم", "🎛️ لوحة التحكم"]
     ]
-    # Key: resize_keyboard=True makes it fit the screen better.
-    # Key: one_time_keyboard=False makes it persistent.
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
+
+def get_unregistered_keyboard() -> ReplyKeyboardMarkup:
+    """Returns the keyboard for UNREGISTERED users, featuring the login button."""
+    keyboard = [
+        ["🚀 تسجيل الدخول", "❓ المساعدة"], # Prominent login button
+        ["📞 الدعم"] # Still allow access to support
+    ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
 def get_main_keyboard_with_relogin() -> ReplyKeyboardMarkup:
-    """Returns the main keyboard with a 'relogin' option (e.g., when token expires)."""
+    """Returns the keyboard for REGISTERED users whose token expired, with relogin option."""
     keyboard = [
-        ["🚀 تسجيل الدخول", "📊 فحص الدرجات"], # Added explicit "Register" button
+        ["🔄 إعادة تسجيل الدخول", "📊 فحص الدرجات"], # Re-login button for known users
         ["👤 معلوماتي", "⚙️ الإعدادات"],
         ["📞 الدعم", "🎛️ لوحة التحكم"]
     ]
@@ -26,8 +32,8 @@ def get_main_keyboard_with_relogin() -> ReplyKeyboardMarkup:
 def get_admin_keyboard() -> ReplyKeyboardMarkup:
     """Returns the admin keyboard layout."""
     keyboard = [
-        ["📊 إحصائيات", "👥 إدارة المستخدمين"],
-        ["🔔 إشعار عام", "⚙️ حالة الخادم"], # Changed button text to match dashboard
+        ["📊 الإحصائيات", "👥 قائمة المستخدمين"],
+        ["🔔 إشعار عام", "⚙️ حالة الخادم"], 
         ["🔙 العودة"]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
