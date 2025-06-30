@@ -41,10 +41,9 @@ class TelegramBot:
         # --- THEN initialize classes that depend on storage ---
         self.admin_dashboard = AdminDashboard(self)
         self.broadcast_system = BroadcastSystem(self)
-        
         self.grade_check_task = None
         self.running = False
-        
+
     def _initialize_storage(self):
         pg_initialized = False
         try:
@@ -73,14 +72,12 @@ class TelegramBot:
 
     async def start(self):
         import os
-        self.running = True # <<< CRITICAL FIX 1: Set running to True BEFORE starting the loop
+        self.running = True
         self.app = Application.builder().token(CONFIG["TELEGRAM_TOKEN"]).build()
         await self._update_bot_info()
         self._add_handlers()
-        if CONFIG["ENABLE_NOTIFICATIONS"]:
-            logger.info("Notifications are enabled. Creating grade check task.")
-            self.grade_check_task = asyncio.create_task(self._grade_checking_loop())
-        
+        # Start the scheduler for grade notifications
+        self.grade_check_task = asyncio.create_task(self._scheduled_grade_check())
         await self.app.initialize()
         await self.app.start()
         port = int(os.environ.get("PORT", 8443))
@@ -97,7 +94,8 @@ class TelegramBot:
 
     async def stop(self):
         self.running = False
-        if self.grade_check_task: self.grade_check_task.cancel()
+        if self.grade_check_task:
+            self.grade_check_task.cancel()
         if self.app: await self.app.shutdown()
         logger.info("🛑 Bot stopped.")
 
@@ -118,6 +116,7 @@ class TelegramBot:
         self.app.add_handler(CommandHandler("support", self._support_command))
         # Use a different command for the admin panel entry to avoid confusion with the keyboard
         self.app.add_handler(CommandHandler("admin", self._admin_command))
+        self.app.add_handler(CommandHandler("notify_grades", self._admin_notify_grades))
         self.app.add_handler(CallbackQueryHandler(self._handle_callback))
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message))
 
@@ -172,72 +171,89 @@ class TelegramBot:
         await query.answer()
         # This correctly delegates all admin button clicks to the dashboard handler
         await self.admin_dashboard.handle_callback(update, context)
-        
-    async def _grade_checking_loop(self):
-        await asyncio.sleep(15) # Give the bot a moment to start before the first check
-        logger.info("--- Starting the main Grade Checking Loop ---")
+
+    async def _admin_notify_grades(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if update.effective_user.id != CONFIG["ADMIN_ID"]:
+            await update.message.reply_text("🚫 ليس لديك صلاحية لهذه العملية.")
+            return
+        await update.message.reply_text("🔄 جاري فحص الدرجات لجميع المستخدمين...")
+        count = await self._notify_all_users_grades()
+        await update.message.reply_text(f"✅ تم فحص الدرجات وإشعار {count} مستخدم (إذا كان هناك تغيير).")
+
+    async def _scheduled_grade_check(self):
+        await asyncio.sleep(10)  # Give the bot a moment to start
         while self.running:
             try:
-                logger.info("🔍 Grade check cycle initiated...")
-                users = self.user_storage.get_all_users()
-                if not users:
-                    logger.info("No users are registered. Skipping this cycle.")
-                else:
-                    logger.info(f"Found {len(users)} users to check.")
-                    await asyncio.gather(*(self._check_user_grades(user) for user in users))
-                logger.info(f"✅ Grade check cycle completed. Next check in {CONFIG['GRADE_CHECK_INTERVAL']} minutes.")
-            except asyncio.CancelledError:
-                logger.info("🛑 Grade checking task was cancelled.")
-                break
+                logger.info("🔔 Running scheduled grade check for all users...")
+                await self._notify_all_users_grades()
             except Exception as e:
-                logger.error(f"❌ An unhandled error occurred in the grade checking loop: {e}", exc_info=True)
-                await asyncio.sleep(60)
-            
-            await asyncio.sleep(CONFIG["GRADE_CHECK_INTERVAL"] * 60)
-            
-    async def _check_user_grades(self, user):
-        try:
-            telegram_id, username, token, password = user.get("telegram_id"), user.get("username"), user.get("token"), user.get("password")
-            if not token: return
-            
-            if not await self.university_api.test_token(token):
-                if not password: return
-                logger.info(f"🔄 Token expired for {username}. Re-authenticating...")
-                token = await self.university_api.login(username, password)
-                if not token: 
-                    logger.warning(f"❌ Re-authentication failed for {username}.")
-                    return
-                self.user_storage.update_user_token(telegram_id, token)
+                logger.error(f"❌ Error in scheduled grade check: {e}", exc_info=True)
+            await asyncio.sleep(600)  # 10 minutes
 
-            user_data = await self.university_api.get_user_data(token)
-            if not user_data or "grades" not in user_data:
-                logger.info(f"No grade data available for {username} in this check.")
-                return
+    async def _notify_all_users_grades(self):
+        users = self.user_storage.get_all_users()
+        notified_count = 0
+        for user in users:
+            try:
+                changed = await self._check_and_notify_user_grades(user)
+                if changed:
+                    notified_count += 1
+            except Exception as e:
+                logger.error(f"❌ Error checking grades for user {user.get('username', 'Unknown')}: {e}", exc_info=True)
+        return notified_count
 
-            new_grades = user_data.get("grades", [])
-            old_grades = self.grade_storage.get_grades(telegram_id)
-            changed_courses = self._compare_grades(old_grades, new_grades)
-
-            if changed_courses:
-                logger.info(f"🔄 Found {len(changed_courses)} grade changes for user {username}. Sending notification.")
-                message = "🎓 **تم تحديث درجاتك:**\n\n"
-                for grade in changed_courses:
-                    message += f"📚 **{grade.get('name', 'N/A')}** ({grade.get('code', '')})\n • الأعمال: {grade.get('coursework', '-')}\n • النظري: {grade.get('final_exam', '-')}\n • النهائي: {grade.get('total', '-')}\n\n"
-                
-                await self.app.bot.send_message(chat_id=telegram_id, text=message, parse_mode='Markdown')
-                self.grade_storage.save_grades(telegram_id, new_grades)
-            else:
-                logger.info(f"✅ No grade changes detected for user {username}.")
-                
-        except Exception as e:
-            logger.error(f"❌ Error during _check_user_grades for {user.get('username', 'Unknown')}: {e}", exc_info=True)
+    async def _check_and_notify_user_grades(self, user):
+        telegram_id = user.get("telegram_id")
+        username = user.get("username")
+        token = user.get("token")
+        password = user.get("password")
+        if not token:
+            return False
+        # Re-authenticate if needed
+        if not await self.university_api.test_token(token):
+            if not password:
+                return False
+            logger.info(f"🔄 Token expired for {username}. Re-authenticating...")
+            token = await self.university_api.login(username, password)
+            if not token:
+                logger.warning(f"❌ Re-authentication failed for {username}.")
+                return False
+            self.user_storage.update_user_token(telegram_id, token)
+        user_data = await self.university_api.get_user_data(token)
+        if not user_data or "grades" not in user_data:
+            logger.info(f"No grade data available for {username} in this check.")
+            return False
+        new_grades = user_data.get("grades", [])
+        old_grades = self.grade_storage.get_grades(telegram_id)
+        changed_courses = self._compare_grades(old_grades, new_grades)
+        if changed_courses:
+            logger.info(f"🔄 Found {len(changed_courses)} grade changes for user {username}. Sending notification.")
+            message = self._build_grade_update_message(changed_courses)
+            await self.app.bot.send_message(chat_id=telegram_id, text=message, parse_mode='Markdown')
+            self.grade_storage.save_grades(telegram_id, new_grades)
+            return True
+        else:
+            # Always update the grades in DB, even if not changed
+            self.grade_storage.save_grades(telegram_id, new_grades)
+            return False
 
     def _compare_grades(self, old_grades: List[Dict], new_grades: List[Dict]) -> List[Dict]:
         old_grades_map = {g.get('code') or g.get('name'): g for g in old_grades if g.get('code') or g.get('name')}
         changes = []
         for new_grade in new_grades:
             key = new_grade.get('code') or new_grade.get('name')
-            if not key: continue
+            if not key:
+                continue
             if key not in old_grades_map or old_grades_map[key] != new_grade:
                 changes.append(new_grade)
         return changes
+
+    def _build_grade_update_message(self, changed_courses: List[Dict]) -> str:
+        message = "🎓 تم تحديث درجاتك!\n\nالمواد التي تغيرت درجاتها:\n\n"
+        for grade in changed_courses:
+            message += f"📚 المادة: {grade.get('name', 'N/A')} ({grade.get('code', '-')})\n"
+            message += f"• الأعمال: {grade.get('coursework', '-')}\n"
+            message += f"• النظري: {grade.get('final_exam', '-')}\n"
+            message += f"• النهائي: {grade.get('total', '-')}\n\n"
+        message += f"🕒 وقت التحديث: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        return message

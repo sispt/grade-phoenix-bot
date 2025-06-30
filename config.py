@@ -35,9 +35,7 @@ CONFIG = {
     # Check Interval (in minutes)
     "GRADE_CHECK_INTERVAL": 5,
     
-    # Notification Settings
-    "ENABLE_NOTIFICATIONS": True,
-    "MAX_RETRY_ATTEMPTS": 3,
+    # Notification Settings (removed: ENABLE_NOTIFICATIONS, MAX_RETRY_ATTEMPTS)
     
     # User Experience Settings
     "SHOW_LOADING_MESSAGES": True,
