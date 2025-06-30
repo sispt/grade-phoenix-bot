@@ -87,8 +87,19 @@ class TelegramBot:
 
     async def _update_bot_info(self):
         try:
-            await self.app.bot.set_my_name(CONFIG["BOT_NAME"])
-            await self.app.bot.set_my_description(CONFIG["BOT_DESCRIPTION"])
+            # Only set name/description if needed (avoid rate limit)
+            current_name = await self.app.bot.get_my_name()
+            if current_name.name != CONFIG["BOT_NAME"]:
+                try:
+                    await self.app.bot.set_my_name(CONFIG["BOT_NAME"])
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to set bot name: {e}")
+            current_desc = await self.app.bot.get_my_description()
+            if current_desc.description != CONFIG["BOT_DESCRIPTION"]:
+                try:
+                    await self.app.bot.set_my_description(CONFIG["BOT_DESCRIPTION"])
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to set bot description: {e}")
         except Exception as e:
             logger.warning(f"⚠️ Failed to update bot info: {e}")
 
@@ -257,3 +268,27 @@ class TelegramBot:
             message += f"• النهائي: {grade.get('total', '-')}\n\n"
         message += f"🕒 وقت التحديث: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
         return message
+
+    async def _register_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await update.message.reply_text("يرجى إدخال اسم المستخدم الجامعي:")
+        return ASK_USERNAME
+
+    async def _register_username(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        context.user_data['username'] = update.message.text.strip()
+        await update.message.reply_text("يرجى إدخال كلمة المرور:")
+        return ASK_PASSWORD
+
+    async def _register_password(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        username = context.user_data.get('username')
+        password = update.message.text.strip()
+        telegram_id = update.effective_user.id
+        # Here you would call your UniversityAPI to verify credentials and get token
+        # For now, just simulate success
+        user_data = {"username": username, "fullname": username, "email": "-"}
+        self.user_storage.save_user(telegram_id, username, password, token="dummy_token", user_data=user_data)
+        await update.message.reply_text(f"تم تسجيل المستخدم {username} بنجاح.")
+        return ConversationHandler.END
+
+    async def _cancel_registration(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await update.message.reply_text("تم إلغاء التسجيل.")
+        return ConversationHandler.END

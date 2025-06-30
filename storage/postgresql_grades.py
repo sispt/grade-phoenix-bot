@@ -106,5 +106,3 @@ class PostgreSQLGradeStorage:
     def __init__(self, db_manager: DatabaseManager):
         self.db_manager = db_manager
         logger.warning(f"USING DATABASE_URL: {CONFIG['DATABASE_URL']}")
-        users = self.user_storage.get_all_users()
-        logger.warning(f"USERS FROM DB: {users}")
