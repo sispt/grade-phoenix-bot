@@ -1,5 +1,5 @@
 """
-🏫 University API Integration (Corrected and Final Version)
+🏫 University API Integration (Final Corrected Version)
 """
 import asyncio
 import logging
@@ -17,6 +17,7 @@ class UniversityAPI:
     """University API integration"""
     
     def __init__(self):
+        # Use two different URLs as confirmed by the HAR file
         self.login_url = CONFIG["UNIVERSITY_LOGIN_URL"]
         self.api_url = CONFIG["UNIVERSITY_API_URL"]
         self.api_headers = CONFIG["API_HEADERS"]
@@ -38,6 +39,7 @@ class UniversityAPI:
                     "query": UNIVERSITY_QUERIES["LOGIN"]
                 }
                 
+                # Using the specific login URL
                 async with aiohttp.ClientSession(timeout=self.timeout) as session:
                     async with session.post(self.login_url, headers=self.api_headers, json=payload) as response:
                         response_text = await response.text()
@@ -45,7 +47,7 @@ class UniversityAPI:
                         
                         if response.status == 200:
                             if not response_text.strip():
-                                logger.error(f"❌ Login failed for user {username}: Server returned status 200 but with an EMPTY response. This could be a server or network issue.")
+                                logger.error(f"❌ Login failed for user {username}: Server returned status 200 but with an EMPTY response.")
                                 if attempt < max_retries - 1:
                                     await asyncio.sleep(2 ** attempt)
                                     continue
@@ -120,34 +122,37 @@ class UniversityAPI:
                     if response.status == 200:
                         data = await response.json()
                         if "data" in data and data["data"].get("getGUI"):
-                            user_data = data["data"]["getGUI"]["user"]
-                            return {
-                                "id": user_data.get("id"),
-                                "firstname": user_data.get("firstname"),
-                                "lastname": user_data.get("lastname"),
-                                "fullname": user_data.get("fullname"),
-                                "email": user_data.get("email"),
-                                "username": user_data.get("username")
-                            }
+                            return data["data"]["getGUI"]["user"]
                     return None
         except Exception as e:
             logger.error(f"Error getting user info: {e}")
             return None
 
     async def _get_grades(self, token: str) -> List[Dict[str, Any]]:
-        """Get user grades from GraphQL endpoint, using multiple strategies."""
-        logger.info("🔍 DEBUG: Starting grade fetch with token...")
-        homepage_data = await self._get_homepage(token)
-        if not homepage_data: return []
-        
-        terms = self._extract_terms_from_homepage(homepage_data)
+        """
+        Corrected method to get grades. It fetches the homepage, extracts the
+        real term IDs, and then fetches the grades for each term.
+        """
+        logger.info("🔍 DEBUG: Starting grade fetch with correct logic...")
         all_grades = []
-        for term in terms:
-            logger.info(f"📊 DEBUG: Getting grades for term: {term}")
-            term_grades = await self._get_term_grades(token, term)
-            if term_grades:
-                all_grades.extend(term_grades)
         
+        homepage_data = await self._get_homepage(token)
+        if not homepage_data:
+            logger.error("❌ DEBUG: Failed to get homepage data to find term IDs.")
+            return []
+            
+        term_ids = self._extract_terms_from_homepage(homepage_data)
+        if not term_ids:
+            logger.error("❌ DEBUG: Could not extract any term IDs from the homepage.")
+            return []
+            
+        for term_id in term_ids:
+            logger.info(f"📊 DEBUG: Fetching grades for extracted term ID: {term_id}")
+            term_grades = await self._get_term_grades(token, term_id)
+            if term_grades:
+                logger.info(f"✅ DEBUG: Found {len(term_grades)} grades for term ID {term_id}.")
+                all_grades.extend(term_grades)
+                
         logger.info(f"🎉 DEBUG: Total grades retrieved: {len(all_grades)}")
         return all_grades
 
@@ -155,7 +160,7 @@ class UniversityAPI:
         """Get homepage data to extract terms"""
         try:
             headers = {**self.api_headers, "Authorization": f"Bearer {token}"}
-            payload = {"query": UNIVERSITY_QUERIES["GET_HOMEPAGE"], "variables": {"name": "homepage", "params": []}}
+            payload = {"operationName": "getPage", "variables": {"name": "home", "params": []}, "query": UNIVERSITY_QUERIES["GET_HOMEPAGE"]}
             async with aiohttp.ClientSession(timeout=self.timeout) as session:
                 async with session.post(self.api_url, headers=headers, json=payload) as response:
                     if response.status == 200:
@@ -168,29 +173,39 @@ class UniversityAPI:
             return None
 
     def _extract_terms_from_homepage(self, homepage_data: Dict[str, Any]) -> List[str]:
-        """Extract available terms from homepage data"""
+        """
+        Extract available term IDs from the homepage data, based on HAR file structure.
+        """
         try:
-            terms = set()
-            if not homepage_data or "panels" not in homepage_data: return ["1"]
+            logger.info("🔍 DEBUG: Extracting term IDs from homepage JSON...")
+            term_ids = []
+            if not homepage_data or "panels" not in homepage_data:
+                return []
+            
             for panel in homepage_data.get("panels", []):
                 for block in panel.get("blocks", []):
-                    soup = BeautifulSoup(block.get("body", ""), 'html.parser')
-                    for tab in soup.find_all(['button', 'a', 'div'], attrs={'data-id': True}):
-                        terms.add(tab['data-id'])
-            if not terms:
-                logger.warning("⚠️ DEBUG: No terms found, using default '1'")
-                return ["1"]
-            logger.info(f"📚 DEBUG: Extracted terms: {list(terms)}")
-            return list(terms)
+                    if block.get("name") == "home_tabs":
+                        for tab_config in block.get("config", []):
+                            if tab_config.get("name") == "tabs":
+                                for tab in tab_config.get("array", []):
+                                    for param_array in tab.get("array", []):
+                                        if param_array.get("name") == "page_params":
+                                            for param in param_array.get("array", []):
+                                                if param.get("name") == "t_grade_id":
+                                                    term_ids.append(param.get("value"))
+            
+            logger.info(f"📚 DEBUG: Extracted term IDs: {term_ids}")
+            return term_ids
+            
         except Exception as e:
-            logger.error(f"❌ DEBUG: Error extracting terms: {e}")
-            return ["1"]
+            logger.error(f"❌ DEBUG: Error extracting terms from JSON: {e}")
+            return []
 
     async def _get_term_grades(self, token: str, t_grade_id: str) -> List[Dict[str, Any]]:
         """Get grades for a specific term from the 'getPage' GraphQL query"""
         try:
             headers = {**self.api_headers, "Authorization": f"Bearer {token}"}
-            payload = {"query": UNIVERSITY_QUERIES["GET_GRADES"], "variables": {"name": "test_student_tracks", "params": [{"name": "t_grade_id", "value": t_grade_id}]}}
+            payload = {"operationName": "getPage", "variables": {"name": "test_student_tracks", "params": [{"name": "t_grade_id", "value": t_grade_id}]}, "query": UNIVERSITY_QUERIES["GET_GRADES"]}
             async with aiohttp.ClientSession(timeout=self.timeout) as session:
                 async with session.post(self.api_url, headers=headers, json=payload) as response:
                     if response.status == 200:
@@ -227,13 +242,20 @@ class UniversityAPI:
             return []
 
     def _parse_grades_table_html(self, html_content: str) -> List[Dict[str, Any]]:
-        """A more robust and flexible parser for HTML tables containing grades."""
+        """
+        A more robust and flexible parser for HTML tables containing grades.
+        It now correctly iterates through all tables on a page.
+        """
         try:
             logger.info("🔍 DEBUG: Starting robust HTML table parsing.")
             grades = []
             soup = BeautifulSoup(html_content, 'html.parser')
             tables = soup.find_all('table')
-            if not tables: return []
+
+            if not tables:
+                logger.warning("❌ DEBUG: No HTML tables found in the content.")
+                return []
+
             HEADER_MAPPING = {
                 "المقرر": "name", "اسم المادة": "name", "course": "name", "subject": "name",
                 "كود المادة": "code", "الكود": "code", "course code": "code",
@@ -242,9 +264,12 @@ class UniversityAPI:
                 "درجة النظري": "final_exam", "النظري": "final_exam", "theoretical": "final_exam",
                 "الدرجة": "total", "الدرجة النهائية": "total", "grade": "total",
             }
+
             for table in tables:
                 header_row = table.find('thead') or table.find('tr')
-                if not header_row: continue
+                if not header_row:
+                    continue
+
                 headers = header_row.find_all(['th', 'td'])
                 column_map = {}
                 for index, th in enumerate(headers):
@@ -253,18 +278,28 @@ class UniversityAPI:
                         if map_key in header_text:
                             column_map[standard_key] = index
                             break
-                if 'name' not in column_map: continue
+                
+                if 'name' not in column_map:
+                    logger.info("⏭️ DEBUG: Skipping a table because it's not a detailed grades table.")
+                    continue
+                
+                logger.info(f"✅ DEBUG: Identified grades table with column map: {column_map}")
+
                 data_rows = (table.find('tbody') or table).find_all('tr')
                 if table.find('thead') or (data_rows and data_rows[0] == header_row):
-                     data_rows = data_rows[1:]
+                    data_rows = data_rows[1:]
+
                 for row in data_rows:
                     cells = row.find_all('td')
-                    if len(cells) < len(column_map): continue
+                    if len(cells) < len(column_map):
+                        continue
                     grade_entry = {key: cells[index].get_text(strip=True) for key, index in column_map.items() if index < len(cells)}
                     if grade_entry.get("name"):
                         grades.append(grade_entry)
+
             logger.info(f"🎉 DEBUG: Robustly parsed {len(grades)} grades from HTML.")
             return grades
+
         except Exception as e:
             logger.error(f"❌ DEBUG: Error during robust HTML table parsing: {e}")
             return []

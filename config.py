@@ -21,8 +21,9 @@ CONFIG = {
     
     # University API Configuration
 # University API Configuration
-    "UNIVERSITY_LOGIN_URL": "https://api.staging.sis.shamuniversity.com/portal",
-    "UNIVERSITY_API_URL": "https://api.staging.sis.shamuniversity.com/graphql",
+    # In config.py
+    "UNIVERSITY_LOGIN_URL": "https://api.staging.sis.shamuniversity.com/portal", # Use /portal for login
+    "UNIVERSITY_API_URL": "https://api.staging.sis.shamuniversity.com/graphql", # Use /graphql for everything else
     "UNIVERSITY_WEBSITE": "https://staging.sis.shamuniversity.com",
     "UNIVERSITY_NAME": "جامعة الشام",
     
