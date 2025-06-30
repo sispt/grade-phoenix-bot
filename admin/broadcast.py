@@ -21,7 +21,13 @@ class BroadcastSystem:
         )
 
     async def start_broadcast(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text("أرسل الرسالة للبث للجميع. للإلغاء، استخدم /cancel.")
+        # Check if the update is from a message or a callback query
+        if update.callback_query:
+            # Edit the message that triggered the callback
+            await update.callback_query.edit_message_text("أرسل الرسالة للبث للجميع. للإلغاء: /cancel.")
+        else:
+            # Send a new message if initiated via /broadcast command
+            await update.message.reply_text("أرسل الرسالة للبث للجميع. للإلغاء: /cancel.")
         return BROADCAST_MESSAGE
 
     async def send_broadcast(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

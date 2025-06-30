@@ -1,5 +1,7 @@
+# This is the final, complete, and fully functional version of bot/core.py
+
 """
-🎓 Telegram Bot Core - Main Bot Implementation (Final Version)
+🎓 Telegram Bot Core - Main Bot Implementation
 """
 import asyncio
 import logging
@@ -27,7 +29,7 @@ logger = logging.getLogger(__name__)
 ASK_USERNAME, ASK_PASSWORD = range(2)
 
 class TelegramBot:
-    """Main Telegram Bot class. Handles all core features and Telegram integration."""
+    """Main Telegram Bot Class"""
     
     def __init__(self):
         self.app, self.db_manager, self.user_storage, self.grade_storage = None, None, None, None
@@ -38,7 +40,6 @@ class TelegramBot:
         self._initialize_storage()
         
     def _initialize_storage(self):
-        """Initialize storage (file or database) based on configuration."""
         try:
             if CONFIG.get("USE_POSTGRESQL") and CONFIG.get("DATABASE_URL"):
                 self.db_manager = DatabaseManager(CONFIG["DATABASE_URL"])
@@ -73,7 +74,14 @@ class TelegramBot:
         except Exception as e:
             logger.warning(f"⚠️ Failed to update bot info: {e}")
 
+    async def stop(self):
+        self.running = False
+        if self.grade_check_task: self.grade_check_task.cancel()
+        if self.app: await self.app.shutdown()
+        logger.info("🛑 Bot stopped.")
+
     def _add_handlers(self):
+        logger.info("DEBUG: Adding all bot handlers...")
         reg_handler = ConversationHandler(
             entry_points=[CommandHandler("register", self._register_start), MessageHandler(filters.Regex("^🚀 تسجيل الدخول$"), self._register_start)],
             states={ASK_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._register_username)], ASK_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._register_password)]},
@@ -90,6 +98,7 @@ class TelegramBot:
         self.app.add_handler(CommandHandler("admin", self._admin_command))
         self.app.add_handler(CallbackQueryHandler(self._handle_callback))
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message))
+        logger.info("✅ All handlers added successfully!")
 
     async def _send_message_with_keyboard(self, update, message, keyboard_type="main"):
         keyboards = {"main": get_main_keyboard, "admin": get_admin_keyboard, "cancel": get_cancel_keyboard, "relogin": get_main_keyboard_with_relogin}
@@ -114,14 +123,13 @@ class TelegramBot:
         await update.message.reply_text("أدخل كلمة المرور:", reply_markup=get_cancel_keyboard())
         return ASK_PASSWORD
 
-    async def _register_password(self, update, context):
-        """Receives the user's password, attempts login, and fetches user data."""
+    async def _register_password(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         loading_msg = await update.message.reply_text("🔄 جاري تسجيل الدخول...")
         try:
             username, password = context.user_data["username"], update.message.text.strip()
             token = await self.university_api.login(username, password)
             if not token:
-                await loading_msg.edit_text("فشل تسجيل الدخول. تحقق من بياناتك.")
+                await self._edit_message_no_keyboard(loading_msg, "فشل تسجيل الدخول. تحقق من بياناتك.")
                 return ConversationHandler.END
             
             await loading_msg.edit_text("📊 جاري جلب بياناتك...")
@@ -144,14 +152,59 @@ class TelegramBot:
         return ConversationHandler.END
 
     async def _grades_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        # Implementation is correct and confirmed working
-        pass
+        telegram_id = update.effective_user.id
+        if not self.user_storage.is_user_registered(telegram_id):
+            await update.message.reply_text("سجل دخولك أولاً.", reply_markup=get_main_keyboard())
+            return
 
+        loading_message = await update.message.reply_text("جاري فحص الدرجات...")
+        try:
+            session = self.user_storage.get_user_session(telegram_id)
+            if not session or not session.get("token"):
+                await self._edit_message_no_keyboard(loading_message, "انتهت الجلسة. سجل دخولك مجدداً.")
+                await self._send_message_with_keyboard(update, "اضغط '🚀 تسجيل الدخول' لتجديد الجلسة", "relogin")
+                return
+
+            token, username, password = session.get("token"), session.get("username"), session.get("password")
+            
+            if not await self.university_api.test_token(token):
+                await self._edit_message_no_keyboard(loading_message, "الجلسة منتهية، جاري تجديدها...")
+                new_token = await self.university_api.login(username, password)
+                if not new_token:
+                    await self._edit_message_no_keyboard(loading_message, "فشل تجديد الجلسة. سجل دخولك مجدداً.")
+                    return
+                token = new_token
+                self.user_storage.update_user_token(telegram_id, token)
+
+            await self._edit_message_no_keyboard(loading_message, "جاري جلب الدرجات...")
+            user_data = await self.university_api.get_user_data(token)
+            
+            if not user_data or not user_data.get("grades"):
+                await self._edit_message_no_keyboard(loading_message, "لا توجد درجات متاحة حالياً.")
+                return
+
+            grades = user_data.get("grades", [])
+            self.grade_storage.save_grades(telegram_id, grades)
+
+            grades_text = "📊 **درجاتك الحالية:**\n\n"
+            for i, grade in enumerate(grades, 1):
+                grades_text += f"**{i}. {grade.get('name', '')}** ({grade.get('code', '')})\n • الأعمال: {grade.get('coursework', '-')}\n • النظري: {grade.get('final_exam', '-')}\n • النهائي: {grade.get('total', '-')}\n\n"
+
+            if len(grades_text) > 4096:
+                for part in [grades_text[i:i+4096] for i in range(0, len(grades_text), 4096)]:
+                    await update.message.reply_text(part)
+            else:
+                await self._edit_message_no_keyboard(loading_message, grades_text)
+
+        except Exception as e:
+            logger.error(f"DEBUG: Error in grades command: {e}", exc_info=True)
+            await self._edit_message_no_keyboard(loading_message, "حدث خطأ أثناء جلب الدرجات. حاول لاحقاً.")
+    
     async def _profile_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = self.user_storage.get_user(update.effective_user.id)
-        if not user: return await update.message.reply_text("❌ لم يتم تسجيلك بعد.")
+        if not user: return await update.message.reply_text("❌ لم يتم تسجيلك بعد.", reply_markup=get_main_keyboard())
         grades_count = len(self.grade_storage.get_grades(update.effective_user.id))
-        await update.message.reply_text(f"👤 **معلوماتك:**\n- ID: `{user['telegram_id']}`\n- Username: `{user['username']}`\n- Full Name: `{user['fullname']}`\n- Email: `{user['email']}`\n- Courses: `{grades_count}`")
+        await update.message.reply_text(f"👤 **معلوماتك الشخصية:**\n🆔 `{user.get('telegram_id')}`\n👨‍🎓 `{user.get('username', 'N/A')}`\n📧 `{user.get('email', 'N/A')}`\n📊 `{grades_count}` مواد")
 
     async def _settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"⚙️ **الإعدادات الحالية:**\n- الإشعارات: {'🔔 مفعلة' if CONFIG['ENABLE_NOTIFICATIONS'] else '🔕 معطلة'}\n- فترة الفحص: كل {CONFIG['GRADE_CHECK_INTERVAL']} دقائق.")
@@ -166,7 +219,7 @@ class TelegramBot:
     async def _handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text
         actions = {
-            "📊 التحقق من الدرجات": self._grades_command,
+            "📊 فحص الدرجات": self._grades_command,
             "❓ المساعدة": self._help_command,
             "👤 معلوماتي": self._profile_command,
             "⚙️ الإعدادات": self._settings_command,
@@ -175,7 +228,7 @@ class TelegramBot:
         }
         action = actions.get(text)
         if action: await action(update, context)
-        else: await update.message.reply_text("❓ لم أفهم طلبك.", reply_markup=get_main_keyboard())
+        else: await update.message.reply_text("❓ لم أفهم طلبك. استخدم الأزرار.", reply_markup=get_main_keyboard())
 
     async def _handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.effective_user.id != CONFIG["ADMIN_ID"]: return
@@ -184,25 +237,107 @@ class TelegramBot:
         await self.admin_dashboard.handle_callback(update, context)
         
     async def _grade_checking_loop(self):
-        """Main loop that checks for grade updates for all users and sends notifications if needed."""
+        """دالة حلقة فحص الدرجات الدورية لجميع المستخدمين. ترسل إشعارًا عند وجود تغيير."""
         while self.running:
             try:
+                logger.info("🔍 DEBUG: Starting grade check cycle...")
                 users = self.user_storage.get_all_users()
+                # Use asyncio.gather to run _check_user_grades concurrently for all users
                 await asyncio.gather(*(self._check_user_grades(user) for user in users))
+                logger.info(f"✅ Grade check completed. Next check in {CONFIG['GRADE_CHECK_INTERVAL']} minutes")
+            except asyncio.CancelledError:
+                logger.info("🛑 Grade checking task cancelled")
+                break
             except Exception as e:
                 logger.error(f"❌ Error in grade checking loop: {e}", exc_info=True)
+                # Sleep longer on error to prevent rapid-fire errors
+                await asyncio.sleep(60) # Wait 1 minute before next attempt after an error
+            
+            # Wait for the next scheduled check
             await asyncio.sleep(CONFIG["GRADE_CHECK_INTERVAL"] * 60)
             
     async def _check_user_grades(self, user):
-        # This implementation is correct and confirmed working
-        pass
+        """Performs a grade check for a single user and sends notification if grades changed."""
+        try:
+            telegram_id, username, token, password = user.get("telegram_id"), user.get("username"), user.get("token"), user.get("password")
+            
+            logger.info(f"🔍 DEBUG: Starting grade check for user {username} (ID: {telegram_id})")
 
-    def _compare_grades(self, old_grades, new_grades):
-        """Compare old and new grades, returning only changed courses."""
-        old_grades_map = {g.get('code', g.get('name')): g for g in old_grades}
+            # Skip if no token (user not fully registered or session invalid)
+            if not token:
+                logger.warning(f"⚠️ DEBUG: No token found for user {username}, skipping grade check.")
+                return
+
+            # Test token validity and re-authenticate if expired
+            if not await self.university_api.test_token(token):
+                logger.info(f"🔄 DEBUG: Token expired for user {username}. Attempting re-authentication.")
+                if not password:
+                    logger.error(f"❌ DEBUG: No password stored for {username}, cannot re-authenticate for notifications.")
+                    return
+                
+                new_token = await self.university_api.login(username, password)
+                if not new_token:
+                    logger.warning(f"❌ DEBUG: Re-authentication failed for {username}. Notification skipped.")
+                    # Optionally send a message to the user about failed re-login here
+                    return
+                token = new_token
+                self.user_storage.update_user_token(telegram_id, token)
+                logger.info(f"✅ DEBUG: Re-authentication successful for {username}. Token updated.")
+
+            # Fetch fresh grades
+            user_data = await self.university_api.get_user_data(token)
+            if not user_data or not user_data.get("grades"):
+                logger.info(f"ℹ️ DEBUG: No fresh grades data retrieved for {username}. Might be no grades or API issue.")
+                return
+
+            new_grades = user_data.get("grades", [])
+            old_grades = self.grade_storage.get_grades(telegram_id)
+            
+            logger.info(f"📚 DEBUG: Previous grades count for {username}: {len(old_grades)}")
+            logger.info(f"📚 DEBUG: Retrieved fresh grades count for {username}: {len(new_grades)}")
+
+            # Compare grades
+            changed_courses = self._compare_grades(old_grades, new_grades)
+
+            if changed_courses:
+                logger.info(f"🔄 DEBUG: Found {len(changed_courses)} grade changes for user {username}. Sending notification.")
+                message = "🎓 **تم تحديث درجاتك:**\n\n"
+                for grade in changed_courses:
+                    # Ensure all fields are handled gracefully for the message
+                    name = grade.get('name', 'غير محدد')
+                    code = grade.get('code', '')
+                    coursework = grade.get('coursework', 'لم يتم النشر')
+                    final_exam = grade.get('final_exam', 'لم يتم النشر')
+                    total = grade.get('total', 'لم يتم النشر')
+                    
+                    message += f"📚 **{name}** ({code})\n • الأعمال: {coursework}\n • النظري: {final_exam}\n • النهائي: {total}\n\n"
+                
+                try:
+                    await self.app.bot.send_message(chat_id=telegram_id, text=message, parse_mode='Markdown')
+                    logger.info(f"✅ DEBUG: Grade update notification sent to user {username} (ID: {telegram_id}).")
+                except Exception as e:
+                    logger.error(f"❌ DEBUG: Failed to send notification to {username} (ID: {telegram_id}): {e}", exc_info=True)
+                
+                # Save the new grades regardless of notification success
+                self.grade_storage.save_grades(telegram_id, new_grades)
+                logger.info(f"💾 DEBUG: Updated grades saved for user {username}.")
+            else:
+                logger.info(f"✅ DEBUG: No grade changes detected for user {username}.")
+                
+        except Exception as e:
+            logger.error(f"❌ DEBUG: Error checking grades for user {user.get('username', 'Unknown')}: {e}", exc_info=True)
+
+    def _compare_grades(self, old_grades: List[Dict], new_grades: List[Dict]) -> List[Dict]:
+        """Compares two lists of grade dictionaries and returns new/changed courses."""
+        # Create a dictionary for old grades for faster lookup by a unique key (code or name)
+        old_grades_map = {g.get('code') or g.get('name'): g for g in old_grades if g.get('code') or g.get('name')}
+        
         changes = []
         for new_grade in new_grades:
-            key = new_grade.get('code', new_grade.get('name'))
+            key = new_grade.get('code') or new_grade.get('name')
+            if not key: continue # Skip grades without a valid key
+            
+            # Check if the course is new OR if its content has changed
             if key not in old_grades_map or old_grades_map[key] != new_grade:
                 changes.append(new_grade)
         return changes
