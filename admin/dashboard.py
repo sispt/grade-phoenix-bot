@@ -3,12 +3,18 @@
 """
 import logging
 from typing import List
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes
 from config import CONFIG
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+# Add 'Broadcast' button to the admin dashboard keyboard
+ADMIN_DASHBOARD_BUTTONS = [
+    ["👥 المستخدمون", "📊 التحليل"],
+    ["📢 بث رسالة"]
+]
 
 class AdminDashboard:
     def __init__(self, bot):
@@ -19,7 +25,7 @@ class AdminDashboard:
         if update.effective_user.id != CONFIG["ADMIN_ID"]: return
         dashboard_text = self._get_dashboard_text()
         keyboard = self._get_dashboard_keyboard()
-        await update.message.reply_text(dashboard_text, reply_markup=InlineKeyboardMarkup(keyboard))
+        await update.message.reply_text(dashboard_text, reply_markup=keyboard)
 
     async def handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
@@ -66,13 +72,8 @@ class AdminDashboard:
             "اختر وظيفة من الأزرار أدناه."
         )
 
-    def _get_dashboard_keyboard(self) -> List[List[InlineKeyboardButton]]:
-        return [
-            [InlineKeyboardButton("👥 نظرة عامة للمستخدمين", callback_data="users_overview")],
-            [InlineKeyboardButton("📋 عرض المستخدمين وبياناتهم", callback_data="view_users")],
-            [InlineKeyboardButton("📊 التحليل والإحصائيات", callback_data="analysis")],
-            [InlineKeyboardButton("🚫 إغلاق اللوحة", callback_data="close_dashboard")],
-        ]
+    def _get_dashboard_keyboard(self) -> ReplyKeyboardMarkup:
+        return ReplyKeyboardMarkup(ADMIN_DASHBOARD_BUTTONS, resize_keyboard=True)
 
     def _get_users_overview_text(self) -> str:
         total = self.user_storage.get_users_count()
@@ -112,7 +113,7 @@ class AdminDashboard:
         buttons.append([InlineKeyboardButton("🔎 بحث عن مستخدم", callback_data="user_search")])
         # Add close button
         buttons.append([InlineKeyboardButton("❌ إغلاق", callback_data="close_dashboard")])
-        return InlineKeyboardMarkup(buttons)
+        return ReplyKeyboardMarkup(buttons, resize_keyboard=True)
 
     # To be called from the main bot when admin sends a message after search prompt
     async def handle_user_search_message(self, update, context):
@@ -141,3 +142,29 @@ class AdminDashboard:
         if last_login_user:
             text += f"- آخر مستخدم نشط: {last_login_user.get('username', '-')} (آخر دخول: {last_login_user.get('last_login', '-')})\n"
         return text
+
+    async def handle_dashboard_message(self, update, context):
+        text = update.message.text
+        if text == "📢 بث رسالة":
+            await update.message.reply_text("📝 أرسل نص الرسالة التي تريد بثها لجميع المستخدمين:")
+            context.user_data['awaiting_broadcast'] = True
+            return True
+        if context.user_data.get('awaiting_broadcast'):
+            message = update.message.text
+            await update.message.reply_text("🚀 جاري إرسال الرسالة لجميع المستخدمين...")
+            count = await self.broadcast_to_all_users(message)
+            await update.message.reply_text(f"✅ تم إرسال الرسالة إلى {count} مستخدم.")
+            context.user_data['awaiting_broadcast'] = False
+            return True
+        return False
+
+    async def broadcast_to_all_users(self, message):
+        users = self.bot.user_storage.get_all_users()
+        sent = 0
+        for user in users:
+            try:
+                await self.bot.app.bot.send_message(chat_id=user['telegram_id'], text=message)
+                sent += 1
+            except Exception:
+                continue
+        return sent

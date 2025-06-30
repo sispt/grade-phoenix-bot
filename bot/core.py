@@ -160,24 +160,49 @@ class TelegramBot:
 
     async def _grades_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            # ... existing grade fetching logic ...
-            await update.message.reply_text("📚 سيتم عرض الدرجات هنا قريبًا.")
+            telegram_id = update.effective_user.id
+            user = self.user_storage.get_user(telegram_id)
+            if not user:
+                await update.message.reply_text("❗️ يجب التسجيل أولاً.")
+                return
+            token = user.get("token")
+            if not token:
+                await update.message.reply_text("❗️ يجب إعادة تسجيل الدخول.")
+                return
+            # Simulate Release v2.5.0: fetch grades from API or storage
+            user_data = await self.university_api.get_user_data(token)
+            grades = user_data.get("grades", [])
+            if not grades:
+                await update.message.reply_text("لا توجد درجات متاحة حالياً.")
+                return
+            msg = "📚 **درجاتك الأكاديمية:**\n\n"
+            for g in grades:
+                msg += f"• {g.get('name', '-')} ({g.get('code', '-')})\n  الأعمال: {g.get('coursework', '-')} | النظري: {g.get('final_exam', '-')} | النهائي: {g.get('total', '-')}\n\n"
+            await update.message.reply_text(msg, parse_mode='Markdown')
         except Exception as e:
-            await update.message.reply_text(
-                "عذراً، حدث خطأ أثناء جلب الدرجات. يرجى المحاولة لاحقاً أو التواصل مع الدعم الفني."
-            )
+            await update.message.reply_text("حدث خطأ أثناء جلب الدرجات.")
             logger.error(f"Error in _grades_command: {e}", exc_info=True)
 
     async def _profile_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            await update.message.reply_text("👤 سيتم عرض معلوماتك هنا قريبًا.")
+            telegram_id = update.effective_user.id
+            user = self.user_storage.get_user(telegram_id)
+            if not user:
+                await update.message.reply_text("❗️ يجب التسجيل أولاً.")
+                return
+            msg = (
+                f"👤 **معلوماتك الجامعية:**\n"
+                f"• الاسم الكامل: {user.get('fullname', '-')}\n"
+                f"• اسم المستخدم الجامعي: {user.get('username', '-')}\n"
+            )
+            await update.message.reply_text(msg, parse_mode='Markdown')
         except Exception as e:
-            await update.message.reply_text("عذراً، حدث خطأ أثناء عرض المعلومات.")
+            await update.message.reply_text("حدث خطأ أثناء جلب المعلومات.")
             logger.error(f"Error in _profile_command: {e}", exc_info=True)
 
     async def _settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            await update.message.reply_text("⚙️ سيتم عرض الإعدادات هنا قريبًا.")
+            await update.message.reply_text("⚙️ ليس لديك صلاحية لتعديل الإعدادات في الوقت الحالي.")
         except Exception as e:
             await update.message.reply_text("عذراً، حدث خطأ أثناء عرض الإعدادات.")
             logger.error(f"Error in _settings_command: {e}", exc_info=True)
@@ -246,7 +271,8 @@ class TelegramBot:
                 await self._notify_all_users_grades()
             except Exception as e:
                 logger.error(f"❌ Error in scheduled grade check: {e}", exc_info=True)
-            await asyncio.sleep(600)  # 10 minutes
+            interval = CONFIG.get('GRADE_CHECK_INTERVAL', 10) * 60  # minutes to seconds
+            await asyncio.sleep(interval)
 
     async def _notify_all_users_grades(self):
         users = self.user_storage.get_all_users()
