@@ -10,7 +10,7 @@ from sqlalchemy.orm import sessionmaker
 
 from storage.models import Base, Grade, DatabaseManager # Import Grade model
 # You might not need CONFIG here unless for specific settings
-# from config import CONFIG 
+from config import CONFIG
 
 logger = logging.getLogger(__name__)
 
