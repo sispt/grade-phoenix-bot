@@ -5,7 +5,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMa
 from config import CONFIG
 
 def get_main_keyboard():
-    """Get main keyboard for regular users"""
+    """Returns the main keyboard layout for the bot."""
     keyboard = [
         [
             KeyboardButton("🚀 تسجيل الدخول"),

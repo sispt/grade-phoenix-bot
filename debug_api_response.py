@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Debug API Response - See what the university API actually returns
+Debug utility to inspect API responses from the university system.
 """
 import asyncio
 import aiohttp

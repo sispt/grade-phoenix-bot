@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-🎓 Telegram University Bot - Main Entry Point
+Main entry point for the Telegram University Bot.
 بوت إشعارات الدرجات الجامعية - نقطة البداية الرئيسية
 """
 import asyncio

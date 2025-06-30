@@ -1,5 +1,5 @@
 """
-👥 User Storage System
+Handles user data storage and retrieval.
 """
 import json
 import os

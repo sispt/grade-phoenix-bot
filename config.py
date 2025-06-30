@@ -1,5 +1,5 @@
 """
-Configuration file for Telegram University Bot
+Configuration for the Telegram University Bot.
 """
 import os
 from datetime import datetime

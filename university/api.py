@@ -162,3 +162,7 @@ class UniversityAPI:
         except Exception as e:
             logger.error(f"Error checking for course data: {e}", exc_info=True)
             return False
+
+"""
+University API integration and data parsing utilities.
+"""

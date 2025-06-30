@@ -1,5 +1,7 @@
 """
 📊 Grade Storage System
+
+Handles grade data storage and retrieval.
 """
 import json
 import os

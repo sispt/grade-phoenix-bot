@@ -4,7 +4,7 @@
 from config import CONFIG
 
 def get_welcome_message() -> str:
-    """Get welcome message"""
+    """Returns the welcome message for the user."""
     return (
         "مرحباً بك في نظام الإشعارات الجامعية!\n\n"
         "سجّل دخولك لمتابعة درجاتك الأكاديمية بسهولة.\n\n"
@@ -13,7 +13,7 @@ def get_welcome_message() -> str:
     )
 
 def get_help_message() -> str:
-    """Get help message"""
+    """دالة ترجع رسالة المساعدة."""
     return (
         "استخدم القائمة الرئيسية للتنقل بين الميزات.\n\n"
         "• تسجيل الدخول: لإدخال بياناتك الجامعية\n"
@@ -24,7 +24,7 @@ def get_help_message() -> str:
     )
 
 def get_error_message(error_type: str = "عام") -> str:
-    """Get error message"""
+    """دالة ترجع رسالة الخطأ."""
     error_messages = {
         "login_failed": "تعذّر تسجيل الدخول. يرجى التأكد من صحة البيانات.",
         "network_error": "حدث خطأ في الاتصال. يرجى المحاولة لاحقًا.",
@@ -36,7 +36,7 @@ def get_error_message(error_type: str = "عام") -> str:
     return error_messages.get(error_type, error_messages["general"])
 
 def get_success_message(action: str) -> str:
-    """Get success message"""
+    """دالة ترجع رسالة النجاح."""
     success_messages = {
         "login": "✅ تم تسجيل الدخول بنجاح!\n\nيمكنك الآن فحص درجاتك واستلام الإشعارات.",
         "grades_updated": "📊 تم تحديث الدرجات بنجاح!\n\nتم فحص درجاتك وتحديثها.",
@@ -47,7 +47,7 @@ def get_success_message(action: str) -> str:
     return success_messages.get(action, "✅ تم تنفيذ العملية بنجاح!")
 
 def get_info_message(info_type: str) -> str:
-    """Get info message"""
+    """دالة ترجع رسالة المعلومات."""
     info_messages = {
         "not_registered": "❌ لم يتم تسجيلك بعد.\n\nاضغط على '🚀 تسجيل الدخول' أولاً لإدخال بياناتك الجامعية.",
         "no_permission": "🚫 ليس لديك صلاحية الوصول لهذه الميزة.",
@@ -58,7 +58,7 @@ def get_info_message(info_type: str) -> str:
     return info_messages.get(info_type, "ℹ️ معلومات") 
 
 def get_registration_success_message(username: str) -> str:
-    """Get registration success message"""
+    """دالة ترجع رسالة نجاح تسجيل الدخول."""
     return (
         f"تم تسجيل الدخول بنجاح.\n\n"
         f"مرحباً {username}.\n\n"
