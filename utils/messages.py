@@ -10,8 +10,8 @@ def get_welcome_message() -> str:
         "مرحباً بك في نظام الإشعارات الجامعية!\n\n"
         "سجّل دخولك لمتابعة درجاتك الأكاديمية بسهولة.\n\n"
         f"المطور: {CONFIG['ADMIN_USERNAME']}\n"
-        f"الإصدار: {CONFIG['BOT_VERSION']}\n"
-        "— THE DIE IS CAST · based on beehouse"
+        f"Version: {CONFIG['BOT_VERSION']}\n"
+        "THE DIE IS CAST"
     )
 
 def get_help_message() -> str:
@@ -23,7 +23,7 @@ def get_help_message() -> str:
         "• الإعدادات: لتخصيص تجربتك\n\n"
         f"للمساعدة: {CONFIG['ADMIN_USERNAME']}\n"
         f"الإصدار: {CONFIG['BOT_VERSION']}\n"
-        "— THE DIE IS CAST · based on beehouse"
+        "THE DIE IS CAST"
     )
 
 def get_error_message(error_type: str = "عام") -> str:
@@ -66,7 +66,7 @@ def get_registration_success_message(username: str) -> str:
         f"تم تسجيل الدخول بنجاح.\n\n"
         f"مرحباً {username}.\n\n"
         f"يمكنك الآن متابعة درجاتك في نظام الإشعارات الجامعية.\n\n"
-        f"— THE DIE IS CAST · based on beehouse"
+        f"THE DIE IS CAST"
     ) 
 
 db_manager = DatabaseManager(CONFIG["DATABASE_URL"])
