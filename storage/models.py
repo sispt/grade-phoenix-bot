@@ -3,6 +3,7 @@ SQLAlchemy ORM Models for Database Storage
 """
 import logging
 from datetime import datetime
+from contextlib import contextmanager
 
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, BigInteger, ForeignKey
 from sqlalchemy.orm import declarative_base, sessionmaker
@@ -73,7 +74,7 @@ class DatabaseManager:
             logger.error(f"❌ Database connection or table access failed: {e}", exc_info=True)
             return False
 
-    # This context manager is now for proper session handling
+    @contextmanager
     def get_session(self):
         session = self.SessionLocal()
         try:
