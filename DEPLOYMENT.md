@@ -1,4 +1,4 @@
-# 🚀 دليل النشر - Telegram University Bot v2.0.0
+# 🚀 دليل النشر - Telegram University Bot v2.1.3
 
 ## 📋 المتطلبات الأساسية
 
@@ -21,7 +21,7 @@
 # إنشاء مستودع جديد على GitHub
 git init
 git add .
-git commit -m "Initial commit - Telegram University Bot v2.0.0"
+git commit -m "Initial commit - Telegram University Bot v2.1.3"
 git branch -M main
 git remote add origin https://github.com/yourusername/telegram-university-bot.git
 git push -u origin main

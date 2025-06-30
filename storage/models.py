@@ -75,6 +75,35 @@ class Grade(Base):
             "الدرجة": self.final_grade or "لم يتم النشر"
         }
 
+class CredentialTest(Base):
+    """Credential test cache model for tracking tested username/password combinations"""
+    __tablename__ = 'credential_tests'
+    
+    id = Column(Integer, primary_key=True)
+    username = Column(String(100), nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)  # Store hash for security
+    test_result = Column(Boolean, nullable=False)  # True if successful, False if failed
+    test_date = Column(DateTime, default=datetime.utcnow)
+    error_message = Column(Text, nullable=True)
+    response_time_ms = Column(Integer, nullable=True)
+    user_agent = Column(String(500), nullable=True)
+    ip_address = Column(String(45), nullable=True)  # IPv6 compatible
+    
+    def __repr__(self):
+        return f"<CredentialTest(username='{self.username}', result={self.test_result})>"
+    
+    def to_dict(self):
+        """Convert credential test to dictionary"""
+        return {
+            "username": self.username,
+            "test_result": self.test_result,
+            "test_date": self.test_date.isoformat() if self.test_date else None,
+            "error_message": self.error_message,
+            "response_time_ms": self.response_time_ms,
+            "user_agent": self.user_agent,
+            "ip_address": self.ip_address
+        }
+
 class DatabaseManager:
     """Database connection and session manager"""
     

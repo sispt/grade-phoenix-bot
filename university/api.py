@@ -23,7 +23,7 @@ class UniversityAPI:
         self.timeout = aiohttp.ClientTimeout(total=CONFIG.get("REQUEST_TIMEOUT_SECONDS", 30))
     
     async def login(self, username: str, password: str) -> Optional[str]:
-        """Login to university system"""
+        """Login to university system using GraphQL mutation"""
         max_retries = CONFIG.get("MAX_RETRY_ATTEMPTS", 3)
         
         for attempt in range(max_retries):
@@ -35,13 +35,21 @@ class UniversityAPI:
                     logger.warning(f"DEBUG: Invalid credentials for user {username}")
                     return None
                 
-                # REST API payload
+                # GraphQL mutation payload - matching BeeHouse v2.1 approach
                 payload = {
-                    "username": username,
-                    "password": password
+                    "operationName": "signinUser",
+                    "variables": {
+                        "username": username,
+                        "password": password
+                    },
+                    "query": """
+                        mutation signinUser($username: String!, $password: String!) {
+                            login(username: $username, password: $password)
+                        }
+                    """
                 }
                 
-                logger.info(f"DEBUG: Making login request to {self.login_url}")
+                logger.info(f"DEBUG: Making GraphQL login request to {self.login_url}")
                 logger.info(f"DEBUG: Request method: POST")
                 logger.info(f"DEBUG: Request URL: {self.login_url}")
                 logger.info(f"DEBUG: Payload: {payload}")
@@ -102,14 +110,17 @@ class UniversityAPI:
                                 logger.info(f"DEBUG: Login response data: {data}")
                                 logger.info(f"DEBUG: Full response: {data}")
                                 
-                                # Extract token from REST response
-                                token = data.get("token")
+                                # Extract token from GraphQL response - matching BeeHouse v2.1 structure
+                                token = data.get("data", {}).get("login")
                                 if token:
                                     logger.info(f"✅ Login successful for user: {username}")
+                                    logger.info(f"✅ Token obtained: {token[:20]}...")
                                     return token
                                 else:
                                     logger.warning(f"❌ Login failed for user: {username} - no token in response")
                                     logger.warning(f"❌ DEBUG: Response data keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
+                                    if "errors" in data:
+                                        logger.warning(f"❌ DEBUG: GraphQL errors: {data['errors']}")
                                     return None
                             except json.JSONDecodeError as json_error:
                                 logger.error(f"DEBUG: JSON decode error: {json_error}")
@@ -174,17 +185,19 @@ class UniversityAPI:
         return None
     
     async def test_token(self, token: str) -> bool:
-        """Test if token is still valid"""
+        """Test if token is still valid using GraphQL query"""
         try:
             logger.info(f"🔍 DEBUG: Testing token validity...")
             test_query = """
-            query TestToken {
-                getGUI {
-                    user {
-                        id
-                        username
-                    }
+            {
+              getGUI {
+                user {
+                  id
+                  username
+                  email
+                  fullname
                 }
+              }
             }
             """
             
@@ -206,11 +219,22 @@ class UniversityAPI:
                         data = await response.json()
                         logger.info(f"📄 DEBUG: Token test response data: {data}")
                         logger.info(f"📄 DEBUG: Full token test response: {data}")
-                        is_valid = "data" in data and data["data"] and data["data"]["getGUI"]
+                        
+                        # Check for GraphQL errors
+                        if "errors" in data:
+                            logger.warning(f"❌ DEBUG: GraphQL errors in token test: {data['errors']}")
+                            return False
+                        
+                        is_valid = "data" in data and data["data"] and data["data"]["getGUI"] and data["data"]["getGUI"]["user"]
                         logger.info(f"✅ DEBUG: Token is {'valid' if is_valid else 'invalid'}")
                         return is_valid
                     else:
                         logger.warning(f"❌ DEBUG: Token test failed with status: {response.status}")
+                        try:
+                            error_text = await response.text()
+                            logger.warning(f"❌ DEBUG: Token test error response: {error_text}")
+                        except:
+                            pass
                         return False
                         
         except Exception as e:
@@ -382,13 +406,24 @@ class UniversityAPI:
                         logger.info(f"📄 DEBUG: Homepage response data keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
                         logger.info(f"📄 DEBUG: Full homepage response: {data}")
                         
+                        # Check for GraphQL errors
+                        if "errors" in data:
+                            logger.error(f"❌ DEBUG: GraphQL errors in homepage request: {data['errors']}")
+                            return None
+                        
                         if "data" in data and data["data"] and data["data"]["getPage"]:
                             return data["data"]["getPage"]
                         else:
                             logger.error(f"❌ DEBUG: Invalid homepage response structure")
+                            logger.error(f"❌ DEBUG: Expected 'data.getPage' but got: {data}")
                             return None
                     else:
                         logger.error(f"❌ DEBUG: Homepage request failed with status: {response.status}")
+                        try:
+                            error_text = await response.text()
+                            logger.error(f"❌ DEBUG: Homepage error response: {error_text}")
+                        except:
+                            pass
                         return None
                         
         except Exception as e:
@@ -490,6 +525,11 @@ class UniversityAPI:
                         logger.info(f"📄 DEBUG: Grades response data keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
                         logger.info(f"📄 DEBUG: Full grades response: {data}")
                         
+                        # Check for GraphQL errors
+                        if "errors" in data:
+                            logger.error(f"❌ DEBUG: GraphQL errors in grades request: {data['errors']}")
+                            return []
+                        
                         if "data" in data and data["data"] and data["data"]["getPage"]:
                             page_content = data["data"]["getPage"]
                             logger.info(f"✅ DEBUG: Got grades page content")
@@ -500,8 +540,7 @@ class UniversityAPI:
                             return grades
                         else:
                             logger.error(f"❌ DEBUG: Invalid grades response structure")
-                            if "errors" in data:
-                                logger.error(f"❌ DEBUG: GraphQL errors: {data['errors']}")
+                            logger.error(f"❌ DEBUG: Expected 'data.getPage' but got: {data}")
                             return []
                     else:
                         logger.error(f"❌ DEBUG: Grades request failed with status: {response.status}")
@@ -877,4 +916,77 @@ class UniversityAPI:
             
         except Exception as e:
             logger.error(f"❌ DEBUG: Error extracting grades from HTML: {e}")
+            return []
+    
+    def extract_grades_from_html_file(self, html_content: str) -> List[Dict[str, Any]]:
+        """
+        Extract grades from HTML content using flexible parsing
+        Works with any HTML structure containing grades tables
+        """
+        try:
+            logger.info("🔍 Starting flexible HTML grades extraction...")
+            soup = BeautifulSoup(html_content, "html.parser")
+            all_tables = soup.find_all("table")
+            extracted_grades = []
+
+            logger.info(f"📊 Found {len(all_tables)} tables in HTML")
+
+            for table_index, table in enumerate(all_tables):
+                headers = [th.text.strip() for th in table.find_all("th")]
+                
+                # Flexible detection: consider it a grades table if it has at least 2 grade-related keywords
+                grade_keywords = ["المقرر", "كود المادة", "الدرجة", "ECTS", "أعمال", "نظري", "course", "code", "grade"]
+                grade_keyword_count = sum(any(kw in h for kw in grade_keywords) for h in headers)
+                
+                if grade_keyword_count >= 2:
+                    logger.info(f"✅ Table {table_index + 1}: Found grades table with {grade_keyword_count} grade keywords")
+                    logger.info(f"📋 Headers: {headers}")
+                    
+                    rows = table.find_all("tr")[1:]  # Skip header row
+                    logger.info(f"📝 Processing {len(rows)} data rows")
+                    
+                    for row_index, row in enumerate(rows):
+                        cells = [td.text.strip() for td in row.find_all("td")]
+                        
+                        if cells and len(cells) == len(headers):
+                            # Create grade record with header mapping
+                            grade_record = dict(zip(headers, cells))
+                            
+                            # Only add if it has meaningful course data
+                            if any(grade_record.get(h) for h in headers if any(kw in h for kw in ["المقرر", "course", "كود المادة", "code"])):
+                                extracted_grades.append(grade_record)
+                                logger.info(f"✅ Added grade record {row_index + 1}: {grade_record.get('المقرر', 'N/A')} ({grade_record.get('كود المادة', 'N/A')})")
+                            else:
+                                logger.info(f"⚠️ Skipped row {row_index + 1}: No meaningful course data")
+                        else:
+                            logger.warning(f"⚠️ Row {row_index + 1}: Cell count mismatch ({len(cells)} vs {len(headers)})")
+                else:
+                    logger.info(f"ℹ️ Table {table_index + 1}: Not a grades table (only {grade_keyword_count} grade keywords)")
+
+            logger.info(f"🎉 HTML extraction complete: {len(extracted_grades)} grade records found")
+            return extracted_grades
+
+        except Exception as e:
+            logger.error(f"❌ Error extracting grades from HTML: {e}")
+            import traceback
+            logger.error(f"❌ Traceback: {traceback.format_exc()}")
+            return []
+
+    def parse_html_grades_file(self, file_path: str) -> List[Dict[str, Any]]:
+        """
+        Parse grades from a saved HTML file
+        """
+        try:
+            logger.info(f"📁 Reading HTML file: {file_path}")
+            with open(file_path, encoding="utf-8") as f:
+                html_content = f.read()
+            
+            logger.info(f"📄 HTML file loaded: {len(html_content)} characters")
+            return self.extract_grades_from_html_file(html_content)
+            
+        except FileNotFoundError:
+            logger.error(f"❌ HTML file not found: {file_path}")
+            return []
+        except Exception as e:
+            logger.error(f"❌ Error reading HTML file {file_path}: {e}")
             return [] 

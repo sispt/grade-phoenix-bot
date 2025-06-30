@@ -169,7 +169,7 @@ async def main():
         await runner.stop()
 
 if __name__ == "__main__":
-    print("🎓 Telegram University Bot v2.0.0")
+    print("🎓 Telegram University Bot v2.1.3")
     print("بوت إشعارات الدرجات الجامعية")
     print("=" * 50)
     

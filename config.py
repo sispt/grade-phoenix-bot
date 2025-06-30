@@ -13,6 +13,7 @@ CONFIG = {
     "ADMIN_ID": int(os.getenv("ADMIN_ID", "123456789")),  # Admin Telegram ID
     "ADMIN_USERNAME": os.getenv("ADMIN_USERNAME", "@sisp_t"),
     "ADMIN_EMAIL": os.getenv("ADMIN_EMAIL", "tox098123@gmail.com"),
+    "ADMIN_NAME": os.getenv("ADMIN_NAME", "Abdulrahman Abdulqader"),
     
     # Database Configuration
     "DATABASE_URL": os.getenv("DATABASE_URL", "sqlite:///./data/bot.db"),
@@ -26,7 +27,7 @@ CONFIG = {
     
     # Bot Settings
     "BOT_NAME": "نظام الإشعارات الجامعية",
-    "BOT_VERSION": "2.0.0",
+    "BOT_VERSION": os.getenv("BOT_VERSION", "2.1.3"),
     "BOT_DESCRIPTION": "بوت متقدم لإشعارات الدرجات مع لوحة تحكم إدارية شاملة - جامعة الشام",
     
     # Check Interval (in minutes)
@@ -56,17 +57,14 @@ CONFIG = {
     "LOG_ADMIN_ACTIONS": True,
     "SESSION_TIMEOUT_HOURS": 24,
     
-    # API Headers
+    # API Headers - Updated to match BeeHouse v2.1 exact structure
     "API_HEADERS": {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
-        "Accept": "application/json",
-        "Accept-Language": "ar-SA,ar;q=0.9,en;q=0.8",
-        "Accept-Encoding": "gzip, deflate, br, zstd",
-        "Referer": "https://api.staging.sis.shamuniversity.com/",
-        "Origin": "https://api.staging.sis.shamuniversity.com",
-        "Connection": "keep-alive",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
         "Content-Type": "application/json",
-        "x-lang": "ar"
+        "x-lang": "ar",
+        "Accept": "application/json",
+        "Origin": "https://api.staging.sis.shamuniversity.com",
+        "Referer": "https://api.staging.sis.shamuniversity.com",
     },
     
     # Timezone

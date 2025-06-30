@@ -55,7 +55,7 @@ def get_info_message(info_type: str) -> str:
         "coming_soon": "🚧 **قريباً**\n\nهذه الميزة ستكون متاحة قريباً."
     }
     
-    return info_messages.get(info_type, "ℹ️ معلومات")
+    return info_messages.get(info_type, "ℹ️ معلومات") 
 
 def get_registration_success_message(username: str) -> str:
     """Get registration success message"""

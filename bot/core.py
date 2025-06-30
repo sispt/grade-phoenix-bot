@@ -584,8 +584,14 @@ class TelegramBot:
             user_data = await self.university_api.get_user_data(token)
             if not user_data:
                 logger.warning(f"DEBUG: Failed to fetch user data for {username}")
+                
+                # Try HTML fallback
+                logger.info(f"DEBUG: Attempting HTML fallback for user {username}")
+                if await self._extract_grades_from_html_fallback(update, loading_message, telegram_id):
+                    return
+                
                 await self._edit_message_no_keyboard(loading_message,
-                    "فشل جلب الدرجات. حاول لاحقاً.\n— THE DIE IS CAST · based on beehouse"
+                    "لا توجد درجات متاحة حالياً.\n— THE DIE IS CAST · based on beehouse"
                 )
                 await self._send_message_with_keyboard(
                     update,
@@ -606,18 +612,6 @@ class TelegramBot:
                 # Continue even if save fails
             
             # Display grades
-            if not grades:
-                await self._edit_message_no_keyboard(loading_message,
-                    "لا توجد درجات متاحة حالياً.\n— THE DIE IS CAST · based on beehouse"
-                )
-                await self._send_message_with_keyboard(
-                    update,
-                    "اضغط '📊 عرض الدرجات' للمحاولة مرة أخرى",
-                    "main"
-                )
-                return
-            
-            # Format grades message
             grades_text = f"📊 **درجاتك الحالية:**\n\n"
             for i, grade in enumerate(grades, 1):
                 course_name = grade.get("المقرر", "غير محدد")
@@ -957,4 +951,70 @@ username on other platforms: @sisp_t
             
         except Exception as e:
             logger.error(f"DEBUG: Error logging update: {e}")
-            logger.info(f"DEBUG: Raw update: {update}") 
+            logger.info(f"DEBUG: Raw update: {update}")
+    
+    async def _extract_grades_from_html_fallback(self, update: Update, loading_message, telegram_id: int) -> bool:
+        """
+        Fallback method to extract grades from HTML file when API fails
+        """
+        try:
+            logger.info(f"🔄 Attempting HTML fallback for user {telegram_id}")
+            await self._edit_message_no_keyboard(loading_message, "جاري استخراج الدرجات من الملف المحفوظ...")
+            
+            # Try to parse Homepage.html
+            html_file_path = "Homepage.html"
+            grades = self.university_api.parse_html_grades_file(html_file_path)
+            
+            if grades:
+                logger.info(f"✅ HTML fallback successful: {len(grades)} grades extracted")
+                
+                # Save grades
+                try:
+                    self.grade_storage.save_grades(telegram_id, grades)
+                    logger.info(f"✅ HTML grades saved for user {telegram_id}")
+                except Exception as save_error:
+                    logger.error(f"❌ Failed to save HTML grades: {save_error}")
+                
+                # Format and display grades
+                grades_text = f"📊 **درجاتك من الملف المحفوظ:**\n\n"
+                for i, grade in enumerate(grades, 1):
+                    course_name = grade.get("المقرر", "غير محدد")
+                    course_code = grade.get("كود المادة", "")
+                    practical = grade.get("درجة الأعمال", "لم يتم النشر")
+                    theoretical = grade.get("درجة النظري", "لم يتم النشر")
+                    final = grade.get("الدرجة", "لم يتم النشر")
+                    
+                    grades_text += f"**{i}. {course_name}**"
+                    if course_code:
+                        grades_text += f" ({course_code})"
+                    grades_text += f"\n"
+                    grades_text += f"• الأعمال: {practical}\n"
+                    grades_text += f"• النظري: {theoretical}\n"
+                    grades_text += f"• النهائي: {final}\n\n"
+                
+                grades_text += "— THE DIE IS CAST · based on beehouse"
+                
+                # Split message if too long
+                if len(grades_text) > 4096:
+                    parts = [grades_text[i:i+4096] for i in range(0, len(grades_text), 4096)]
+                    for i, part in enumerate(parts):
+                        if i == 0:
+                            await self._edit_message_no_keyboard(loading_message, part)
+                        else:
+                            await update.message.reply_text(part)
+                else:
+                    await self._edit_message_no_keyboard(loading_message, grades_text)
+                
+                await self._send_message_with_keyboard(
+                    update,
+                    "✅ تم استخراج الدرجات من الملف المحفوظ\nاضغط '📊 عرض الدرجات' للمحاولة مرة أخرى",
+                    "main"
+                )
+                return True
+            else:
+                logger.warning(f"❌ HTML fallback failed: No grades found in {html_file_path}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ HTML fallback error: {e}")
+            return False 
