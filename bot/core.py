@@ -582,26 +582,31 @@ class TelegramBot:
             await self._edit_message_no_keyboard(loading_message, "جاري جلب الدرجات...")
             
             user_data = await self.university_api.get_user_data(token)
-            if not user_data:
-                logger.warning(f"DEBUG: Failed to fetch user data for {username}")
-                
-                # Try HTML fallback
-                logger.info(f"DEBUG: Attempting HTML fallback for user {username}")
+            grades = []
+            
+            if user_data:
+                grades = user_data.get("grades", [])
+                logger.info(f"DEBUG: Retrieved {len(grades)} grades from API for user {username}")
+            
+            # If no grades from API, try HTML fallback
+            if not grades:
+                logger.info(f"DEBUG: No grades from API, trying HTML fallback for user {username}")
                 if await self._extract_grades_from_html_fallback(update, loading_message, telegram_id):
                     return
                 
-                await self._edit_message_no_keyboard(loading_message,
-                    "لا توجد درجات متاحة حالياً.\n— THE DIE IS CAST · based on beehouse"
-                )
+                # If HTML fallback also fails, show empty grades message
+                grades_text = f"📊 **درجاتك الحالية:**\n\n"
+                grades_text += "لا توجد درجات متاحة حالياً.\n"
+                grades_text += "قد تكون الدرجات لم تُنشر بعد أو هناك مشكلة في الاتصال.\n\n"
+                grades_text += "— THE DIE IS CAST · based on beehouse"
+                
+                await self._edit_message_no_keyboard(loading_message, grades_text)
                 await self._send_message_with_keyboard(
                     update,
                     "اضغط '📊 عرض الدرجات' للمحاولة مرة أخرى",
                     "main"
                 )
                 return
-            
-            grades = user_data.get("grades", [])
-            logger.info(f"DEBUG: Retrieved {len(grades)} grades for user {username}")
             
             # Save fresh grades
             try:
@@ -961,8 +966,33 @@ username on other platforms: @sisp_t
             logger.info(f"🔄 Attempting HTML fallback for user {telegram_id}")
             await self._edit_message_no_keyboard(loading_message, "جاري استخراج الدرجات من الملف المحفوظ...")
             
+            # Try multiple possible paths for Homepage.html
+            possible_paths = [
+                "Homepage.html",
+                "telegram_university_bot/Homepage.html",
+                "./Homepage.html",
+                "../Homepage.html"
+            ]
+            
+            html_file_path = None
+            for path in possible_paths:
+                try:
+                    import os
+                    if os.path.exists(path):
+                        html_file_path = path
+                        logger.info(f"✅ Found HTML file at: {path}")
+                        break
+                except Exception:
+                    continue
+            
+            if not html_file_path:
+                logger.error(f"❌ HTML file not found in any of the expected paths: {possible_paths}")
+                await self._edit_message_no_keyboard(loading_message, 
+                    "❌ لم يتم العثور على ملف الدرجات المحفوظ.\n— THE DIE IS CAST · based on beehouse"
+                )
+                return False
+            
             # Try to parse Homepage.html
-            html_file_path = "Homepage.html"
             grades = self.university_api.parse_html_grades_file(html_file_path)
             
             if grades:
@@ -1013,8 +1043,14 @@ username on other platforms: @sisp_t
                 return True
             else:
                 logger.warning(f"❌ HTML fallback failed: No grades found in {html_file_path}")
+                await self._edit_message_no_keyboard(loading_message, 
+                    "❌ لم يتم العثور على درجات في الملف المحفوظ.\n— THE DIE IS CAST · based on beehouse"
+                )
                 return False
                 
         except Exception as e:
             logger.error(f"❌ HTML fallback error: {e}")
+            await self._edit_message_no_keyboard(loading_message, 
+                f"❌ خطأ في استخراج الدرجات: {str(e)}\n— THE DIE IS CAST · based on beehouse"
+            )
             return False 

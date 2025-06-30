@@ -20,10 +20,10 @@ CONFIG = {
     "USE_POSTGRESQL": bool(os.getenv("DATABASE_URL", "").startswith("postgresql")),
     
     # University API Configuration
-    "UNIVERSITY_LOGIN_URL": "https://api.staging.sis.shamuniversity.com/portal",
-    "UNIVERSITY_API_URL": "https://api.staging.sis.shamuniversity.com/graphql",
+    "UNIVERSITY_LOGIN_URL": "https://staging.sis.shamuniversity.com/portal/graphql",
+    "UNIVERSITY_API_URL": "https://staging.sis.shamuniversity.com/portal/graphql",
     "UNIVERSITY_NAME": "جامعة الشام",
-    "UNIVERSITY_WEBSITE": "https://api.staging.sis.shamuniversity.com",
+    "UNIVERSITY_WEBSITE": "https://staging.sis.shamuniversity.com",
     
     # Bot Settings
     "BOT_NAME": "نظام الإشعارات الجامعية",
@@ -59,12 +59,18 @@ CONFIG = {
     
     # API Headers - Updated to match BeeHouse v2.1 exact structure
     "API_HEADERS": {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Content-Type": "application/json",
         "x-lang": "ar",
-        "Accept": "application/json",
-        "Origin": "https://api.staging.sis.shamuniversity.com",
-        "Referer": "https://api.staging.sis.shamuniversity.com",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "ar,en-US;q=0.9,en;q=0.8",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Origin": "https://staging.sis.shamuniversity.com",
+        "Referer": "https://staging.sis.shamuniversity.com/",
+        "Connection": "keep-alive",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-origin",
     },
     
     # Timezone
@@ -128,14 +134,13 @@ ADMIN_CONFIG = {
 # University API Queries
 UNIVERSITY_QUERIES = {
     "LOGIN": """
-    {
-        "username": "{username}",
-        "password": "{password}"
+    mutation signinUser($username: String!, $password: String!) {
+        login(username: $username, password: $password)
     }
     """,
     
     "GET_USER_INFO": """
-    {
+    query {
       getGUI {
         user {
           id

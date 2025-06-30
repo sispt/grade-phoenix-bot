@@ -35,18 +35,14 @@ class UniversityAPI:
                     logger.warning(f"DEBUG: Invalid credentials for user {username}")
                     return None
                 
-                # GraphQL mutation payload - matching BeeHouse v2.1 approach
+                # GraphQL mutation payload - using proper GraphQL structure
                 payload = {
                     "operationName": "signinUser",
                     "variables": {
                         "username": username,
                         "password": password
                     },
-                    "query": """
-                        mutation signinUser($username: String!, $password: String!) {
-                            login(username: $username, password: $password)
-                        }
-                    """
+                    "query": CONFIG["UNIVERSITY_QUERIES"]["LOGIN"]
                 }
                 
                 logger.info(f"DEBUG: Making GraphQL login request to {self.login_url}")
