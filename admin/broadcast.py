@@ -4,6 +4,7 @@
 import logging
 from telegram import Update
 from telegram.ext import CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes
+from config import CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +28,18 @@ class BroadcastSystem:
         )
 
     async def start_broadcast(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if update.effective_user.id != CONFIG["ADMIN_ID"]:
+            await update.message.reply_text("🚫 ليس لديك صلاحية لاستخدام هذه الميزة.")
+            return ConversationHandler.END
+        
         await update.message.reply_text("أرسل الرسالة التي تريد بثها للجميع. للإلغاء، استخدم /cancel.")
         return BROADCAST_MESSAGE
 
     async def send_broadcast(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if update.effective_user.id != CONFIG["ADMIN_ID"]:
+            await update.message.reply_text("🚫 ليس لديك صلاحية لاستخدام هذه الميزة.")
+            return ConversationHandler.END
+        
         message_text = update.message.text
         active_users = self.user_storage.get_active_users() # This line will now work
         sent_count = 0
