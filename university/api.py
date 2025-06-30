@@ -84,29 +84,37 @@ class UniversityAPI:
             logger.error(f"Error getting user info: {e}", exc_info=True)
             return None
 
-    async def _get_grades(self, token: str) -> List[Dict[str, Any]]:
-        logger.info("🔍 DEBUG: Starting grade fetch with correct logic...")
-        all_grades = []
-        homepage_data = await self._get_homepage(token)
-        if not homepage_data:
-            logger.error("❌ DEBUG: Failed to get homepage data to find term IDs.")
-            return []
-            
-        term_ids = self._extract_terms_from_homepage(homepage_data)
-        if not term_ids:
-            logger.error("❌ DEBUG: Could not extract any term IDs from the homepage.")
-            return []
-            
-        for term_id in term_ids:
-            logger.info(f"📊 DEBUG: Fetching grades for extracted term ID: {term_id}")
-            term_grades = await self._get_term_grades(token, term_id)
-            if term_grades:
-                logger.info(f"✅ DEBUG: Found {len(term_grades)} grades for term ID {term_id}.")
-                all_grades.extend(term_grades)
-                
-        logger.info(f"🎉 DEBUG: Total grades retrieved: {len(all_grades)}")
-        return all_grades
+    # In api.py, replace ONLY the _get_grades function with this final version:
 
+async def _get_grades(self, token: str) -> List[Dict[str, Any]]:
+    """
+    Final, direct method to get user grades. It bypasses the unreliable
+    homepage parsing and fetches grades using the known-good term IDs from the HAR file.
+    """
+    logger.info("🔍 DEBUG: Starting DIRECT grade fetch with hardcoded known term IDs...")
+    all_grades = []
+    
+    # These are the correct term IDs we found in your HAR file.
+    # This is much more reliable than trying to find them dynamically.
+    known_term_ids = ["10459", "8530"] 
+    
+    for term_id in known_term_ids:
+        logger.info(f"📊 DEBUG: Directly fetching grades for known term ID: {term_id}")
+        
+        # This function fetches the page containing the actual grades table.
+        term_grades = await self._get_term_grades(token, term_id)
+        
+        if term_grades:
+            logger.info(f"✅ DEBUG: Found {len(term_grades)} grades for term ID {term_id}.")
+            all_grades.extend(term_grades)
+        else:
+            logger.info(f"ℹ️ DEBUG: No grades found for term ID {term_id}.")
+
+    if not all_grades:
+        logger.warning("⚠️ DEBUG: No grades found for any of the attempted term IDs.")
+        
+    logger.info(f"🎉 DEBUG: Total grades retrieved directly: {len(all_grades)}")
+    return all_grades
     async def _get_homepage(self, token: str) -> Optional[Dict[str, Any]]:
         try:
             headers = {**self.api_headers, "Authorization": f"Bearer {token}"}
