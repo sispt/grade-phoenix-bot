@@ -20,8 +20,6 @@ CONFIG = {
     "USE_POSTGRESQL": bool(os.getenv("DATABASE_URL", "").startswith("postgresql")),
     
     # University API Configuration
-# University API Configuration
-    # In config.py
     "UNIVERSITY_LOGIN_URL": "https://api.staging.sis.shamuniversity.com/portal", # Use /portal for login
     "UNIVERSITY_API_URL": "https://api.staging.sis.shamuniversity.com/graphql", # Use /graphql for everything else
     "UNIVERSITY_WEBSITE": "https://staging.sis.shamuniversity.com",
@@ -33,7 +31,7 @@ CONFIG = {
     "BOT_DESCRIPTION": "بوت متقدم لإشعارات الدرجات مع لوحة تحكم إدارية شاملة - جامعة الشام",
     
     # Check Interval (in minutes)
-    "GRADE_CHECK_INTERVAL": 5,
+    "GRADE_CHECK_INTERVAL": int(os.getenv("GRADE_CHECK_INTERVAL", "15")),  # fallback to 15 minutes if not set
     
     # Notification Settings (removed: ENABLE_NOTIFICATIONS, MAX_RETRY_ATTEMPTS)
     
@@ -57,24 +55,20 @@ CONFIG = {
     "SESSION_TIMEOUT_HOURS": 24,
     
     # API Headers - Updated to match BeeHouse v2.1 exact structure
- # In your config.py file, replace the API_HEADERS dictionary with this one:
-
-# In your config.py file, this is the final, correct version of API_HEADERS:
-
-"API_HEADERS": {
-    "Accept": "*/*",
-    "Accept-Encoding": "gzip, deflate, br, zstd",
-    "Accept-Language": "en-US,en;q=0.9,ar;q=0.8",
-    "Connection": "keep-alive",
-    "Content-Type": "application/json",
-    "Origin": "https://staging.sis.shamuniversity.com",
-    "Referer": "https://staging.sis.shamuniversity.com/",
-    "Sec-Fetch-Dest": "empty",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Site": "same-site",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
-    "x-lang": "ar"
-},
+    "API_HEADERS": {
+        "Accept": "*/*",
+        "Accept-Encoding": "gzip, deflate, br, zstd",
+        "Accept-Language": "en-US,en;q=0.9,ar;q=0.8",
+        "Connection": "keep-alive",
+        "Content-Type": "application/json",
+        "Origin": "https://staging.sis.shamuniversity.com",
+        "Referer": "https://staging.sis.shamuniversity.com/",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-site",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+        "x-lang": "ar"
+    },
     
     # Timezone
     "TIMEZONE": "UTC+3",

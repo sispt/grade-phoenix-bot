@@ -37,6 +37,7 @@ Set these in your Railway/Heroku/OS environment:
 - `ADMIN_EMAIL`: Admin's email (for contact)
 - `BOT_VERSION`: Bot version string (shown in /start, /help)
 - `DATABASE_URL`: PostgreSQL connection string (if using DB)
+- `GRADE_CHECK_INTERVAL`: Interval between grade checks (in **minutes**)
 - (Other config variables as needed in `config.py`)
 
 ---
@@ -129,3 +130,29 @@ pytest
 ```
 
 This will automatically discover and run all tests in the project.
+
+## Admin Dashboard
+
+The admin dashboard is only accessible to the admin (as set in `ADMIN_ID`). Features include:
+- User overview and analytics
+- Broadcast message to all users (admin only)
+- View and search users
+
+## Broadcast Feature
+
+Admins can send a broadcast message to all users from the dashboard. Only admins see this option.
+
+## Grade Notification Logic
+
+- The bot checks for grade changes every `GRADE_CHECK_INTERVAL` minutes (configurable via environment variable or config.py).
+- Only changed courses are notified to the user, with both old and new values shown.
+- Notifications are sent in Arabic, mentioning the user's university full name.
+
+## Running & Deployment
+
+1. Set required environment variables (see above).
+2. Deploy to your preferred platform (Railway, Heroku, etc.).
+3. Set `GRADE_CHECK_INTERVAL` in your environment or config.py as needed.
+4. Start the bot with `python main.py`.
+
+For more details, see comments in the code and UPDATE.md.

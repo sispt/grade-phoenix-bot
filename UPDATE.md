@@ -67,4 +67,19 @@ This update brings a major refactor and robustness improvements to the Telegram 
 - All admin/dashboard features are protected and configurable.
 - Code cleaned from old/AI comments.
 - Improved error handling and notifications.
-- Full support for PostgreSQL and file-based storage. 
+- Full support for PostgreSQL and file-based storage.
+
+## [2.5.2] - 2025-07-01
+### Added
+- Broadcast feature re-enabled for admins via dashboard (admin-only, sends to all users)
+- Admin dashboard clarified as admin-only, with user analytics and search
+- Grade check interval now fully configurable via `GRADE_CHECK_INTERVAL` env/config (in minutes)
+
+### Changed
+- All code comments improved for clarity and practical self-guidance (not AI-style)
+- README updated: admin dashboard, broadcast, notification logic, deployment, and config
+- Error handling and user feedback improved in commands and notifications
+
+### Fixed
+- No deprecated config or message variables remain
+- All features tested and documented for v2.5.2 
