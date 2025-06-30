@@ -6,7 +6,7 @@
 import asyncio
 import logging
 from datetime import datetime
-from telegram import Update
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -45,14 +45,14 @@ class TelegramBot:
         self.user_storage = None
         self.grade_storage = None
         self.university_api = UniversityAPI()
-        self.admin_dashboard = AdminDashboard(self) # Pass bot instance to admin
-        self.broadcast_system = BroadcastSystem(self) # Pass bot instance to admin
+        # Pass the bot instance to the admin classes
+        self.admin_dashboard = AdminDashboard(self)
+        self.broadcast_system = BroadcastSystem(self)
         self.grade_check_task = None
         self.running = False
         self._initialize_storage()
         
     def _initialize_storage(self):
-        """Initialize storage system based on configuration"""
         try:
             if CONFIG.get("USE_POSTGRESQL", False) and CONFIG.get("DATABASE_URL"):
                 logger.info("🗄️ Initializing PostgreSQL storage...")
@@ -73,13 +73,11 @@ class TelegramBot:
             self._initialize_file_storage()
     
     def _initialize_file_storage(self):
-        """Initialize file-based storage as fallback"""
         self.user_storage = UserStorage()
         self.grade_storage = GradeStorage()
         logger.info("✅ File-based storage initialized successfully")
     
     async def start(self):
-        """Start the bot"""
         import os
         self.app = Application.builder().token(CONFIG["TELEGRAM_TOKEN"]).build()
         await self._update_bot_info()
@@ -107,62 +105,44 @@ class TelegramBot:
         self.running = True
     
     async def _update_bot_info(self):
-        """Update bot name and description"""
         try:
             await self.app.bot.set_my_name(CONFIG["BOT_NAME"])
             await self.app.bot.set_my_description(CONFIG["BOT_DESCRIPTION"])
-            await self.app.bot.set_my_short_description("بوت إشعارات الدرجات الجامعية - جامعة الشام")
+            await self.app.bot.set_my_short_description("بوت الإشعارات الجامعية - جامعة الشام")
         except Exception as e:
             logger.warning(f"⚠️ Failed to update bot info: {e}")
 
     async def stop(self):
-        """Stop the bot gracefully"""
         self.running = False
         if self.grade_check_task: self.grade_check_task.cancel()
         if self.app: await self.app.shutdown()
         logger.info("🛑 Bot stopped.")
     
     def _add_handlers(self):
-        """Add all bot handlers for full functionality."""
         logger.info("DEBUG: Adding all bot handlers...")
 
-        # Conversation handler for registration (must come first)
         registration_handler = ConversationHandler(
             entry_points=[CommandHandler("register", self._register_start), MessageHandler(filters.Regex("^🚀 تسجيل الدخول$"), self._register_start)],
-            states={
-                ASK_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._register_username)],
-                ASK_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._register_password)],
-            },
+            states={ ASK_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._register_username)], ASK_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._register_password)], },
             fallbacks=[CommandHandler("cancel", self._cancel_registration)],
         )
         self.app.add_handler(registration_handler)
-
-        # Conversation handler for admin broadcast
         self.app.add_handler(self.broadcast_system.get_conversation_handler())
-
-        # Regular command handlers
         self.app.add_handler(CommandHandler("start", self._start_command))
         self.app.add_handler(CommandHandler("help", self._help_command))
         self.app.add_handler(CommandHandler("grades", self._grades_command))
         self.app.add_handler(CommandHandler("profile", self._profile_command))
         self.app.add_handler(CommandHandler("settings", self._settings_command))
         self.app.add_handler(CommandHandler("support", self._support_command))
-        
-        # Admin command handlers
         self.app.add_handler(CommandHandler("stats", self._stats_command))
         self.app.add_handler(CommandHandler("list_users", self._list_users_command))
         self.app.add_handler(CommandHandler("restart", self._restart_command))
-        
-        # Callback query handler for buttons in messages (like admin dashboard)
         self.app.add_handler(CallbackQueryHandler(self._handle_callback))
-        
-        # Message handler for main keyboard buttons (should be last)
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message))
-        
         logger.info("✅ All handlers added successfully!")
 
     async def _send_message_with_keyboard(self, update, message, keyboard_type="main"):
-        keyboards = {"main": get_main_keyboard, "relogin": get_main_keyboard_with_relogin, "cancel": get_cancel_keyboard}
+        keyboards = {"main": get_main_keyboard, "relogin": get_main_keyboard_with_relogin, "cancel": get_cancel_keyboard, "admin": get_admin_keyboard}
         keyboard = keyboards.get(keyboard_type, get_main_keyboard)()
         await update.message.reply_text(message, reply_markup=keyboard)
 
@@ -173,10 +153,12 @@ class TelegramBot:
             logger.error(f"Failed to edit message: {e}")
 
     async def _start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await self._send_message_with_keyboard(update, get_welcome_message())
+        msg = get_welcome_message() + f"\n\nالإصدار: {CONFIG['BOT_VERSION']}"
+        await self._send_message_with_keyboard(update, msg)
     
     async def _help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await self._send_message_with_keyboard(update, get_help_message())
+        msg = get_help_message() + f"\n\nالإصدار: {CONFIG['BOT_VERSION']}"
+        await self._send_message_with_keyboard(update, msg)
 
     async def _register_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.clear()
@@ -198,8 +180,7 @@ class TelegramBot:
             await update.message.reply_text("❌ كلمة المرور غير صالحة، حاول مرة أخرى:")
             return ASK_PASSWORD
 
-        username = context.user_data.get("username")
-        telegram_id = update.effective_user.id
+        username, telegram_id = context.user_data.get("username"), update.effective_user.id
         loading_message = await update.message.reply_text("🔄 جاري تسجيل الدخول...")
 
         try:
@@ -266,13 +247,7 @@ class TelegramBot:
 
             grades_text = "📊 **درجاتك الحالية:**\n\n"
             for i, grade in enumerate(grades, 1):
-                course_name = grade.get("name", "غير محدد")
-                course_code = grade.get("code", "")
-                coursework = grade.get("coursework", "-")
-                final_exam = grade.get("final_exam", "-")
-                total = grade.get("total", "-")
-                
-                grades_text += f"**{i}. {course_name}** ({course_code})\n • الأعمال: {coursework}\n • النظري: {final_exam}\n • النهائي: {total}\n\n"
+                grades_text += f"**{i}. {grade.get('name', '')}** ({grade.get('code', '')})\n • الأعمال: {grade.get('coursework', '-')}\n • النظري: {grade.get('final_exam', '-')}\n • النهائي: {grade.get('total', '-')}\n\n"
 
             if len(grades_text) > 4096:
                 for part in [grades_text[i:i+4096] for i in range(0, len(grades_text), 4096)]:
@@ -283,7 +258,7 @@ class TelegramBot:
         except Exception as e:
             logger.error(f"DEBUG: Error in grades command: {e}", exc_info=True)
             await self._edit_message_no_keyboard(loading_message, "حدث خطأ أثناء جلب الدرجات. حاول لاحقاً.")
-            
+    
     async def _profile_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         telegram_id = update.effective_user.id
         user = self.user_storage.get_user(telegram_id)
@@ -291,22 +266,14 @@ class TelegramBot:
             await update.message.reply_text("❌ لم يتم تسجيلك بعد.", reply_markup=get_main_keyboard())
             return
         grades = self.grade_storage.get_grades(telegram_id)
-        message = f"""
-👤 **معلوماتك الشخصية:**
-🆔 معرف التلجرام: `{telegram_id}`
-👨‍🎓 اسم المستخدم: `{user.get('username', 'N/A')}`
-📧 البريد الإلكتروني: `{user.get('email', 'N/A')}`
-👤 الاسم الكامل: `{user.get('fullname', 'N/A')}`
-📊 عدد المواد: `{len(grades)}`
-🕒 آخر تحديث: `{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}`
-"""
+        message = f"👤 **معلوماتك الشخصية:**\n🆔 `{telegram_id}`\n👨‍🎓 `{user.get('username', 'N/A')}`\n📧 `{user.get('email', 'N/A')}`\n📊 `{len(grades)}` مواد"
         await update.message.reply_text(message)
 
     async def _settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚙️ قسم الإعدادات قيد التطوير.")
         
     async def _support_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text("📞 للدعم الفني، تواصل مع المطور: @sisp_t")
+        await update.message.reply_text(f"📞 للدعم، تواصل مع المطور: {CONFIG['ADMIN_USERNAME']}")
 
     async def _stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.effective_user.id != CONFIG["ADMIN_ID"]: return
@@ -319,19 +286,21 @@ class TelegramBot:
     async def _restart_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.effective_user.id != CONFIG["ADMIN_ID"]: return
         await update.message.reply_text("🔄 جارٍ إعادة تشغيل البوت...")
-        # A proper restart requires external process management (like systemd or Docker)
-        # For a simple "soft restart", you might just re-initialize some components.
-        # This implementation just confirms the command was received.
         logger.info("Soft restart command received from admin.")
-
+    
     async def _handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text
-        if text == "📊 فحص الدرجات":
-            await self._grades_command(update, context)
-        elif text == "❓ المساعدة":
-            await self._help_command(update, context)
-        elif text == "👤 معلوماتي":
-            await self._profile_command(update, context)
+        actions = {
+            "📊 فحص الدرجات": self._grades_command,
+            "❓ المساعدة": self._help_command,
+            "👤 معلوماتي": self._profile_command,
+            "⚙️ الإعدادات": self._settings_command,
+            "📞 الدعم": self._support_command,
+            "🎛️ لوحة التحكم": self._stats_command, # Admin button
+        }
+        action = actions.get(text)
+        if action:
+            await action(update, context)
         else:
             await update.message.reply_text("❓ لم أفهم طلبك. استخدم الأزرار.", reply_markup=get_main_keyboard())
 
@@ -359,7 +328,7 @@ class TelegramBot:
                 if not password: return
                 logger.info(f"🔄 Token expired for {username}. Re-authenticating...")
                 token = await self.university_api.login(username, password)
-                if not token:
+                if not token: 
                     logger.warning(f"❌ Re-authentication failed for {username}.")
                     return
                 self.user_storage.update_user_token(telegram_id, token)
@@ -376,9 +345,7 @@ class TelegramBot:
                 logger.info(f"🔄 Found {len(changed_courses)} grade changes for user {username}")
                 message = "🎓 **تم تحديث درجاتك:**\n\n"
                 for grade in changed_courses:
-                    name, code = grade.get('name', 'N/A'), grade.get('code', 'N/A')
-                    cw, fe, total = grade.get('coursework', '-'), grade.get('final_exam', '-'), grade.get('total', '-')
-                    message += f"📚 **{name}** ({code})\n • الأعمال: {cw}\n • النظري: {fe}\n • النهائي: {total}\n\n"
+                    message += f"📚 **{grade.get('name', 'N/A')}** ({grade.get('code', 'N/A')})\n • الأعمال: {grade.get('coursework', '-')}\n • النظري: {grade.get('final_exam', '-')}\n • النهائي: {grade.get('total', '-')}\n\n"
                 
                 await self.app.bot.send_message(chat_id=telegram_id, text=message)
                 self.grade_storage.save_grades(telegram_id, new_grades)
@@ -389,7 +356,6 @@ class TelegramBot:
             logger.error(f"❌ DEBUG: Error checking grades for user {user.get('username')}: {e}", exc_info=True)
 
     def _compare_grades(self, old_grades: List[Dict], new_grades: List[Dict]) -> List[Dict]:
-        """Compares two lists of grade dictionaries and returns new/changed courses."""
         old_grades_map = {g.get('code', g.get('name')): g for g in old_grades}
         changes = []
         for new_grade in new_grades:

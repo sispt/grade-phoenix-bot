@@ -11,9 +11,9 @@ CONFIG = {
     
     # Admin Configuration
     "ADMIN_ID": int(os.getenv("ADMIN_ID", "123456789")),  # Admin Telegram ID
-    "ADMIN_USERNAME": os.getenv("ADMIN_USERNAME", "@sisp_t"),
-    "ADMIN_EMAIL": os.getenv("ADMIN_EMAIL", "tox098123@gmail.com"),
-    "ADMIN_NAME": os.getenv("ADMIN_NAME", "Abdulrahman Abdulqader"),
+    "ADMIN_USERNAME": os.getenv("ADMIN_USERNAME", "@admin_username"),
+    "ADMIN_EMAIL": os.getenv("ADMIN_EMAIL", "admin@example.com"),
+    "ADMIN_NAME": os.getenv("ADMIN_NAME", "Admin User"),
     
     # Database Configuration
     "DATABASE_URL": os.getenv("DATABASE_URL", "sqlite:///./data/bot.db"),
@@ -29,7 +29,7 @@ CONFIG = {
     
     # Bot Settings
     "BOT_NAME": "نظام الإشعارات الجامعية",
-    "BOT_VERSION": os.getenv("BOT_VERSION", "2.1.3"),
+    "BOT_VERSION": os.getenv("BOT_VERSION", "dev"),
     "BOT_DESCRIPTION": "بوت متقدم لإشعارات الدرجات مع لوحة تحكم إدارية شاملة - جامعة الشام",
     
     # Check Interval (in minutes)

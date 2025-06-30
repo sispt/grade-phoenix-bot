@@ -1,9 +1,19 @@
-]# 🎓 Telegram University Bot (BeeHouse Notif)
+# 🎓 Telegram University Bot (Based on Beehouse v2.1)
 
 ## Overview | نظرة عامة
 A robust Telegram bot for university students to fetch and display their course grades. Supports both direct API extraction and HTML fallback for maximum reliability.
 
 بوت متكامل لجلب الدرجات الجامعية من نظام الجامعة وعرضها عبر تيليجرام. يدعم استخراج الدرجات من API أو من ملفات HTML عند الحاجة.
+
+---
+
+## What's New | ما الجديد؟
+- **Admin/Contact info is now fully configurable via environment variables (no hardcoding).**
+- **Bot version is shown in /start and /help, and is set via BOT_VERSION env variable.**
+- **All admin actions and dashboard features are protected and configurable.**
+- **Cleaner code, no AI or debug comments.**
+- **Improved error handling and notifications.**
+- **PostgreSQL and file-based storage both supported.**
 
 ---
 
@@ -13,6 +23,21 @@ A robust Telegram bot for university students to fetch and display their course 
 - **Flexible Data Parsing**: Supports Arabic and English table headers.
 - **Extensible Storage**: Save grades in JSON files or PostgreSQL.
 - **Modular Design**: Easy to maintain and extend.
+- **Admin Dashboard**: View stats, broadcast, manage users (admin only).
+- **Notifications**: Automatic grade change notifications.
+- **Multi-language Support**: Arabic and English.
+
+---
+
+## Environment Variables | متغيرات البيئة
+Set these in your Railway/Heroku/OS environment:
+- `TELEGRAM_TOKEN`: Bot token
+- `ADMIN_ID`: Telegram user ID of the admin
+- `ADMIN_USERNAME`: Admin's Telegram username (e.g. @your_admin)
+- `ADMIN_EMAIL`: Admin's email (for contact)
+- `BOT_VERSION`: Bot version string (shown in /start, /help)
+- `DATABASE_URL`: PostgreSQL connection string (if using DB)
+- (Other config variables as needed in `config.py`)
 
 ---
 
@@ -80,8 +105,8 @@ A robust Telegram bot for university students to fetch and display their course 
 ---
 
 ## Credits | المطور
-- Developed by Abdulrahman Abdelkader
-- Contact: tox098123@gmail.com | Telegram: @sisp_t
+- Developed by: {CONFIG['ADMIN_NAME']}
+- Contact: {CONFIG['ADMIN_EMAIL']} | Telegram: {CONFIG['ADMIN_USERNAME']}
 
 ---
 

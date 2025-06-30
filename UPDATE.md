@@ -48,3 +48,23 @@ This update brings a major refactor and robustness improvements to the Telegram 
 **This update ensures maximum reliability, flexibility, and maintainability for all users.**
 
 هذا التحديث يضمن أقصى درجات الموثوقية والمرونة وسهولة الصيانة لجميع المستخدمين. 
+
+# Update Log | سجل التحديثات
+
+## v{CONFIG['BOT_VERSION']} (Latest)
+
+### العربية
+- تم إزالة جميع المعلومات الثابتة (اسم الأدمن، الإيميل، النسخة) من الكود، وأصبحت تأتي من متغيرات البيئة (Railway/Heroku).
+- عرض رقم النسخة في أوامر /start و /help.
+- تحسين الحماية لجميع ميزات الأدمن.
+- تنظيف الكود من التعليقات القديمة أو أي إشارات للذكاء الاصطناعي.
+- تحسين رسائل الخطأ والتنبيهات.
+- دعم كامل للتخزين على PostgreSQL أو ملفات.
+
+### English
+- All admin info (username, email) and bot version are now loaded from environment variables (no hardcoding).
+- Bot version is shown in /start and /help commands.
+- All admin/dashboard features are protected and configurable.
+- Code cleaned from old/AI comments.
+- Improved error handling and notifications.
+- Full support for PostgreSQL and file-based storage. 
