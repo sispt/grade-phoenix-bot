@@ -141,13 +141,57 @@ class TelegramBot:
 
     async def _start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if self.user_storage.is_user_registered(update.effective_user.id):
-            await self._send_message_with_keyboard(update, get_welcome_message(), "main")
+            await self._send_message_with_keyboard(update, (
+                "مرحباً بك مجدداً في نظام إشعارات الدرجات الجامعية!\n\n"
+                "يمكنك استخدام الأزرار أدناه لفحص درجاتك، تعديل الإعدادات، أو طلب الدعم.\n\n"
+                "- لفحص الدرجات: اضغط على '📊 فحص الدرجات'\n"
+                "- لتعديل الإعدادات: اضغط على '⚙️ الإعدادات'\n"
+                "- للمساعدة: اضغط على '❓ المساعدة'\n"
+                "- للدعم الفني: اضغط على '📞 الدعم'\n"
+            ), "main")
         else:
-            await self._send_message_with_keyboard(update, get_welcome_message(), "unregistered")
-    
-    # ... [Paste all the other methods from your last version of core.py here] ...
-    # This includes _help_command, _register_start, _grades_command, _profile_command, etc.
-    # They are already correct. The key changes are below.
+            await self._send_message_with_keyboard(update, (
+                "مرحباً بك في نظام إشعارات الدرجات الجامعية!\n\n"
+                "للبدء، اضغط على زر '🚀 تسجيل الدخول' أدناه وأدخل بياناتك الجامعية.\n\n"
+                "إذا احتجت للمساعدة، اضغط على '❓ المساعدة' أو تواصل مع الدعم."
+            ), "unregistered")
+
+    async def _help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await update.message.reply_text(
+            "دليل استخدام البوت:\n\n"
+            "1. إذا لم تكن مسجلاً، اضغط على '🚀 تسجيل الدخول' وأدخل اسم المستخدم وكلمة المرور الجامعية.\n"
+            "2. بعد التسجيل، استخدم الأزرار لفحص الدرجات أو تعديل الإعدادات.\n"
+            "3. إذا واجهت أي مشكلة، استخدم زر الدعم أو تواصل مع المطور: " + str(CONFIG.get("ADMIN_USERNAME", "@admin")) + "\n\n"
+            "الأوامر المتاحة:\n"
+            "/start - بدء الاستخدام\n"
+            "/help - المساعدة\n"
+            "/grades - فحص الدرجات\n"
+            "/profile - معلوماتي\n"
+            "/settings - الإعدادات\n"
+            "/support - الدعم الفني\n"
+        )
+
+    async def _grades_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        try:
+            # ... existing grade fetching logic ...
+            pass # placeholder for actual logic
+        except Exception as e:
+            await update.message.reply_text(
+                "عذراً، حدث خطأ أثناء جلب الدرجات. يرجى المحاولة لاحقاً أو التواصل مع الدعم الفني."
+            )
+            logger.error(f"Error in _grades_command: {e}", exc_info=True)
+
+    async def _profile_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        # ... existing profile command implementation ...
+        pass
+
+    async def _settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        # ... existing settings command implementation ...
+        pass
+
+    async def _support_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        # ... existing support command implementation ...
+        pass
 
     async def _admin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         # The admin command should send the *inline* keyboard via the dashboard.
@@ -158,7 +202,11 @@ class TelegramBot:
 
     async def _handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text
-        # This dictionary now correctly maps button text to the functions
+        # Admin user search mode
+        if update.effective_user.id == CONFIG["ADMIN_ID"] and context.user_data.get('awaiting_user_search'):
+            handled = await self.admin_dashboard.handle_user_search_message(update, context)
+            if handled:
+                return
         actions = {
             "📊 فحص الدرجات": self._grades_command,
             "❓ المساعدة": self._help_command,
@@ -174,7 +222,10 @@ class TelegramBot:
             await action(update, context)
         else:
             keyboard_to_show = get_main_keyboard() if self.user_storage.is_user_registered(update.effective_user.id) else get_unregistered_keyboard()
-            await update.message.reply_text("❓ لم أفهم طلبك. استخدم الأزرار.", reply_markup=keyboard_to_show)
+            await update.message.reply_text(
+                "❓ لم أفهم طلبك. استخدم الأزرار أو اكتب /help للمساعدة.",
+                reply_markup=keyboard_to_show
+            )
 
     async def _handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.effective_user.id != CONFIG["ADMIN_ID"]: return
@@ -270,7 +321,9 @@ class TelegramBot:
         return message
 
     async def _register_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text("يرجى إدخال اسم المستخدم الجامعي:")
+        await update.message.reply_text(
+            "يرجى إدخال اسم المستخدم الجامعي الخاص بك. إذا احتجت للمساعدة، اضغط على '❓ المساعدة'."
+        )
         return ASK_USERNAME
 
     async def _register_username(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

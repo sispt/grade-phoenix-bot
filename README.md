@@ -113,3 +113,19 @@ Set these in your Railway/Heroku/OS environment:
 **This project is designed for reliability, flexibility, and easy maintenance.**
 
 مشروع مصمم للموثوقية والمرونة وسهولة الصيانة. 
+
+## Running Tests
+
+To run the unit tests, make sure you have the dev dependencies installed:
+
+```
+pip install -r requirements.txt
+```
+
+Then run:
+
+```
+pytest
+```
+
+This will automatically discover and run all tests in the project.

@@ -19,6 +19,7 @@ class PostgreSQLGradeStorage:
         self.db_manager = db_manager
         # In a real app, migrations handle table creation.
         # Base.metadata.create_all(bind=self.db_manager.engine) # Can be called here if you don't use a separate migrations.py
+        logger.warning(f"USING DATABASE_URL: {CONFIG['DATABASE_URL']}")
 
     def save_grades(self, telegram_id: int, grades_data: List[Dict]):
         try:
@@ -102,7 +103,3 @@ class PostgreSQLGradeStorage:
         except Exception as e:
             logger.error(f"❌ Unexpected error in get_grades_summary: {e}", exc_info=True)
             return {"total_courses": 0, "recent_updates": 0}
-
-    def __init__(self, db_manager: DatabaseManager):
-        self.db_manager = db_manager
-        logger.warning(f"USING DATABASE_URL: {CONFIG['DATABASE_URL']}")

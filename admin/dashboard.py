@@ -25,10 +25,34 @@ class AdminDashboard:
         query = update.callback_query
         action = query.data
         await query.answer()
-        if action == "users_overview":
+        if action.startswith("users_overview"):
             await query.edit_message_text(text=self._get_users_overview_text(), reply_markup=self._get_dashboard_keyboard())
-        elif action == "view_users":
-            await query.edit_message_text(text=self._get_users_list_text(), reply_markup=self._get_dashboard_keyboard())
+        elif action.startswith("view_users"):
+            # Pagination logic
+            page = 1
+            if ':' in action:
+                try:
+                    page = int(action.split(':')[1])
+                except:
+                    page = 1
+            await query.edit_message_text(text=self._get_users_list_text(page=page), reply_markup=self._get_users_list_keyboard(page=page))
+        elif action.startswith("user_search"):
+            # Prompt admin to enter search query
+            await query.edit_message_text(text="🔎 أدخل اسم المستخدم أو الـ ID للبحث:")
+            context.user_data['awaiting_user_search'] = True
+        elif action.startswith("user_search_result:"):
+            # Show user details
+            user_id = action.split(':', 1)[1]
+            user = next((u for u in self.user_storage.get_all_users() if str(u.get('telegram_id')) == user_id), None)
+            if user:
+                text = f"👤 المستخدم: {user.get('username', '-')}
+ID: {user.get('telegram_id', '-')}
+الاسم الكامل: {user.get('fullname', '-')}
+آخر دخول: {user.get('last_login', '-')}
+"
+            else:
+                text = "❌ المستخدم غير موجود."
+            await query.edit_message_text(text=text, reply_markup=self._get_dashboard_keyboard())
         elif action == "analysis":
             await query.edit_message_text(text=self._get_analysis_text(), reply_markup=self._get_dashboard_keyboard())
         elif action == "close_dashboard":
@@ -61,22 +85,50 @@ class AdminDashboard:
             f"- غير النشطين: {inactive}\n"
         )
 
-    def _get_users_list_text(self) -> str:
+    def _get_users_list_text(self, page=1, per_page=10):
         users = self.user_storage.get_all_users()
-        if not users:
-            return "لا يوجد مستخدمون مسجلون."
-        text = "📋 **قائمة المستخدمين:**\n\n"
-        for i, user in enumerate(users[:20], 1):  # Show up to 20 users for now
-            text += (
-                f"{i}. {user.get('username', 'N/A')} (ID: {user.get('telegram_id', '-')})\n"
-                f"   • الاسم الكامل: {user.get('fullname', '-')}, البريد: {user.get('email', '-')}\n"
-                f"   • تاريخ التسجيل: {user.get('registration_date', '-')}\n"
-                f"   • آخر دخول: {user.get('last_login', '-')}\n"
-                f"   • نشط: {'✅' if user.get('is_active', True) else '❌'}\n\n"
-            )
-        if len(users) > 20:
-            text += f"...ويوجد المزيد ({len(users)} مستخدم)."
+        total = len(users)
+        start = (page - 1) * per_page
+        end = start + per_page
+        users_page = users[start:end]
+        text = f"👥 قائمة المستخدمين (صفحة {page}):\n\n"
+        for user in users_page:
+            text += f"- {user.get('username', '-')} (ID: {user.get('telegram_id', '-')})\n"
+        text += f"\nإجمالي المستخدمين: {total}"
         return text
+
+    def _get_users_list_keyboard(self, page=1, per_page=10):
+        users = self.user_storage.get_all_users()
+        total_pages = max(1, (len(users) + per_page - 1) // per_page)
+        buttons = []
+        nav = []
+        if page > 1:
+            nav.append(InlineKeyboardButton("⬅️ السابق", callback_data=f"view_users:{page-1}"))
+        if page < total_pages:
+            nav.append(InlineKeyboardButton("التالي ➡️", callback_data=f"view_users:{page+1}"))
+        if nav:
+            buttons.append(nav)
+        # Add search button
+        buttons.append([InlineKeyboardButton("🔎 بحث عن مستخدم", callback_data="user_search")])
+        # Add close button
+        buttons.append([InlineKeyboardButton("❌ إغلاق", callback_data="close_dashboard")])
+        return InlineKeyboardMarkup(buttons)
+
+    # To be called from the main bot when admin sends a message after search prompt
+    async def handle_user_search_message(self, update, context):
+        if not context.user_data.get('awaiting_user_search'):
+            return False
+        query = update.message.text.strip()
+        users = self.user_storage.get_all_users()
+        results = [u for u in users if query in str(u.get('telegram_id')) or query.lower() in (u.get('username', '').lower() or '')]
+        if not results:
+            await update.message.reply_text("❌ لا يوجد مستخدم مطابق.", reply_markup=self._get_dashboard_keyboard())
+        else:
+            buttons = [[InlineKeyboardButton(f"{u.get('username', '-')} (ID: {u.get('telegram_id', '-')})", callback_data=f"user_search_result:{u.get('telegram_id')}")] for u in results[:10]]
+            buttons.append([InlineKeyboardButton("❌ إغلاق", callback_data="close_dashboard")])
+            await update.message.reply_text("نتائج البحث:", reply_markup=InlineKeyboardMarkup(buttons))
+        context.user_data['awaiting_user_search'] = False
+        return True
 
     def _get_analysis_text(self) -> str:
         users = self.user_storage.get_all_users()

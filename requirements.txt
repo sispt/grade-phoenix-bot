@@ -6,6 +6,8 @@ beautifulsoup4==4.12.2
 pytz==2023.3
 lxml==4.9.3
 flask==3.0.0
-psycopg2-binary==2.9.9
+psycopg2-binary
 sqlalchemy==2.0.23
-alembic==1.13.1 
+alembic==1.13.1
+pytest
+python-telegram-bot[tests] 
