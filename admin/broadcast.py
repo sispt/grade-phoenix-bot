@@ -24,10 +24,11 @@ class BroadcastSystem:
         )
 
     async def start_broadcast(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        # Determine if the command came from a message or an inline callback
-        if update.callback_query:
+        # Support being called with either Update or CallbackQuery
+        query = getattr(update, 'callback_query', None)
+        if query is not None:
             # If from callback, edit the message that contained the inline button
-            await update.callback_query.edit_message_text("أرسل الرسالة للبث للجميع. للإلغاء: /cancel.")
+            await query.edit_message_text("أرسل الرسالة للبث للجميع. للإلغاء: /cancel.")
         else:
             # If from a direct command, send a new message
             await update.message.reply_text("أرسل الرسالة للبث للجميع. للإلغاء: /cancel.")
