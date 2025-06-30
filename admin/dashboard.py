@@ -45,11 +45,11 @@ class AdminDashboard:
             user_id = action.split(':', 1)[1]
             user = next((u for u in self.user_storage.get_all_users() if str(u.get('telegram_id')) == user_id), None)
             if user:
-                text = f"👤 المستخدم: {user.get('username', '-')}
-ID: {user.get('telegram_id', '-')}
+                text = f"""👤 المستخدم: {user.get('username', '-')}
+المعرف: {user.get('telegram_id', '-')}
 الاسم الكامل: {user.get('fullname', '-')}
 آخر دخول: {user.get('last_login', '-')}
-"
+"""
             else:
                 text = "❌ المستخدم غير موجود."
             await query.edit_message_text(text=text, reply_markup=self._get_dashboard_keyboard())
