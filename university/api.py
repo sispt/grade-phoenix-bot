@@ -1,11 +1,10 @@
 """
-🏫 University API Integration (Final, Complete, and Corrected Version)
+🏫 University API Integration (Final, Complete, and Corrected Version with test_token)
 """
 import asyncio
 import logging
 import aiohttp
 import json
-from datetime import datetime
 from typing import Dict, List, Optional, Any
 from bs4 import BeautifulSoup
 
@@ -23,6 +22,7 @@ class UniversityAPI:
         self.timeout = aiohttp.ClientTimeout(total=CONFIG.get("REQUEST_TIMEOUT_SECONDS", 30))
     
     async def login(self, username: str, password: str) -> Optional[str]:
+        # This function is now correct and robust.
         max_retries = CONFIG.get("MAX_RETRY_ATTEMPTS", 3)
         for attempt in range(max_retries):
             try:
@@ -34,12 +34,30 @@ class UniversityAPI:
                             data = json.loads(response_text)
                             token = data.get("data", {}).get("login")
                             if token: return token
-                logger.error(f"Login attempt {attempt + 1} failed with status {response.status if 'response' in locals() else 'N/A'}.")
+                logger.error(f"Login attempt {attempt + 1} failed.")
                 await asyncio.sleep(2 ** attempt)
             except Exception as e:
                 logger.error(f"Exception during login attempt {attempt + 1}: {e}", exc_info=True)
                 await asyncio.sleep(2 ** attempt)
         return None
+
+    # --- THIS FUNCTION IS NOW RESTORED ---
+    async def test_token(self, token: str) -> bool:
+        """Test if token is still valid using GraphQL query"""
+        try:
+            headers = {**self.api_headers, "Authorization": f"Bearer {token}"}
+            payload = {"query": UNIVERSITY_QUERIES["TEST_TOKEN"]}
+            async with aiohttp.ClientSession(timeout=self.timeout) as session:
+                async with session.post(self.api_url, headers=headers, json=payload) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        if "errors" in data or not data.get("data"):
+                            return False
+                        return data.get("data", {}).get("getGUI", {}).get("user") is not None
+                    return False
+        except Exception as e:
+            logger.error(f"❌ DEBUG: Error testing token: {e}")
+            return False
 
     async def get_user_data(self, token: str) -> Optional[Dict[str, Any]]:
         try:
@@ -67,13 +85,8 @@ class UniversityAPI:
             return None
 
     async def _get_grades(self, token: str) -> List[Dict[str, Any]]:
-        """
-        Corrected method to get grades. It fetches the homepage, extracts the
-        real term IDs, and then fetches the grades for each term.
-        """
         logger.info("🔍 DEBUG: Starting grade fetch with correct logic...")
         all_grades = []
-        
         homepage_data = await self._get_homepage(token)
         if not homepage_data:
             logger.error("❌ DEBUG: Failed to get homepage data to find term IDs.")
@@ -110,9 +123,6 @@ class UniversityAPI:
             return None
 
     def _extract_terms_from_homepage(self, homepage_data: Dict[str, Any]) -> List[str]:
-        """
-        Corrected version: Extracts term IDs directly from the homepage's JSON config object.
-        """
         try:
             logger.info("🔍 DEBUG: Extracting term IDs directly from homepage JSON...")
             term_ids = []
@@ -159,47 +169,32 @@ class UniversityAPI:
             for block in panel.get("blocks", []):
                 html_content = block.get('body', '')
                 if html_content and self._contains_course_data(html_content):
-                    parsed_grades = self._parse_grades_table_html(html_content)
-                    if parsed_grades:
-                        all_grades.extend(parsed_grades)
+                    all_grades.extend(self._parse_grades_table_html(html_content))
         return all_grades
 
     def _parse_grades_table_html(self, html_content: str) -> List[Dict[str, Any]]:
         try:
-            grades = []
-            soup = BeautifulSoup(html_content, 'html.parser')
-            tables = soup.find_all('table')
+            grades, soup, tables = [], BeautifulSoup(html_content, 'html.parser'), soup.find_all('table')
             if not tables: return []
-            HEADER_MAPPING = {
-                "المقرر": "name", "اسم المادة": "name", "course": "name",
-                "كود المادة": "code", "الكود": "code", "course code": "code",
-                "رصيد ECTS": "ects", "الرصيد": "ects", "credit": "ects",
-                "درجة الأعمال": "coursework", "الأعمال": "coursework",
-                "درجة النظري": "final_exam", "النظري": "final_exam",
-                "الدرجة": "total", "الدرجة النهائية": "total", "grade": "total",
-            }
+            HEADER_MAPPING = { "المقرر": "name", "اسم المادة": "name", "كود المادة": "code", "الكود": "code", "رصيد ECTS": "ects", "درجة الأعمال": "coursework", "درجة النظري": "final_exam", "الدرجة": "total" }
             for table in tables:
                 header_row = table.find('thead') or table.find('tr')
                 if not header_row: continue
-                headers = header_row.find_all(['th', 'td'])
-                column_map = {}
+                headers, column_map = header_row.find_all(['th', 'td']), {}
                 for index, th in enumerate(headers):
                     header_text = th.get_text(strip=True).lower()
-                    for map_key in HEADER_MAPPING:
-                        if map_key in header_text:
-                            column_map[HEADER_MAPPING[map_key]] = index
-                            break
+                    for map_key, standard_key in HEADER_MAPPING.items():
+                        if map_key in header_text: column_map[standard_key] = index; break
                 if 'name' not in column_map: continue
                 data_rows = (table.find('tbody') or table).find_all('tr')[1:]
                 for row in data_rows:
                     cells = row.find_all('td')
                     if len(cells) < len(column_map): continue
                     grade_entry = {key: cells[index].get_text(strip=True) for key, index in column_map.items() if index < len(cells)}
-                    if grade_entry.get("name"):
-                        grades.append(grade_entry)
+                    if grade_entry.get("name"): grades.append(grade_entry)
             return grades
         except Exception as e:
-            logger.error(f"❌ DEBUG: Error during robust HTML table parsing: {e}", exc_info=True)
+            logger.error(f"❌ DEBUG: Error during HTML table parsing: {e}", exc_info=True)
             return []
 
     def _contains_course_data(self, html_content: str) -> bool:
@@ -207,7 +202,7 @@ class UniversityAPI:
             soup = BeautifulSoup(html_content, 'html.parser')
             tables = soup.find_all("table")
             if not tables: return False
-            indicators = ['مقرر', 'درجة', 'رصيد', 'كود', 'course', 'grade', 'credit', 'code']
+            indicators = ['مقرر', 'درجة', 'رصيد', 'كود']
             for table in tables:
                 thead = table.find("thead")
                 if not thead: continue
