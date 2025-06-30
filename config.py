@@ -20,10 +20,11 @@ CONFIG = {
     "USE_POSTGRESQL": bool(os.getenv("DATABASE_URL", "").startswith("postgresql")),
     
     # University API Configuration
-    "UNIVERSITY_LOGIN_URL": "https://staging.sis.shamuniversity.com/portal/graphql",
-    "UNIVERSITY_API_URL": "https://staging.sis.shamuniversity.com/portal/graphql",
-    "UNIVERSITY_NAME": "جامعة الشام",
+# University API Configuration
+    "UNIVERSITY_LOGIN_URL": "https://api.staging.sis.shamuniversity.com/portal",
+    "UNIVERSITY_API_URL": "https://api.staging.sis.shamuniversity.com/graphql",
     "UNIVERSITY_WEBSITE": "https://staging.sis.shamuniversity.com",
+    "UNIVERSITY_NAME": "جامعة الشام",
     
     # Bot Settings
     "BOT_NAME": "نظام الإشعارات الجامعية",
@@ -60,6 +61,8 @@ CONFIG = {
     # API Headers - Updated to match BeeHouse v2.1 exact structure
  # In your config.py file, replace the API_HEADERS dictionary with this one:
 
+# In your config.py file, this is the final, correct version of API_HEADERS:
+
 "API_HEADERS": {
     "Accept": "*/*",
     "Accept-Encoding": "gzip, deflate, br, zstd",
@@ -73,7 +76,6 @@ CONFIG = {
     "Sec-Fetch-Site": "same-site",
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
     "x-lang": "ar"
-    # Note: We don't need the 'sec-ch-ua' headers, they are not usually critical.
 },
     
     # Timezone
