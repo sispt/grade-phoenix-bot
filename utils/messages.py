@@ -10,6 +10,7 @@ def get_welcome_message() -> str:
         "مرحباً بك في نظام الإشعارات الجامعية!\n\n"
         "سجّل دخولك لمتابعة درجاتك الأكاديمية بسهولة.\n\n"
         f"المطور: {CONFIG['ADMIN_USERNAME']}\n"
+        f"الإصدار: {CONFIG['BOT_VERSION']}\n"
         "— THE DIE IS CAST · based on beehouse"
     )
 
@@ -21,6 +22,7 @@ def get_help_message() -> str:
         "• عرض الدرجات: للاطلاع على نتائجك\n"
         "• الإعدادات: لتخصيص تجربتك\n\n"
         f"للمساعدة: {CONFIG['ADMIN_USERNAME']}\n"
+        f"الإصدار: {CONFIG['BOT_VERSION']}\n"
         "— THE DIE IS CAST · based on beehouse"
     )
 

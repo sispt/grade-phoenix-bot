@@ -37,7 +37,6 @@ CONFIG = {
     
     # Notification Settings
     "ENABLE_NOTIFICATIONS": True,
-    "ENABLE_ERROR_NOTIFICATIONS": True,
     "MAX_RETRY_ATTEMPTS": 3,
     
     # User Experience Settings
