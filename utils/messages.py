@@ -2,6 +2,7 @@
 📝 Message Templates
 """
 from config import CONFIG
+from storage.models import Base, DatabaseManager
 
 def get_welcome_message() -> str:
     """Returns the welcome message for the user."""
@@ -65,3 +66,6 @@ def get_registration_success_message(username: str) -> str:
         f"يمكنك الآن متابعة درجاتك في نظام الإشعارات الجامعية.\n\n"
         f"— THE DIE IS CAST · based on beehouse"
     ) 
+
+db_manager = DatabaseManager(CONFIG["DATABASE_URL"])
+Base.metadata.create_all(bind=db_manager.engine) 
