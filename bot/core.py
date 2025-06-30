@@ -299,13 +299,26 @@ class TelegramBot:
                 logger.warning(f"GRADE CHECK: Found {len(changed_courses)} grade changes for user {username}. Sending notification.")
                 display_name = user.get('fullname') or user.get('username', 'المستخدم')
                 message = f"🎓 **{display_name}، تم تحديث درجاتك:**\n\n"
+                # Build a map for old grades for quick lookup
+                old_map = {g.get('code') or g.get('name'): g for g in old_grades if g.get('code') or g.get('name')}
                 for grade in changed_courses:
                     name = grade.get('name', 'N/A')
                     code = grade.get('code', '-')
                     coursework = grade.get('coursework', 'لم يتم النشر')
                     final_exam = grade.get('final_exam', 'لم يتم النشر')
                     total = grade.get('total', 'لم يتم النشر')
-                    message += f"📚 **{name}** ({code})\n • الأعمال: {coursework}\n • النظري: {final_exam}\n • النهائي: {total}\n\n"
+                    key = code if code != '-' else name
+                    old = old_map.get(key, {})
+                    def show_change(field):
+                        old_val = old.get(field, '—')
+                        new_val = grade.get(field, '—')
+                        if old_val != new_val and old_val != '—':
+                            return f"{old_val} → {new_val}"
+                        return f"{new_val}"
+                    message += f"📚 **{name}** ({code})\n"
+                    message += f" • الأعمال: {show_change('coursework')}\n"
+                    message += f" • النظري: {show_change('final_exam')}\n"
+                    message += f" • النهائي: {show_change('total')}\n\n"
                 # Add update time in UTC+3
                 now_utc3 = datetime.now(timezone.utc) + timedelta(hours=3)
                 message += f"🕒 وقت التحديث: {now_utc3.strftime('%Y-%m-%d %H:%M')} (UTC+3)"

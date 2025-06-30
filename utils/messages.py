@@ -9,9 +9,9 @@ def get_welcome_message(fullname: str = None) -> str:
     name_line = f"مرحباً {fullname} في نظام الإشعارات الجامعية!\n\n" if fullname else "مرحباً بك في نظام الإشعارات الجامعية!\n\n"
     return (
         name_line
-        "سجّل دخولك لمتابعة درجاتك الأكاديمية بسهولة.\n\n"
-        f"المطور: {CONFIG['ADMIN_USERNAME']}\n"
-        f"Version: {CONFIG['BOT_VERSION']}\n"
+        + "سجّل دخولك لمتابعة درجاتك الأكاديمية بسهولة.\n\n"
+        + f"المطور: {CONFIG['ADMIN_USERNAME']}\n"
+        + f"Version: {CONFIG['BOT_VERSION']}\n"
         "THE DIE IS CAST"
     )
 
