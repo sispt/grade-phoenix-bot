@@ -1,7 +1,5 @@
-# This is the final, complete, and fully functional version of bot/core.py
-
 """
-🎓 Telegram Bot Core - Main Bot Implementation
+🎓 Telegram Bot Core - Main Bot Implementation (Final & Complete Version)
 """
 import asyncio
 import logging
@@ -11,7 +9,7 @@ from telegram.ext import (
     Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters,
     ContextTypes, ConversationHandler
 )
-from typing import Dict, List
+from typing import Dict, List # Ensure these are imported
 
 from config import CONFIG
 from storage.models import DatabaseManager
@@ -22,7 +20,6 @@ from storage.grades import GradeStorage
 from university.api import UniversityAPI
 from admin.dashboard import AdminDashboard
 from admin.broadcast import BroadcastSystem
-# Import specific keyboard functions, not the whole module for clarity
 from utils.keyboards import get_main_keyboard, get_admin_keyboard, get_cancel_keyboard, get_main_keyboard_with_relogin
 from utils.messages import get_welcome_message, get_help_message
 
@@ -33,25 +30,50 @@ class TelegramBot:
     """Main Telegram Bot Class"""
     
     def __init__(self):
-        self.app, self.db_manager, self.user_storage, self.grade_storage = None, None, None, None
+        self.app = None
+        self.db_manager = None
+        self.user_storage = None # Will be set by _initialize_storage
+        self.grade_storage = None # Will be set by _initialize_storage
         self.university_api = UniversityAPI()
+        
+        # --- CRITICAL FIX: Initialize storage FIRST ---
+        self._initialize_storage() 
+        
+        # --- THEN initialize classes that depend on storage ---
         self.admin_dashboard = AdminDashboard(self)
         self.broadcast_system = BroadcastSystem(self)
-        self.grade_check_task, self.running = None, False
-        self._initialize_storage()
+        
+        self.grade_check_task = None
+        self.running = False
         
     def _initialize_storage(self):
+        # This function ensures user_storage and grade_storage are always set.
+        pg_initialized = False
         try:
             if CONFIG.get("USE_POSTGRESQL") and CONFIG.get("DATABASE_URL"):
+                logger.info("🗄️ Initializing PostgreSQL storage...")
                 self.db_manager = DatabaseManager(CONFIG["DATABASE_URL"])
                 if self.db_manager.test_connection():
-                    self.user_storage, self.grade_storage = PostgreSQLUserStorage(self.db_manager), PostgreSQLGradeStorage(self.db_manager)
-                    logger.info("✅ PostgreSQL storage initialized.")
-                    return
-            logger.info("📁 Initializing file-based storage.")
-            self.user_storage, self.grade_storage = UserStorage(), GradeStorage()
+                    self.user_storage = PostgreSQLUserStorage(self.db_manager)
+                    self.grade_storage = PostgreSQLGradeStorage(self.db_manager)
+                    logger.info("✅ PostgreSQL storage initialized successfully.")
+                    pg_initialized = True
+                else:
+                    logger.error("❌ PostgreSQL connection failed during initialization.")
+            
         except Exception as e:
-            logger.error(f"❌ Storage initialization failed: {e}", exc_info=True)
+            logger.error(f"❌ Error during PostgreSQL storage initialization: {e}", exc_info=True)
+        
+        # --- Fallback to file storage if PostgreSQL was not used or failed ---
+        if not pg_initialized:
+            logger.info("📁 Initializing file-based storage as fallback.")
+            try:
+                self.user_storage = UserStorage()
+                self.grade_storage = GradeStorage()
+                logger.info("✅ File-based storage initialized successfully.")
+            except Exception as e:
+                logger.error(f"❌ Critical: File storage initialization also failed: {e}", exc_info=True)
+                raise RuntimeError("Failed to initialize any data storage. Bot cannot operate.")
 
     async def start(self):
         import os
@@ -85,7 +107,7 @@ class TelegramBot:
         logger.info("DEBUG: Adding all bot handlers...")
         reg_handler = ConversationHandler(
             entry_points=[CommandHandler("register", self._register_start), MessageHandler(filters.Regex("^🚀 تسجيل الدخول$"), self._register_start)],
-            states={ASK_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._register_username)], ASK_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._register_password)]},
+            states={ASK_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._register_username)], ASK_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._register_password)], },
             fallbacks=[CommandHandler("cancel", self._cancel_registration)],
         )
         self.app.add_handler(reg_handler)
@@ -99,6 +121,7 @@ class TelegramBot:
         self.app.add_handler(CommandHandler("admin", self._admin_command))
         self.app.add_handler(CallbackQueryHandler(self._handle_callback))
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message))
+        logger.info("✅ All handlers added successfully!")
 
     async def _send_message_with_keyboard(self, update, message, keyboard_type="main"):
         keyboards = {"main": get_main_keyboard, "admin": get_admin_keyboard, "cancel": get_cancel_keyboard, "relogin": get_main_keyboard_with_relogin}
@@ -106,7 +129,7 @@ class TelegramBot:
     
     async def _edit_message_no_keyboard(self, message_obj, new_text):
         try: await message_obj.edit_text(new_text)
-        except Exception: pass
+        except Exception: pass # Ignore errors if message already edited or gone
 
     async def _start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await self._send_message_with_keyboard(update, get_welcome_message())
@@ -115,44 +138,52 @@ class TelegramBot:
         await self._send_message_with_keyboard(update, get_help_message())
 
     async def _register_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text("🚀 **تسجيل الدخول**\n\n📝 **أدخل اسم المستخدم الجامعي:**", reply_markup=get_cancel_keyboard())
+        context.user_data.clear() # Clear user_data for a fresh start
+        await self._send_message_with_keyboard(update, "🚀 **تسجيل الدخول**\n\n📝 **أدخل اسم المستخدم الجامعي:**", "cancel")
         return ASK_USERNAME
 
     async def _register_username(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        context.user_data["username"] = update.message.text.strip()
-        await update.message.reply_text("أدخل كلمة المرور:", reply_markup=get_cancel_keyboard())
+        username = update.message.text.strip()
+        # Basic validation as before
+        if not (3 <= len(username) <= 20 and username.replace('-', '').replace('_', '').isalnum()):
+            await self._send_message_with_keyboard(update, "اسم المستخدم غير صالح. حاول مرة أخرى:", "cancel")
+            return ASK_USERNAME
+        context.user_data["username"] = username
+        await self._send_message_with_keyboard(update, f"تم حفظ اسم المستخدم: {username}\n\nأدخل كلمة المرور:", "cancel")
         return ASK_PASSWORD
 
     async def _register_password(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        loading_msg = await update.message.reply_text("🔄 جاري تسجيل الدخول...")
+        password = update.message.text.strip()
+        if not password:
+            await update.message.reply_text("❌ كلمة المرور غير صالحة، حاول مرة أخرى:")
+            return ASK_PASSWORD
+
+        username, telegram_id = context.user_data.get("username"), update.effective_user.id
+        loading_message = await update.message.reply_text("🔄 جاري تسجيل الدخول...")
+
         try:
-            username, password = context.user_data["username"], update.message.text.strip()
             token = await self.university_api.login(username, password)
             if not token:
-                await loading_msg.edit_text("فشل تسجيل الدخول. تحقق من بياناتك.")
-                # Ensure keyboard is visible again after failure
+                await self._edit_message_no_keyboard(loading_message, "فشل تسجيل الدخول. تحقق من بياناتك.")
                 await update.message.reply_text("اضغط '🚀 تسجيل الدخول' للمحاولة مرة أخرى", reply_markup=get_main_keyboard())
                 return ConversationHandler.END
             
-            await loading_msg.edit_text("📊 جاري جلب بياناتك...")
+            await self._edit_message_no_keyboard(loading_message, "📊 جاري جلب بياناتك...")
             user_data = await self.university_api.get_user_data(token)
             if not user_data:
-                await loading_msg.edit_text("❌ **فشل جلب بيانات الطالب**")
-                # Ensure keyboard is visible again after failure
+                await loading_message.edit_text("❌ **فشل جلب بيانات الطالب**")
                 await update.message.reply_text("اضغط '🚀 تسجيل الدخول' للمحاولة مرة أخرى", reply_markup=get_main_keyboard())
                 return ConversationHandler.END
 
-            self.user_storage.save_user(update.effective_user.id, username, password, token, user_data)
-            self.grade_storage.save_grades(update.effective_user.id, user_data.get("grades", []))
-            await loading_msg.edit_text(f"✅ تم تسجيل الدخول بنجاح.\nمرحباً {user_data.get('fullname')}.")
+            self.user_storage.save_user(telegram_id, username, password, token, user_data)
+            self.grade_storage.save_grades(telegram_id, user_data.get("grades", []))
             
-            # Explicitly send the main keyboard as a *new* message to ensure it appears
+            await loading_message.edit_text(f"✅ تم تسجيل الدخول بنجاح.\nمرحباً {user_data.get('fullname')}.")
             await update.message.reply_text("تم التسجيل. استخدم القائمة الرئيسية.", reply_markup=get_main_keyboard())
             return ConversationHandler.END
         except Exception as e:
             logger.error(f"Login error: {e}", exc_info=True)
-            await loading_msg.edit_text("خطأ في الاتصال. حاول لاحقاً.")
-            # Ensure keyboard is visible again after network error
+            await loading_message.edit_text("خطأ في الاتصال. حاول لاحقاً.")
             await update.message.reply_text("اضغط '🚀 تسجيل الدخول' للمحاولة مرة أخرى", reply_markup=get_main_keyboard())
             return ConversationHandler.END
 
@@ -230,7 +261,7 @@ class TelegramBot:
 
     async def _list_users_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.effective_user.id != CONFIG["ADMIN_ID"]: return
-        await self.admin_dashboard.list_users_command(update, context) # Delegate to admin dashboard
+        await self.admin_dashboard.list_users_command(update, context)
 
     async def _restart_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.effective_user.id != CONFIG["ADMIN_ID"]: return
@@ -240,20 +271,16 @@ class TelegramBot:
     async def _handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text
         actions = {
-            # Main User Actions
             "📊 فحص الدرجات": self._grades_command,
             "❓ المساعدة": self._help_command,
             "👤 معلوماتي": self._profile_command,
             "⚙️ الإعدادات": self._settings_command,
             "📞 الدعم": self._support_command,
-            # Admin Panel Entry Point
             "🎛️ لوحة التحكم": self._admin_command,
         }
         action = actions.get(text)
-        if action:
-            await action(update, context)
-        else:
-            await update.message.reply_text("❓ لم أفهم طلبك. استخدم الأزرار.", reply_markup=get_main_keyboard())
+        if action: await action(update, context)
+        else: await update.message.reply_text("❓ لم أفهم طلبك. استخدم الأزرار.", reply_markup=get_main_keyboard())
 
     async def _handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.effective_user.id != CONFIG["ADMIN_ID"]: return

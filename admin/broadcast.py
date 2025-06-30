@@ -1,5 +1,5 @@
 """
-🔔 Broadcast System (Final Version)
+🔔 Broadcast System (Final & Complete Version)
 """
 import logging
 from telegram import Update
@@ -9,9 +9,12 @@ logger = logging.getLogger(__name__)
 BROADCAST_MESSAGE = range(1)
 
 class BroadcastSystem:
-    def __init__(self, bot):
+    """Handles sending messages to all users."""
+
+    def __init__(self, bot): # Corrected to accept bot instance
         self.bot = bot
-        self.user_storage = bot.user_storage
+        # Access user_storage directly from the bot object
+        self.user_storage = self.bot.user_storage
 
     def get_conversation_handler(self):
         return ConversationHandler(
@@ -21,27 +24,31 @@ class BroadcastSystem:
         )
 
     async def start_broadcast(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        # Check if the update is from a message or a callback query
+        # Determine if the command came from a message or an inline callback
         if update.callback_query:
-            # Edit the message that triggered the callback
+            # If from callback, edit the message that contained the inline button
             await update.callback_query.edit_message_text("أرسل الرسالة للبث للجميع. للإلغاء: /cancel.")
         else:
-            # Send a new message if initiated via /broadcast command
+            # If from a direct command, send a new message
             await update.message.reply_text("أرسل الرسالة للبث للجميع. للإلغاء: /cancel.")
         return BROADCAST_MESSAGE
 
     async def send_broadcast(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        all_users = self.user_storage.get_all_users()
+        message_text = update.message.text
+        all_users = self.user_storage.get_all_users() # This method should exist and return all users
         sent_count = 0
+        
         for user in all_users:
             try:
-                await self.bot.app.bot.send_message(chat_id=user["telegram_id"], text=update.message.text)
+                # Use self.bot.app.bot for sending messages within extensions
+                await self.bot.app.bot.send_message(chat_id=user["telegram_id"], text=message_text)
                 sent_count += 1
             except Exception as e:
-                logger.error(f"Broadcast failed for {user['telegram_id']}: {e}")
-        await update.message.reply_text(f"✅ تم الإرسال إلى {sent_count}/{len(all_users)} مستخدم.")
+                logger.error(f"❌ Failed to send broadcast to {user.get('telegram_id', 'N/A')}: {e}", exc_info=True)
+        
+        await update.message.reply_text(f"✅ تم إرسال الرسالة بنجاح إلى {sent_count} من أصل {len(all_users)} مستخدم.")
         return ConversationHandler.END
 
     async def cancel_broadcast(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text("تم إلغاء البث.")
+        await update.message.reply_text("تم إلغاء عملية البث.")
         return ConversationHandler.END
