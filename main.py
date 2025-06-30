@@ -63,7 +63,6 @@ class BotRunner:
             logger.info(f"📊 Admin ID: {CONFIG['ADMIN_ID']}")
             logger.info(f"🕒 Start time: {self.start_time}")
             logger.info(f"🗄️ Database: {'PostgreSQL' if CONFIG.get('USE_POSTGRESQL', False) else 'File-based'}")
-            logger.info(f"🔔 Notifications: {'Enabled' if CONFIG['ENABLE_NOTIFICATIONS'] else 'Disabled'}")
             
             # Keep running
             while self.running:

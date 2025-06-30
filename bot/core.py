@@ -76,8 +76,7 @@ class TelegramBot:
         self.app = Application.builder().token(CONFIG["TELEGRAM_TOKEN"]).build()
         await self._update_bot_info()
         self._add_handlers()
-        # Start the scheduler for grade notifications
-        self.grade_check_task = asyncio.create_task(self._scheduled_grade_check())
+        self.grade_check_task = asyncio.create_task(self._grade_checking_loop())
         await self.app.initialize()
         await self.app.start()
         port = int(os.environ.get("PORT", 8443))
@@ -242,7 +241,7 @@ class TelegramBot:
         count = await self._notify_all_users_grades()
         await update.message.reply_text(f"✅ تم فحص الدرجات وإشعار {count} مستخدم (إذا كان هناك تغيير).")
 
-    async def _scheduled_grade_check(self):
+    async def _grade_checking_loop(self):
         await asyncio.sleep(10)  # Give the bot a moment to start
         while self.running:
             try:
