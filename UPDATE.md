@@ -83,3 +83,32 @@ This update brings a major refactor and robustness improvements to the Telegram 
 ### Fixed
 - No deprecated config or message variables remain
 - All features tested and documented for v2.5.2 
+
+## [2.5.3] - 2025-07-02
+### العربية
+- التسجيل الآن يحفظ دائمًا (الاسم الأول، الأخير، الكامل، البريد الإلكتروني) لكل مستخدم من الـAPI أو تلقائيًا عند الحاجة.
+- لا يتم تسجيل أي مستخدم إلا إذا كانت بياناته صحيحة، ويُطلب منه إعادة المحاولة عند الخطأ.
+- عند حذف مستخدم، يتم حذف جميع درجاته تلقائيًا (ON DELETE CASCADE) في قاعدة البيانات.
+- سكريبت ترحيل تلقائي (migrations.py) لتحديث قاعدة البيانات يعمل تلقائيًا مع كل نشر.
+- إضافة مكتبة psycopg2-binary للمتطلبات لدعم PostgreSQL.
+- إصلاح زر البث في لوحة تحكم الأدمن: يعمل الآن بشكل موثوق ويرسل الرسائل لجميع المستخدمين.
+- مراجعة جميع الأزرار وربطها بالدوال الصحيحة، مع ترتيب زر تسجيل الدخول في الأعلى.
+- جميع ميزات الأدمن محمية وتظهر فقط للأدمن.
+- تحسين رسائل الخطأ والتغذية الراجعة للمستخدمين (عربي/إنجليزي).
+- مراجعة شاملة للكود لضمان التناسق، الجودة، وعدم وجود متغيرات أو دوال غير مستخدمة.
+
+### English
+- Registration now always saves (firstname, lastname, fullname, email) for every user, using the university API or fallback logic.
+- No user is registered unless credentials are correct; users are prompted to retry on failure.
+- When a user is deleted, all their grades are deleted automatically (ON DELETE CASCADE) in the database.
+- Migration script (migrations.py) automates DB schema updates and runs automatically on every deploy.
+- psycopg2-binary added to requirements for PostgreSQL support.
+- Broadcast button in admin dashboard is now fully reliable and sends messages to all users.
+- All button labels and actions reviewed and harmonized; login button is always at the top.
+- All admin features are protected and visible only to the admin.
+- Error handling and user feedback improved in all flows (Arabic/English).
+- Extensive code review for harmony, quality, and removal of unused variables/functions.
+
+---
+
+**This update ensures maximum reliability, data integrity, and a seamless experience for both users and admins.** 

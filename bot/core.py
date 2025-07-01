@@ -12,6 +12,7 @@ from telegram.ext import (
     ContextTypes, ConversationHandler
 )
 from typing import Dict, List
+import re
 
 from config import CONFIG
 from storage.models import DatabaseManager
@@ -228,6 +229,11 @@ class TelegramBot:
             handled = await self.admin_dashboard.handle_user_search_message(update, context)
             if handled:
                 return
+        # --- FIX: Handle admin broadcast mode ---
+        if update.effective_user.id == CONFIG["ADMIN_ID"] and context.user_data.get('awaiting_broadcast'):
+            handled = await self.admin_dashboard.handle_dashboard_message(update, context)
+            if handled:
+                return
         actions = {
             "📊 فحص الدرجات": self._grades_command,
             "❓ المساعدة": self._help_command,
@@ -393,7 +399,19 @@ class TelegramBot:
         return ASK_USERNAME
 
     async def _register_username(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        context.user_data['username'] = update.message.text.strip()
+        username = update.message.text.strip()
+        # Validation: Prevent codes (numbers, course codes, etc.)
+        if (
+            username.isdigit() or
+            re.fullmatch(r'[A-Za-z0-9\-_]{3,10}', username) or
+            len(username) < 3 or len(username) > 20
+        ):
+            await update.message.reply_text(
+                "❌ لا تدخل رموز المواد أو الأكواد هنا. يرجى إدخال اسم المستخدم الجامعي فقط.\n\n"
+                "❌ Please do not enter course codes or numbers here. Enter your university username only."
+            )
+            return ASK_USERNAME
+        context.user_data['username'] = username
         await update.message.reply_text("يرجى إدخال كلمة المرور:")
         return ASK_PASSWORD
 
@@ -401,10 +419,37 @@ class TelegramBot:
         username = context.user_data.get('username')
         password = update.message.text.strip()
         telegram_id = update.effective_user.id
-        # Here you would call your UniversityAPI to verify credentials and get token
-        # For now, just simulate success
-        user_data = {"username": username, "fullname": username, "email": "-"}
-        self.user_storage.save_user(telegram_id, username, password, token="dummy_token", user_data=user_data)
+        # Verify credentials with University API
+        await update.message.reply_text("🔄 جاري التحقق من بياناتك...\nChecking your credentials...")
+        token = await self.university_api.login(username, password)
+        if not token:
+            await update.message.reply_text(
+                "❌ تعذّر تسجيل الدخول. يرجى التأكد من صحة اسم المستخدم وكلمة المرور الجامعية وإعادة المحاولة.\n\n"
+                "Login failed. Please check your university username and password and try again.",
+                reply_markup=get_unregistered_keyboard()
+            )
+            # Restart registration from username
+            return await self._register_start(update, context)
+        # Fetch user info for welcome message
+        user_info = await self.university_api._get_user_info(token)
+        if user_info:
+            fullname = user_info.get('fullname', username)
+            firstname = user_info.get('firstname', fullname.split()[0] if ' ' in fullname else fullname)
+            lastname = user_info.get('lastname', fullname.split()[1] if ' ' in fullname else '')
+            email = user_info.get('email', '-')
+        else:
+            fullname = username
+            firstname = username
+            lastname = ''
+            email = '-'
+        user_data = {
+            "username": username,
+            "fullname": fullname,
+            "firstname": firstname,
+            "lastname": lastname,
+            "email": email
+        }
+        self.user_storage.save_user(telegram_id, username, password, token=token, user_data=user_data)
         await update.message.reply_text(get_welcome_message(user_data.get('fullname')))
         return ConversationHandler.END
 
