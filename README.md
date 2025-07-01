@@ -126,7 +126,7 @@ Set these in your Railway dashboard or `.env` file:
 ## Setup & Deployment
 ### 1. Clone the Repository
 ```bash
-git clone <your-repo-url>
+git clone github.com/Abdulrahman-lab/gradenotification_bot
 cd telegram_university_bot
 ```
 ### 2. Install Dependencies
