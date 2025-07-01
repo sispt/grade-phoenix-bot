@@ -1,158 +1,196 @@
-# 🎓 Telegram University Bot (Based on Beehouse v2.1)
+# 🎓 Telegram University Bot
 
-## Overview | نظرة عامة
-A robust Telegram bot for university students to fetch and display their course grades. Supports both direct API extraction and HTML fallback for maximum reliability.
-
-بوت متكامل لجلب الدرجات الجامعية من نظام الجامعة وعرضها عبر تيليجرام. يدعم استخراج الدرجات من API أو من ملفات HTML عند الحاجة.
+**Version:** 2.5.5
 
 ---
 
-## What's New | ما الجديد؟
-- **Admin/Contact info is now fully configurable via environment variables (no hardcoding).**
-- **Bot version is shown in /start and /help, and is set via BOT_VERSION env variable.**
-- **All admin actions and dashboard features are protected and configurable.**
-- **Cleaner code, no AI or debug comments.**
-- **Improved error handling and notifications.**
-- **PostgreSQL and file-based storage both supported.**
+## What's New in v2.5.5
+- User deletion now cascades to grades (ON DELETE CASCADE)
+- Migrations script runs automatically on every deploy in Railway
+- Environment variables are loaded before any script (migrations/main)
+- Final fixes and improvements in admin dashboard and broadcast
+- Everything works on Railway with no manual intervention
 
 ---
 
-## Features | الميزات
-- **Dual Extraction System**: Fetch grades via university API or fallback to HTML parsing.
-- **Robust Error Handling**: Retries, logging, and graceful fallback.
-- **Flexible Data Parsing**: Supports Arabic and English table headers.
-- **Extensible Storage**: Save grades in JSON files or PostgreSQL.
-- **Modular Design**: Easy to maintain and extend.
-- **Admin Dashboard**: View stats, broadcast, manage users (admin only).
-- **Notifications**: Automatic grade change notifications.
-- **Multi-language Support**: Arabic and English.
+## Overview
+Telegram University Bot is an advanced notification and management system for university students. It fetches, stores, and notifies users about their academic grades, and provides a powerful admin dashboard for analytics, user management, and broadcasting.
 
 ---
 
-## Environment Variables | متغيرات البيئة
-Set these in your Railway/Heroku/OS environment:
-- `TELEGRAM_TOKEN`: Bot token
-- `ADMIN_ID`: Telegram user ID of the admin
-- `ADMIN_USERNAME`: Admin's Telegram username (e.g. @your_admin)
-- `ADMIN_EMAIL`: Admin's email (for contact)
-- `BOT_VERSION`: Bot version string (shown in /start, /help)
-- `DATABASE_URL`: PostgreSQL connection string (if using DB)
-- `GRADE_CHECK_INTERVAL`: Interval between grade checks (in **minutes**)
-- (Other config variables as needed in `config.py`)
+## Features
+- **Instant Grade Notifications:** Real-time updates when grades change.
+- **Admin Dashboard:** User analytics, broadcast messages, and user management.
+- **Automated Grade Checks:** Periodic background checks for grade updates.
+- **Multi-Storage Support:** PostgreSQL and file-based storage.
+- **Automatic Migrations:** Database schema updated automatically on every deploy.
+- **Secure & Configurable:** All sensitive data and settings via environment variables.
+- **Easy Deployment:** Optimized for Railway, works on any Python platform.
+- **User Management:** Admins can search, view, and delete users (with cascading grade deletion).
+- **Broadcast System:** Admins can send messages to all users.
+- **Backup & Restore:** Automated backups for user and grade data.
 
 ---
 
-## Architecture | بنية النظام
-```
-[User]
-   |
-[Telegram Bot]
-   |
-[UniversityAPI]
-   |-------------------|
-[API Extraction]   [HTML Fallback]
-   |                    |
-[Grades Data] <---[Storage Layer]
-```
+## Architecture Diagram
+```mermaid
+graph LR;
+  subgraph Telegram
+    User["User (Telegram)"]
+    Admin["Admin (Telegram)"]
+  end
+  Bot["Telegram Bot"]
+  UniversityAPI["University API"]
+  Storage["Database / File Storage"]
+  Dashboard["Admin Dashboard"]
+  Broadcast["Broadcast System"]
+  UsersTable["users table"]
+  GradesTable["grades table"]
 
----
-
-## Main Modules | الوحدات الرئيسية
-- `university/api.py`: API integration, login, token, grades extraction (API & HTML)
-- `config.py`: All GraphQL queries and configuration
-- `bot/core.py`: Telegram bot logic, user interaction, fallback handling
-- `storage/grades.py` & `storage/postgresql_grades.py`: Grades storage (file/DB)
-- `test_graphql_grades_parser.py`: Test for grades extraction logic
-
----
-
-## How Grades Extraction Works | كيف يعمل استخراج الدرجات
-1. **API First**: Attempts to fetch grades using GraphQL API queries.
-2. **Fallback**: If API fails or returns no grades, parses saved HTML files for grades tables.
-3. **Unified Format**: Both methods produce the same data structure for seamless storage and display.
-
-### Example Data Structure | مثال على بنية البيانات
-```python
-{
-  "course": "اللغة العربية (1)",
-  "code": "ARAB100",
-  "ects": 2,
-  "practical": "38",
-  "theoretical": "49",
-  "total": "87 %"
-}
+  User -- Interacts --> Bot
+  Admin -- Admin Commands --> Bot
+  Bot -- Fetches Grades --> UniversityAPI
+  Bot -- Stores Data --> Storage
+  Bot -- Notifies --> User
+  Bot -- Admin Stats --> Dashboard
+  Admin -- Manages --> Dashboard
+  Dashboard -- User Management --> Storage
+  Dashboard -- Broadcasts --> Broadcast
+  Broadcast -- Sends To --> User
+  Storage --> UsersTable
+  Storage --> GradesTable
+  UsersTable -- ON DELETE CASCADE --> GradesTable
 ```
 
 ---
 
-## Setup | الإعداد
-1. Install requirements:
-   ```bash
-   pip install -r requirements.txt
-   ```
-2. Configure `config.py` with your university and bot credentials.
-3. Run the bot:
-   ```bash
-   python main.py
-   ```
-
----
-
-## Extensibility | قابلية التوسعة
-- Add new GraphQL queries in `config.py` as needed.
-- Extend HTML parsing logic in `api.py` for new table formats.
-- Switch storage backend by updating the storage module.
-
----
-
-## Credits | المطور
-- Developed by: Abdulrahman Abdulkader
-- Contact: abdulrahmanabdulkader59@gmail.com | Telegram: @sisp_t
-
----
-
-**This project is designed for reliability, flexibility, and easy maintenance.**
-
-مشروع مصمم للموثوقية والمرونة وسهولة الصيانة. 
-
-## Running Tests
-
-To run the unit tests, make sure you have the dev dependencies installed:
-
+## File/Folder Structure
 ```
+telegram_university_bot/
+├── admin/
+│   ├── __init__.py
+│   ├── broadcast.py
+│   └── dashboard.py
+├── bot/
+│   ├── __init__.py
+│   └── core.py
+├── config.py
+├── data/
+│   └── users.json
+├── debug_api_response.py
+├── main.py
+├── migrations.py
+├── Procfile
+├── README.md
+├── requirements.txt
+├── storage/
+│   ├── __init__.py
+│   ├── credential_cache.py
+│   ├── grades.py
+│   ├── models.py
+│   ├── postgresql_grades.py
+│   ├── postgresql_users.py
+│   ├── test_grades.py
+│   ├── test_users.py
+│   └── users.py
+├── university/
+│   ├── __init__.py
+│   └── api.py
+├── UPDATE.md
+└── utils/
+    ├── __init__.py
+    ├── keyboards.py
+    └── messages.py
+```
+
+---
+
+## Requirements
+- Python 3.8+
+- PostgreSQL (recommended for production)
+- Telegram Bot Token
+
+---
+
+## Environment Variables
+Set these in your Railway dashboard or `.env` file:
+- `TELEGRAM_TOKEN` — Your Telegram bot token (required)
+- `ADMIN_ID` — Telegram user ID of the admin (required)
+- `DATABASE_URL` — PostgreSQL connection string (recommended)
+- `BOT_VERSION` — Bot version string (optional, default: dev)
+- `GRADE_CHECK_INTERVAL` — Interval (in minutes) for grade checks (default: 15)
+- (Other variables as needed in `config.py`)
+
+---
+
+## Setup & Deployment
+### 1. Clone the Repository
+```bash
+git clone <your-repo-url>
+cd telegram_university_bot
+```
+### 2. Install Dependencies
+```bash
 pip install -r requirements.txt
 ```
-
-Then run:
-
+### 3. Configure Environment Variables
+Set the required variables in Railway's dashboard or a `.env` file.
+### 4. Deploy to Railway
+- Push your code to GitHub and connect your repository to Railway.
+- Railway will automatically build and deploy your bot using the `Procfile`.
+- Migrations are run automatically before the bot starts.
+### 5. Local Development
+To run locally:
+```bash
+python migrations.py  # Run migrations (optional if using Railway)
+python main.py        # Start the bot
 ```
+
+---
+
+## Usage
+- Users interact with the bot via Telegram to register, check grades, and receive notifications.
+- Admins access the dashboard for analytics, user management, and broadcasting.
+
+---
+
+## Admin Features
+- **Dashboard:** View user stats, grade analytics, and recent activity.
+- **User Management:** Search, view, and delete users (deletion cascades to grades).
+- **Broadcast:** Send messages to all users.
+- **Security:** Only the admin (as set by `ADMIN_ID`) can access admin features.
+
+---
+
+## Grade Notification Logic
+- The bot checks for grade changes every `GRADE_CHECK_INTERVAL` minutes.
+- Only changed courses are notified to the user, with both old and new values shown.
+- Notifications are sent in the user's preferred language.
+
+---
+
+## Database & Migrations
+- Uses SQLAlchemy models for database schema.
+- Migrations are handled by `migrations.py` and run automatically on Railway.
+- Grade deletion is cascaded when a user is deleted (ON DELETE CASCADE).
+
+---
+
+## Testing
+- Unit tests are provided for storage modules.
+- Run all tests with:
+```bash
 pytest
 ```
 
-This will automatically discover and run all tests in the project.
+---
 
-## Admin Dashboard
+## License
+MIT
 
-The admin dashboard is only accessible to the admin (as set in `ADMIN_ID`). Features include:
-- User overview and analytics
-- Broadcast message to all users (admin only)
-- View and search users
+---
 
-## Broadcast Feature
-
-Admins can send a broadcast message to all users from the dashboard. Only admins see this option.
-
-## Grade Notification Logic
-
-- The bot checks for grade changes every `GRADE_CHECK_INTERVAL` minutes (configurable via environment variable or config.py).
-- Only changed courses are notified to the user, with both old and new values shown.
-- Notifications are sent in Arabic, mentioning the user's university full name.
-
-## Running & Deployment
-
-1. Set required environment variables (see above).
-2. Deploy to your preferred platform (Railway, Heroku, etc.).
-3. Set `GRADE_CHECK_INTERVAL` in your environment or config.py as needed.
-4. Start the bot with `python main.py`.
-
-For more details, see comments in the code and UPDATE.md.
+## Contact
+- Developer: Abdulrahman Abdulkader
+- Email: abdulrahmanabdulkader59@gmail.com
+- Telegram: @sisp_t
