@@ -400,15 +400,11 @@ class TelegramBot:
 
     async def _register_username(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         username = update.message.text.strip()
-        # Validation: Prevent codes (numbers, course codes, etc.)
-        if (
-            username.isdigit() or
-            re.fullmatch(r'[A-Za-z0-9\-_]{3,10}', username) or
-            len(username) < 3 or len(username) > 20
-        ):
+        # New validation: Username must be 3+ letters followed by 4+ digits (e.g., ENG2425041)
+        if not re.fullmatch(r"[A-Za-z]{3,}[0-9]{4,}", username) or len(username) < 7 or len(username) > 20:
             await update.message.reply_text(
-                "❌ لا تدخل رموز المواد أو الأكواد هنا. يرجى إدخال اسم المستخدم الجامعي فقط.\n\n"
-                "❌ Please do not enter course codes or numbers here. Enter your university username only."
+                "❌ اسم المستخدم يجب أن يكون على الشكل: 3 أحرف أو أكثر ثم 4 أرقام أو أكثر (مثال: ENG2425041).\n\n"
+                "❌ Username must be in the form: 3+ letters then 4+ digits (e.g., ENG2425041)."
             )
             return ASK_USERNAME
         context.user_data['username'] = username

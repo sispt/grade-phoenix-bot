@@ -72,8 +72,14 @@ class AdminDashboard:
             "اختر وظيفة من الأزرار أدناه."
         )
 
-    def _get_dashboard_keyboard(self) -> ReplyKeyboardMarkup:
-        return ReplyKeyboardMarkup(ADMIN_DASHBOARD_BUTTONS, resize_keyboard=True)
+    def _get_dashboard_keyboard(self) -> InlineKeyboardMarkup:
+        buttons = [
+            [InlineKeyboardButton("👥 المستخدمون", callback_data="users_overview"),
+             InlineKeyboardButton("📊 التحليل", callback_data="analysis")],
+            [InlineKeyboardButton("📢 بث رسالة", callback_data="broadcast")],
+            [InlineKeyboardButton("❌ إغلاق", callback_data="close_dashboard")]
+        ]
+        return InlineKeyboardMarkup(buttons)
 
     def _get_users_overview_text(self) -> str:
         total = self.user_storage.get_users_count()
