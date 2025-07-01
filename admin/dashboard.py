@@ -63,6 +63,10 @@ class AdminDashboard:
             await query.edit_message_text(text=self._get_analysis_text(), reply_markup=self._get_dashboard_keyboard())
         elif action == "close_dashboard":
             await query.edit_message_text(text="تم إغلاق لوحة التحكم.")
+        elif action == "broadcast":
+            # NEW: Start broadcast mode
+            await query.edit_message_text(text="📝 أرسل نص الرسالة التي تريد بثها لجميع المستخدمين:")
+            context.user_data['awaiting_broadcast'] = True
         else:
             await query.edit_message_text(f"Action '{action}' selected.", reply_markup=self._get_dashboard_keyboard())
 
