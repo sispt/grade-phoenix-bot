@@ -205,11 +205,15 @@ class AdminDashboard:
     def _get_users_overview_text(self) -> str:
         try:
             logger.debug("Fetching users overview...")
-            total = self.user_storage.get_users_count()
-            logger.debug(f"Total users: {total}")
-            active = self.user_storage.get_active_users_count()
-            logger.debug(f"Active users: {active}")
+            # Use get_all_users for both storage types
+            users = self.user_storage.get_all_users()
+            if not isinstance(users, list):
+                raise ValueError("users data is not a list")
+            total = len(users)
+            active = len([u for u in users if u.get("is_active", True)])
             inactive = total - active
+            logger.debug(f"Total users: {total}")
+            logger.debug(f"Active users: {active}")
             logger.debug(f"Inactive users: {inactive}")
             if total > 0:
                 return (

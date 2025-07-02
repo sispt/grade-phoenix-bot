@@ -11,6 +11,8 @@ import requests
 import asyncio
 import logging
 import httpx
+from deep_translator import GoogleTranslator
+import re
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -134,32 +136,61 @@ class GradeAnalytics:
 
     async def translate_text(self, text, target_lang="ar"):
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    "https://libretranslate.com/translate",
-                    data={
-                        "q": text,
-                        "source": "en",
-                        "target": target_lang,
-                        "format": "text"
-                    },
-                    timeout=10
-                )
-                if response.status_code == 200:
-                    return response.json().get("translatedText", text)
-                else:
-                    return text
+            # Use deep-translator for local translation
+            translated = GoogleTranslator(source='en', target=target_lang).translate(text)
+            return translated
         except Exception as e:
             logger.warning(f"Translation failed: {e}")
             return text
 
-    async def format_quote_dual_language(self, quote: dict) -> str:
-        if not quote or not quote.get('text'):
-            return ""
-        en_text = quote['text']
-        author = quote.get('author', '')
-        ar_text = await self.translate_text(en_text, "ar")
-        return f"💬 رسالة اليوم:\n\n\"{ar_text}\"\n— {author}\n\n(EN) \"{en_text}\"\n— {author}\n"
+    async def format_quote_dual_language(self, quote) -> str:
+        """Format quote in both Arabic and English, avoiding duplicates. Accepts dict or str."""
+        try:
+            # Support both dict and str input
+            if isinstance(quote, dict):
+                text = quote.get('text', '')
+                author = quote.get('author', '')
+            else:
+                text = str(quote)
+                author = ''
+            if not text:
+                return ''
+            def is_arabic(s):
+                return bool(re.search(r'[\u0600-\u06FF]', s))
+            if is_arabic(text):
+                # Arabic quote, try to translate to English
+                translated = GoogleTranslator(source='ar', target='en').translate(text)
+                if translated.strip() and translated.strip() != text.strip():
+                    if author:
+                        return f'"{text}"
+— {author}\n(EN) "{translated}"\n— {author}'
+                    else:
+                        return f'"{text}"
+(EN) "{translated}"'
+                else:
+                    return f'"{text}"' + (f'\n— {author}' if author else '')
+            else:
+                # English quote, translate to Arabic
+                translated = GoogleTranslator(source='en', target='ar').translate(text)
+                if translated.strip() and translated.strip() != text.strip():
+                    if author:
+                        return f'"{translated}"
+
+(EN) "{text}"\n— {author}'
+                    else:
+                        return f'"{translated}"
+
+(EN) "{text}"'
+                else:
+                    return f'"{text}"' + (f'\n— {author}' if author else '')
+        except Exception as e:
+            logger.warning(f"Quote translation failed: {e}")
+            if isinstance(quote, dict):
+                text = quote.get('text', '')
+                author = quote.get('author', '')
+                return f'"{text}"' + (f'\n— {author}' if author else '')
+            else:
+                return f'"{quote}"'
 
     async def format_old_grades_with_analysis(
         self, telegram_id: int, old_grades: List[Dict[str, Any]]
