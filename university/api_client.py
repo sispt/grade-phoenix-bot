@@ -100,16 +100,27 @@ class UniversityAPI:
             return None
 
     async def get_old_grades(self, token: str) -> Optional[List[Dict[str, Any]]]:
-        """Get old grades using the old term ID"""
+        """Get old grades using the old term ID, auto-detect if needed"""
         try:
             logger.info("🔍 Fetching old grades with term ID 8530...")
-            old_grades = await self._get_term_grades(
-                token, "8530"
-            )  # 1st term 2024-2025
-            logger.info(f"✅ Found {len(old_grades)} old grades")
-            return old_grades
+            old_grades = await self._get_term_grades(token, "8530")
+            if old_grades:
+                logger.info(f"✅ Found {len(old_grades)} old grades for term 8530")
+                return old_grades
+            # If empty, try to auto-detect previous term
+            logger.warning("No old grades found for term 8530, trying to auto-detect previous term...")
+            # Try known fallback term IDs (add more as needed)
+            fallback_terms = ["10458", "10457", "10456"]
+            for term_id in fallback_terms:
+                logger.info(f"🔍 Trying fallback term ID: {term_id}")
+                old_grades = await self._get_term_grades(token, term_id)
+                if old_grades:
+                    logger.info(f"✅ Found {len(old_grades)} old grades for term {term_id}")
+                    return old_grades
+            logger.error("No old grades found for any known term IDs.")
+            return []
         except Exception as e:
-            logger.error(f"Error getting old grades: {e}")
+            logger.error(f"Error getting old grades: {e}", exc_info=True)
             return None
 
     async def _get_grades(self, token: str) -> List[Dict[str, Any]]:

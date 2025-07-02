@@ -96,7 +96,6 @@ class AdminDashboard:
             elif action == "close_dashboard":
                 await query.edit_message_text(text="✅ تم إغلاق لوحة التحكم.")
             elif action == "broadcast":
-                # Start broadcast mode
                 await query.edit_message_text(
                     text="📝 أرسل نص الرسالة التي تريد بثها لجميع المستخدمين:",
                     reply_markup=get_broadcast_confirmation_keyboard(),
@@ -147,7 +146,6 @@ class AdminDashboard:
                 # Do nothing for current page indicator
                 pass
             elif action == "send_quote_to_all":
-                # Fetch a daily quote and send to all users
                 await query.edit_message_text(
                     text="🔄 جاري إرسال حكمة اليوم لجميع المستخدمين..."
                 )
@@ -158,9 +156,9 @@ class AdminDashboard:
                     )
                 else:
                     message = "💭 حكمة اليوم:\n\nلم تتوفر حكمة اليوم حالياً."
-                count = await self.send_quote_to_all_users(message)
+                sent, failed = await self.send_quote_to_all_users(message)
                 await query.edit_message_text(
-                    text=f"✅ تم إرسال حكمة اليوم إلى {count} مستخدم.",
+                    text=f"✅ تم إرسال حكمة اليوم إلى {sent} مستخدم. (فشل: {failed})",
                     reply_markup=get_enhanced_admin_dashboard_keyboard(),
                 )
             else:
@@ -364,9 +362,9 @@ class AdminDashboard:
         if context.user_data.get("awaiting_broadcast"):
             message = update.message.text
             await update.message.reply_text("🚀 جاري إرسال الرسالة لجميع المستخدمين...")
-            count = await self.broadcast_to_all_users(message)
+            sent, failed = await self.broadcast_to_all_users(message)
             await update.message.reply_text(
-                f"✅ تم إرسال الرسالة إلى {count} مستخدم.",
+                f"✅ تم إرسال الرسالة إلى {sent} مستخدم. (فشل: {failed})",
                 reply_markup=get_enhanced_admin_dashboard_keyboard(),
             )
             context.user_data["awaiting_broadcast"] = False
@@ -376,25 +374,31 @@ class AdminDashboard:
     async def broadcast_to_all_users(self, message):
         users = self.bot.user_storage.get_all_users()
         sent = 0
+        failed = 0
         for user in users:
             try:
                 await self.bot.app.bot.send_message(
                     chat_id=user["telegram_id"], text=message
                 )
                 sent += 1
-            except Exception:
-                continue
-        return sent
+            except Exception as e:
+                failed += 1
+                logger.error(f"Broadcast failed for {user['telegram_id']}: {e}")
+        logger.info(f"Broadcast summary: sent={sent}, failed={failed}, total={len(users)}")
+        return sent, failed
 
     async def send_quote_to_all_users(self, message):
         users = self.bot.user_storage.get_all_users()
         sent = 0
+        failed = 0
         for user in users:
             try:
                 await self.bot.app.bot.send_message(
                     chat_id=user["telegram_id"], text=message
                 )
                 sent += 1
-            except Exception:
-                continue
-        return sent
+            except Exception as e:
+                failed += 1
+                logger.error(f"Quote broadcast failed for {user['telegram_id']}: {e}")
+        logger.info(f"Quote broadcast summary: sent={sent}, failed={failed}, total={len(users)}")
+        return sent, failed
