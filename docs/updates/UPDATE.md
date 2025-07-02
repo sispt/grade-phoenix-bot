@@ -129,6 +129,14 @@
   - Basic functionality implementation
   - Core system development
 
+### July 2025 Update: Quote & Translation System
+
+- Quotes are now always fetched in English and translated to Arabic for all users.
+- Dual-language quote formatting: English quote first, Arabic translation below, author at the end.
+- Expanded keyword coverage for more intellectual and philosophical quotes (e.g., science, leadership, ethics, creativity, etc.).
+- Quotes are now included at the end of current term grade messages and in broadcast quote messages.
+- Translation is performed using googletrans (unofficial Google Translate API). Occasional failures may occur; for mission-critical translation, consider an official API.
+
 ---
 
 ## 🔧 Technical Improvements

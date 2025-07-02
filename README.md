@@ -238,3 +238,19 @@ For support and questions:
 **Last Updated:** December 2024  
 **Security Rating:** A+ (Enterprise-grade)  
 **Version:** 2.5.7
+
+## Quote and Translation System
+
+- Quotes are always fetched in English from APIs (ZenQuotes, API Ninjas, etc.) using a wide range of intellectual keywords (e.g., wisdom, philosophy, science, creativity, leadership, etc.).
+- Each quote is translated to Arabic using the googletrans library, and both the original English and the Arabic translation are shown in messages, with the author at the end.
+- The dual-language quote is included at the end of current term grade messages and in broadcast quote messages.
+- Only English quotes are fetched; Arabic quotes are never fetched directly.
+- The translation system uses googletrans (unofficial Google Translate API). Note: This library may occasionally fail due to API changes or rate limits. For critical use, consider an official translation API.
+
+## Example Output
+
+```
+"The only way to do great work is to love what you do."
+"الطريقة الوحيدة للقيام بعمل عظيم هي أن تحب ما تفعله."
+— Steve Jobs
+```
