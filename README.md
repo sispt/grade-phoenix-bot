@@ -239,13 +239,14 @@ For support and questions:
 **Security Rating:** A+ (Enterprise-grade)  
 **Version:** 2.5.7
 
-## Quote and Translation System
+## Quote and Translation System (Updated)
 
-- Quotes are always fetched in English from APIs (ZenQuotes, API Ninjas, etc.) using a wide range of intellectual keywords (e.g., wisdom, philosophy, science, creativity, leadership, etc.).
-- Each quote is translated to Arabic using the googletrans library, and both the original English and the Arabic translation are shown in messages, with the author at the end.
+- Quotes are always fetched in English from APIs using a wide range of intellectual keywords.
+- Each quote is translated to Arabic using the googletrans library, configured with `service_urls` and `user_agent` as per the official documentation.
+- Strict debugging logs and error handling are implemented for translation attempts.
 - The dual-language quote is included at the end of current term grade messages and in broadcast quote messages.
 - Only English quotes are fetched; Arabic quotes are never fetched directly.
-- The translation system uses googletrans (unofficial Google Translate API). Note: This library may occasionally fail due to API changes or rate limits. For critical use, consider an official translation API.
+- **Note:** Translation reliability depends on Google and the maintenance of the googletrans library. If you encounter persistent errors, check your library version and configuration, or consider the official Google Cloud Translation API for production use.
 
 ## Example Output
 
