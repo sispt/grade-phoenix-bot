@@ -6,9 +6,10 @@ from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardMar
 def get_main_keyboard() -> ReplyKeyboardMarkup:
     """Returns the main keyboard layout for REGISTERED users."""
     keyboard = [
-        ["📊 فحص الدرجات", "📚 الدرجات السابقة"],
+        ["📊 التحقق من درجات الفصل الحالي"],
         ["👤 معلوماتي", "⚙️ الإعدادات"],
-        ["📞 الدعم", "🎛️ لوحة التحكم"]
+        ["📚 التحقق من درجات الفصل السابق", "📞 الدعم"],
+        ["🎛️ لوحة التحكم"]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
@@ -23,9 +24,10 @@ def get_unregistered_keyboard() -> ReplyKeyboardMarkup:
 def get_main_keyboard_with_relogin() -> ReplyKeyboardMarkup:
     """Returns the keyboard for REGISTERED users whose token expired, with relogin option."""
     keyboard = [
-        ["🔄 إعادة تسجيل الدخول", "📊 فحص الدرجات"], # Re-login button for known users
+        ["🔄 إعادة تسجيل الدخول", "📊 التحقق من درجات الفصل الحالي"], # Re-login button for known users
         ["👤 معلوماتي", "⚙️ الإعدادات"],
-        ["📞 الدعم", "🎛️ لوحة التحكم"]
+        ["📚 التحقق من درجات الفصل السابق", "📞 الدعم"],
+        ["🎛️ لوحة التحكم"]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 

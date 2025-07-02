@@ -789,7 +789,7 @@ class GradeAnalytics:
         return message
 
     async def get_past_focused_quote(self, analytics: Dict[str, Any]) -> Optional[Dict[str, str]]:
-        """Get a quote focused on learning from the past"""
+        """Get a quote focused on learning from the past using API"""
         try:
             avg_grade = analytics['summary']['average_grade']
             
@@ -803,40 +803,36 @@ class GradeAnalytics:
             else:
                 scenario = "improvement_needed"
             
-            # Try to get a past-focused quote
+            # Try to get a past-focused quote from API
             quote = await self.get_scenario_quote(scenario)
             if quote:
                 return quote
             
-            # Fallback to local past-focused quotes
-            past_quotes = [
-                {
-                    "text": "الماضي هو أفضل معلم، والمستقبل هو أفضل دافع",
-                    "author": "حكمة عربية"
-                },
-                {
-                    "text": "من لا يتعلم من الماضي محكوم عليه بتكراره",
-                    "author": "جورج سانتايانا"
-                },
-                {
-                    "text": "كل تجربة في الماضي هي درس للمستقبل",
-                    "author": "حكمة صينية"
-                },
-                {
-                    "text": "النجاح في الماضي هو أساس النجاح في المستقبل",
-                    "author": "نابليون هيل"
-                },
-                {
-                    "text": "التاريخ يعلمنا أن كل شيء ممكن إذا تعلمنا من أخطائنا",
-                    "author": "ألبرت أينشتاين"
-                }
-            ]
+            # Try alternative API endpoints for past-focused quotes
+            alternative_scenarios = ["learning", "growth", "reflection", "wisdom"]
+            for alt_scenario in alternative_scenarios:
+                quote = await self.get_scenario_quote(alt_scenario)
+                if quote:
+                    return quote
             
-            return random.choice(past_quotes)
+            # Try daily quote as final fallback
+            quote = await self.get_daily_quote()
+            if quote:
+                return quote
             
-        except Exception as e:
-            logger.error(f"Error getting past-focused quote: {e}")
+            # Only use hardcoded as absolute last resort
             return {
                 "text": "الماضي هو أفضل معلم، والمستقبل هو أفضل دافع",
                 "author": "حكمة عربية"
-            } 
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting past-focused quote: {e}")
+            # Try daily quote as fallback
+            try:
+                return await self.get_daily_quote()
+            except:
+                return {
+                    "text": "الماضي هو أفضل معلم، والمستقبل هو أفضل دافع",
+                    "author": "حكمة عربية"
+                } 
