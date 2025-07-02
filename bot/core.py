@@ -799,11 +799,11 @@ class TelegramBot:
             # Fetch and send the quote
             quote = await self.grade_analytics.get_daily_quote()
             if quote:
-                message = f"من المطور::\n\n\"{quote['text']}\"\n— {quote['author']}"
+                message = await self.grade_analytics.format_quote_dual_language(quote)
             else:
-                message = "💭 حكمة اليوم:\n\nلم تتوفر حكمة اليوم حالياً."
+                message = "💬 رسالة اليوم:\n\nلم تتوفر رسالة اليوم حالياً."
             count = await self.send_quote_to_all_users(message)
-            logger.info(f"✅ تم إرسال حكمة اليوم إلى {count} مستخدم.")
+            logger.info(f"✅ تم إرسال رسالة اليوم إلى {count} مستخدم.")
 
     async def _how_it_works_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(

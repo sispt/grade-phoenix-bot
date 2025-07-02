@@ -151,9 +151,7 @@ class AdminDashboard:
                 )
                 quote = await self.bot.grade_analytics.get_daily_quote()
                 if quote:
-                    message = (
-                        f"💬 رسالة اليوم:\n\n\"{quote['text']}\"\n— {quote['author']}"
-                    )
+                    message = await self.bot.grade_analytics.format_quote_dual_language(quote)
                 else:
                     message = "💬 رسالة اليوم:\n\nلم تتوفر رسالة اليوم حالياً."
                 sent, failed = await self.send_quote_to_all_users(message)

@@ -10,6 +10,7 @@ import random
 import requests
 import asyncio
 import logging
+import httpx
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -131,54 +132,63 @@ class GradeAnalytics:
         ]
         return random.choice(fallback_quotes)
 
+    async def translate_text(self, text, target_lang="ar"):
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://libretranslate.com/translate",
+                    data={
+                        "q": text,
+                        "source": "en",
+                        "target": target_lang,
+                        "format": "text"
+                    },
+                    timeout=10
+                )
+                if response.status_code == 200:
+                    return response.json().get("translatedText", text)
+                else:
+                    return text
+        except Exception as e:
+            logger.warning(f"Translation failed: {e}")
+            return text
+
+    async def format_quote_dual_language(self, quote: dict) -> str:
+        if not quote or not quote.get('text'):
+            return ""
+        en_text = quote['text']
+        author = quote.get('author', '')
+        ar_text = await self.translate_text(en_text, "ar")
+        return f"💬 رسالة اليوم:\n\n\"{ar_text}\"\n— {author}\n\n(EN) \"{en_text}\"\n— {author}\n"
+
     async def format_old_grades_with_analysis(
         self, telegram_id: int, old_grades: List[Dict[str, Any]]
     ) -> str:
-        """Format old grades with analysis and past-focused quotes"""
+        """Format old grades with analysis and dual-language quote"""
         try:
-            # Get a past-focused quote
             quote = await self.get_daily_quote()
-
             # Calculate statistics
             total_courses = len(old_grades)
             completed_courses = sum(1 for grade in old_grades if grade.get("total"))
             avg_grade = self._calculate_average_grade(old_grades)
-
             # Format the message
-            message = f"""📚 **درجات الفصل الدراسي الأول 2024/2025**
-
-**إحصائيات عامة:**
-• عدد المقررات: {total_courses}
-• المقررات المكتملة: {completed_courses}
-• متوسط الدرجات: {avg_grade:.2f}%
-
-**الدرجات التفصيلية:**
-"""
-
+            message = f"""📚 **درجات الفصل الدراسي الأول 2024/2025**\n\n" + \
+                      f"**إحصائيات عامة:**\n" + \
+                      f"• عدد المقررات: {total_courses}\n" + \
+                      f"• المقررات المكتملة: {completed_courses}\n" + \
+                      f"• متوسط الدرجات: {avg_grade:.2f}%\n\n" + \
+                      f"**الدرجات التفصيلية:**\n"
             for grade in old_grades:
                 name = grade.get("name", "غير محدد")
                 code = grade.get("code", "-")
                 coursework = grade.get("coursework", "لم يتم النشر")
                 final_exam = grade.get("final_exam", "لم يتم النشر")
                 total = grade.get("total", "لم يتم النشر")
-
-                message += f"📖 **{name}** ({code})\n"
-                message += f"   الأعمال: {coursework} | النظري: {final_exam} | النهائي: {total}\n\n"
-
-            # Add quote if available
+                message += f"📖 **{name}** ({code})\n   الأعمال: {coursework} | النظري: {final_exam} | النهائي: {total}\n\n"
+            # Add dual-language quote if available
             if quote:
-                message += f"""💬 **رسالة اليوم:**
-"{quote['text']}"
-— {quote['author']}
-
-"""
-
-            message += (
-                "🔍 *استخدم هذا التحليل لفهم أدائك السابق وتحسين مستقبلك الأكاديمي*"
-            )
-
+                message += await self.format_quote_dual_language(quote)
             return message
-
         except Exception as e:
             logger.error(f"Error formatting old grades: {e}")
             return "❌ حدث خطأ أثناء تحليل الدرجات السابقة."
