@@ -11,7 +11,6 @@ import requests
 import asyncio
 import logging
 import httpx
-from deep_translator import GoogleTranslator, LibreTranslator
 import re
 from googletrans import Translator
 
@@ -137,10 +136,13 @@ class GradeAnalytics:
 
     async def translate_text(self, text, target_lang="ar"):
         try:
-            # Use googletrans async API
-            async with Translator() as translator:
-                result = await translator.translate(text, dest=target_lang)
-                return result.text
+            loop = asyncio.get_running_loop()
+            def do_translate():
+
+                translator = Translator()
+                return translator.translate(text, dest=target_lang)
+            result = await loop.run_in_executor(None, do_translate)
+            return getattr(result, "text", text)
         except Exception as e:
             logger.warning(f"Translation failed: {e}")
             return text
@@ -148,6 +150,7 @@ class GradeAnalytics:
     async def format_quote_dual_language(self, quote) -> str:
         """Format quote in both Arabic and English, avoiding duplicates. Accepts dict or str."""
         try:
+            
             # Support both dict and str input
             if isinstance(quote, dict):
                 text = quote.get('text', '')
@@ -161,7 +164,7 @@ class GradeAnalytics:
                 return bool(re.search(r'[\u0600-\u06FF]', s))
             if is_arabic(text):
                 # Arabic quote, try to translate to English
-                translated = GoogleTranslator(source='ar', target='en').translate(text)
+                translated = await self.translate_text(text, target_lang='en')
                 if translated.strip() and translated.strip() != text.strip():
                     if author:
                         return f'"{text}"\n— {author}\n(EN) "{translated}"\n— {author}'
@@ -171,7 +174,7 @@ class GradeAnalytics:
                     return f'"{text}"' + (f'\n— {author}' if author else '')
             else:
                 # English quote, translate to Arabic
-                translated = GoogleTranslator(source='en', target='ar').translate(text)
+                translated = await self.translate_text(text, target_lang='ar')
                 if translated.strip() and translated.strip() != text.strip():
                     if author:
                         return f'"{translated}"\n\n(EN) "{text}"\n— {author}'
