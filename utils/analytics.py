@@ -194,9 +194,11 @@ class GradeAnalytics:
                 final_exam = grade.get("final_exam", "لم يتم النشر")
                 total = grade.get("total", "لم يتم النشر")
                 message += f"📖 **{name}** ({code})\n   الأعمال: {coursework} | النظري: {final_exam} | النهائي: {total}\n\n"
-            # Add dual-language quote if available
+            # Add dual-language quote if available, only once
             if quote:
-                message += await self.format_quote_dual_language(quote)
+                quote_text = await self.format_quote_dual_language(quote)
+                if quote_text.strip() not in message:
+                    message += quote_text
             return message
         except Exception as e:
             logger.error(f"Error formatting old grades: {e}")
