@@ -421,7 +421,7 @@ class TelegramBot:
                     return
             # Error recovery actions
             if text in ["🔄 إعادة المحاولة", "🏠 العودة للرئيسية"]:
-                await self._handle_error_recovery(update, context, text)
+                await self._handle_error_recovery(update, context)
                 return
             # Enhanced action mapping with new button labels
             actions = {
@@ -464,11 +464,9 @@ class TelegramBot:
                 )
         except Exception as e:
             logger.error(f"Error in _handle_message: {e}", exc_info=True)
-            await self._send_message_with_keyboard(
-                update,
+            await update.message.reply_text(
                 "❌ حدث خطأ غير متوقع\n\n**الحلول:**\n• جرب مرة أخرى بعد قليل\n• إذا استمرت المشكلة، تواصل مع الدعم\n• تأكد من اتصالك بالإنترنت\n\n📞 للمساعدة: اضغط '📞 الدعم الفني' أو الزر أدناه.",
-                "error_recovery",
-                extra_keyboard=self._get_contact_support_keyboard()
+                reply_markup=self._get_contact_support_keyboard()
             )
 
     async def _handle_error_recovery(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -493,10 +491,9 @@ class TelegramBot:
                         await self._start_command(update, context)
                 except Exception as e:
                     logger.error(f"Error in retry action: {e}")
-                    await self._send_message_with_keyboard(
-                        update, 
+                    await update.message.reply_text(
                         "❌ فشلت إعادة المحاولة. يرجى المحاولة مرة أخرى لاحقاً.",
-                        "error_recovery"
+                        reply_markup=get_error_recovery_keyboard()
                     )
             else:
                 await self._start_command(update, context)
