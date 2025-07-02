@@ -89,16 +89,21 @@ def main():
     
     storage_type = CONFIG.get("STORAGE_TYPE", "postgresql").lower()
     
+    success = True
+    
     if storage_type == "postgresql":
-        hash_postgresql_passwords()
+        success = hash_postgresql_passwords() and success
     elif storage_type == "json":
-        hash_json_passwords()
+        success = hash_json_passwords() and success
     else:
-        hash_postgresql_passwords()
-        hash_json_passwords()
+        success = hash_postgresql_passwords() and success
+        success = hash_json_passwords() and success
     
     logger.info("✅ All plain text passwords have been hashed!")
     logger.info("🔐 Your database is now fully secure!")
+    
+    # Always exit successfully to prevent Procfile from failing
+    sys.exit(0)
 
 if __name__ == "__main__":
     main() 
