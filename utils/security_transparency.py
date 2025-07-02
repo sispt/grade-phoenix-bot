@@ -4,85 +4,83 @@
 🔐 Security Transparency Module
 Displays security information to users and builds trust
 """
-from typing import Dict, List, Optional
-from datetime import datetime
-import hashlib
-import json
+from typing import Dict
 import os
+
 
 class SecurityTransparency:
     """Handles security transparency and trust-building features"""
-    
+
     def __init__(self):
         self.security_info = self._load_security_info()
         self.trust_indicators = self._get_trust_indicators()
-    
+
     def _load_security_info(self) -> Dict:
         """Load security information and certifications"""
         return {
-            'version': '2.5.6',
-            'security_rating': 'B+ (Good)',
-            'last_audit': 'January 2025',
-            'next_audit': 'April 2025',
-            'compliance': {
-                'owasp_top_10': '9/10 Compliant',
-                'nist_framework': 'Compliant',
-                'iso_27001': 'Partially Compliant',
-                'gdpr': 'Compliant'
+            "version": "2.5.6",
+            "security_rating": "B+ (Good)",
+            "last_audit": "January 2025",
+            "next_audit": "April 2025",
+            "compliance": {
+                "owasp_top_10": "9/10 Compliant",
+                "nist_framework": "Compliant",
+                "iso_27001": "Partially Compliant",
+                "gdpr": "Compliant",
             },
-            'security_features': [
-                'bcrypt Password Hashing',
-                'SQL Injection Prevention',
-                'XSS Protection',
-                'Input Validation',
-                'Environment Variable Security',
-                'Secure Session Management',
-                'Audit Logging',
-                'Data Encryption'
+            "security_features": [
+                "bcrypt Password Hashing",
+                "SQL Injection Prevention",
+                "XSS Protection",
+                "Input Validation",
+                "Environment Variable Security",
+                "Secure Session Management",
+                "Audit Logging",
+                "Data Encryption",
             ],
-            'certifications': [
-                'Open Source Code Review',
-                'Security Best Practices',
-                'Industry Standard Encryption'
-            ]
+            "certifications": [
+                "Open Source Code Review",
+                "Security Best Practices",
+                "Industry Standard Encryption",
+            ],
         }
-    
+
     def _get_trust_indicators(self) -> Dict:
         """Get trust indicators and security metrics"""
         return {
-            'password_security': {
-                'algorithm': 'bcrypt',
-                'salt_generation': 'Automatic',
-                'hash_strength': '60 characters',
-                'recovery': 'Impossible (One-way)'
+            "password_security": {
+                "algorithm": "bcrypt",
+                "salt_generation": "Automatic",
+                "hash_strength": "60 characters",
+                "recovery": "Impossible (One-way)",
             },
-            'data_protection': {
-                'storage': 'Encrypted',
-                'transmission': 'HTTPS/TLS',
-                'backup': 'Automated',
-                'retention': 'Configurable'
+            "data_protection": {
+                "storage": "Encrypted",
+                "transmission": "HTTPS/TLS",
+                "backup": "Automated",
+                "retention": "Configurable",
             },
-            'access_control': {
-                'authentication': 'Multi-factor Ready',
-                'authorization': 'Role-based',
-                'session_timeout': 'Configurable',
-                'admin_access': 'Restricted'
+            "access_control": {
+                "authentication": "Multi-factor Ready",
+                "authorization": "Role-based",
+                "session_timeout": "Configurable",
+                "admin_access": "Restricted",
             },
-            'compliance': {
-                'gdpr': 'Compliant',
-                'data_minimization': 'Implemented',
-                'user_consent': 'Required',
-                'data_portability': 'Available'
-            }
+            "compliance": {
+                "gdpr": "Compliant",
+                "data_minimization": "Implemented",
+                "user_consent": "Required",
+                "data_portability": "Available",
+            },
         }
-    
-    def get_security_welcome_message(self, user_language: str = 'ar') -> str:
+
+    def get_security_welcome_message(self, user_language: str = "ar") -> str:
         """Get security-focused welcome message"""
-        if user_language == 'ar':
+        if user_language == "ar":
             return self._get_arabic_security_welcome()
         else:
             return self._get_english_security_welcome()
-    
+
     def _get_arabic_security_welcome(self) -> str:
         """Get Arabic security welcome message"""
         return f"""🔐 **مرحباً بك في نظام الإشعارات الجامعية**
@@ -108,7 +106,7 @@ class SecurityTransparency:
 🔒 `/privacy_policy` - سياسة الخصوصية
 
 💡 **ملاحظة:** بياناتك آمنة ومحمية."""
-    
+
     def _get_english_security_welcome(self) -> str:
         """Get English security welcome message"""
         return f"""🔐 **Welcome to the University Notification System**
@@ -134,14 +132,14 @@ class SecurityTransparency:
 🔒 `/privacy_policy` - Privacy policy
 
 💡 **Note:** Your data is secure and protected."""
-    
-    def get_detailed_security_info(self, user_language: str = 'ar') -> str:
+
+    def get_detailed_security_info(self, user_language: str = "ar") -> str:
         """Get detailed security information"""
-        if user_language == 'ar':
+        if user_language == "ar":
             return self._get_arabic_detailed_info()
         else:
             return self._get_english_detailed_info()
-    
+
     def _get_arabic_detailed_info(self) -> str:
         """Get detailed Arabic security information"""
         return f"""🔐 **معلومات الأمان التفصيلية**
@@ -191,7 +189,7 @@ class SecurityTransparency:
 📱 تليجرام: @sisp_t
 
 🔒 **نظام آمن وموثوق**"""
-    
+
     def _get_english_detailed_info(self) -> str:
         """Get detailed English security information"""
         return f"""🔐 **Detailed Security Information**
@@ -241,17 +239,17 @@ class SecurityTransparency:
 📱 Telegram: @sisp_t
 
 🔒 **Secure & Trusted System**"""
-    
-    def get_security_audit_summary(self, user_language: str = 'ar') -> str:
+
+    def get_security_audit_summary(self, user_language: str = "ar") -> str:
         """Get security audit summary"""
-        if user_language == 'ar':
+        if user_language == "ar":
             return self._get_arabic_audit_summary()
         else:
             return self._get_english_audit_summary()
-    
+
     def _get_arabic_audit_summary(self) -> str:
         """Get Arabic audit summary"""
-        return f"""📋 **ملخص التدقيق الأمني**
+        return """📋 **ملخص التدقيق الأمني**
 
 **نتائج التدقيق:**
 ✅ مستوى الأمان: عالي
@@ -273,10 +271,10 @@ class SecurityTransparency:
 • حماية البيانات GDPR: متوافق
 
 🔒 **النظام آمن ومحمي**"""
-    
+
     def _get_english_audit_summary(self) -> str:
         """Get English audit summary"""
-        return f"""📋 **Security Audit Summary**
+        return """📋 **Security Audit Summary**
 
 **Audit Results:**
 ✅ Security Level: High
@@ -298,14 +296,14 @@ class SecurityTransparency:
 • GDPR Data Protection: Compliant
 
 🔒 **System is Secure and Protected**"""
-    
-    def get_privacy_policy(self, user_language: str = 'ar') -> str:
+
+    def get_privacy_policy(self, user_language: str = "ar") -> str:
         """Get privacy policy"""
-        if user_language == 'ar':
+        if user_language == "ar":
             return self._get_arabic_privacy_policy()
         else:
             return self._get_english_privacy_policy()
-    
+
     def _get_arabic_privacy_policy(self) -> str:
         """Get Arabic privacy policy"""
         return """🔒 **سياسة الخصوصية**
@@ -346,7 +344,7 @@ class SecurityTransparency:
 📱 تليجرام: @sisp_t
 
 🔒 **خصوصيتك مهمة لنا**"""
-    
+
     def _get_english_privacy_policy(self) -> str:
         """Get English privacy policy"""
         return """🔒 **Privacy Policy**
@@ -387,7 +385,7 @@ class SecurityTransparency:
 📱 Telegram: @sisp_t
 
 🔒 **Your Privacy Matters to Us**"""
-    
+
     def get_security_badge(self) -> str:
         """Get security badge for display"""
         return """🔐 **Security Badge**
@@ -402,56 +400,60 @@ class SecurityTransparency:
 ✅ Environment Secured
 
 🔒 **Production Ready & Secure**"""
-    
+
     def verify_security_implementation(self) -> Dict[str, bool]:
         """Verify security implementation"""
         return {
-            'bcrypt_available': self._check_bcrypt(),
-            'environment_variables': self._check_env_vars(),
-            'input_validation': self._check_input_validation(),
-            'sql_injection_protection': self._check_sql_protection(),
-            'xss_protection': self._check_xss_protection(),
-            'secure_storage': self._check_secure_storage()
+            "bcrypt_available": self._check_bcrypt(),
+            "environment_variables": self._check_env_vars(),
+            "input_validation": self._check_input_validation(),
+            "sql_injection_protection": self._check_sql_protection(),
+            "xss_protection": self._check_xss_protection(),
+            "secure_storage": self._check_secure_storage(),
         }
-    
+
     def _check_bcrypt(self) -> bool:
         """Check if bcrypt is available"""
         try:
             import bcrypt
+
             return True
         except ImportError:
             return False
-    
+
     def _check_env_vars(self) -> bool:
         """Check if environment variables are set"""
-        required_vars = ['TELEGRAM_TOKEN', 'ADMIN_ID']
+        required_vars = ["TELEGRAM_TOKEN", "ADMIN_ID"]
         return all(os.getenv(var) for var in required_vars)
-    
+
     def _check_input_validation(self) -> bool:
         """Check if input validation is available"""
         try:
             from utils.security_enhancements import is_valid_length
+
             return True
         except ImportError:
             return False
-    
+
     def _check_sql_protection(self) -> bool:
         """Check if SQL injection protection is in place"""
         try:
             from storage.models import DatabaseManager
+
             return True
         except ImportError:
             return False
-    
+
     def _check_xss_protection(self) -> bool:
         """Check if XSS protection is implemented"""
         # Check if input sanitization is in place
         return True
-    
+
     def _check_secure_storage(self) -> bool:
         """Check if secure storage is implemented"""
         try:
             from utils.security_enhancements import hash_password
+
             return True
         except ImportError:
-            return False 
+            return False

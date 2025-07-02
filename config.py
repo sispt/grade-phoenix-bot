@@ -1,46 +1,40 @@
 """
 Configuration for the Telegram University Bot.
 """
+
 import os
-from datetime import datetime
 
 # Bot Configuration
 CONFIG = {
     # Telegram Bot Token
     "TELEGRAM_TOKEN": os.getenv("TELEGRAM_TOKEN", "your_bot_token_here"),
-    
     # Admin Configuration
     "ADMIN_ID": int(os.getenv("ADMIN_ID", "123456789")),  # Admin Telegram ID
     "ADMIN_USERNAME": os.getenv("ADMIN_USERNAME", "@admin_username"),
     "ADMIN_EMAIL": os.getenv("ADMIN_EMAIL", "admin@example.com"),
     "ADMIN_NAME": os.getenv("ADMIN_NAME", "Admin User"),
-    
     # Database Configuration
     "DATABASE_URL": os.getenv("DATABASE_URL", "sqlite:///./data/bot.db"),
     "USE_POSTGRESQL": bool(os.getenv("DATABASE_URL", "").startswith("postgresql")),
-    
     # University API Configuration
-    "UNIVERSITY_LOGIN_URL": "https://api.staging.sis.shamuniversity.com/portal", # Use /portal for login
-    "UNIVERSITY_API_URL": "https://api.staging.sis.shamuniversity.com/graphql", # Use /graphql for everything else
+    "UNIVERSITY_LOGIN_URL": "https://api.staging.sis.shamuniversity.com/portal",  # Use /portal for login
+    "UNIVERSITY_API_URL": "https://api.staging.sis.shamuniversity.com/graphql",  # Use /graphql for everything else
     "UNIVERSITY_WEBSITE": "https://staging.sis.shamuniversity.com",
     "UNIVERSITY_NAME": "جامعة الشام",
-    
     # Bot Settings
     "BOT_NAME": "نظام الإشعارات الجامعية",
     "BOT_VERSION": os.getenv("BOT_VERSION", "dev"),
     "BOT_DESCRIPTION": "بوت متقدم لإشعارات الدرجات مع لوحة تحكم إدارية شاملة - جامعة الشام",
-    
     # Check Interval (in minutes)
-    "GRADE_CHECK_INTERVAL": int(os.getenv("GRADE_CHECK_INTERVAL", "15")),  # fallback to 15 minutes if not set
-    
+    "GRADE_CHECK_INTERVAL": int(
+        os.getenv("GRADE_CHECK_INTERVAL", "15")
+    ),  # fallback to 15 minutes if not set
     # Notification Settings (removed: ENABLE_NOTIFICATIONS, MAX_RETRY_ATTEMPTS)
-    
     # User Experience Settings
     "SHOW_LOADING_MESSAGES": True,
     "ENABLE_TYPING_INDICATOR": True,
     "MESSAGE_TIMEOUT_SECONDS": 30,
     "MAX_MESSAGE_LENGTH": 4096,
-    
     # Storage Settings
     "DATA_DIR": "data",
     "BACKUP_ENABLED": True,
@@ -48,12 +42,10 @@ CONFIG = {
     "MAX_BACKUP_FILES": 10,
     "BACKUP_DIR": "backups",
     "LOGS_DIR": "logs",
-    
     # Security Settings
     "ENCRYPT_PASSWORDS": True,
     "LOG_ADMIN_ACTIONS": True,
     "SESSION_TIMEOUT_HOURS": 24,
-    
     # API Headers - Updated to match BeeHouse v2.1 exact structure
     "API_HEADERS": {
         "Accept": "*/*",
@@ -67,18 +59,15 @@ CONFIG = {
         "Sec-Fetch-Mode": "cors",
         "Sec-Fetch-Site": "same-site",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
-        "x-lang": "ar"
+        "x-lang": "ar",
     },
-    
     # Timezone
     "TIMEZONE": "UTC+3",
-    
     # Logging
     "LOG_LEVEL": "DEBUG",
     "LOG_FILE": "bot.log",
     "LOG_MAX_SIZE_MB": 10,
     "LOG_BACKUP_COUNT": 5,
-    
     # Performance
     "MAX_CONCURRENT_REQUESTS": 10,
     "REQUEST_TIMEOUT_SECONDS": 30,
@@ -95,33 +84,27 @@ ADMIN_CONFIG = {
     "DASHBOARD_REFRESH_INTERVAL": 60,  # seconds
     "SHOW_DETAILED_STATS": True,
     "SHOW_USER_ACTIVITY": True,
-    
     # User Management
     "MAX_USERS_PER_PAGE": 10,
     "ENABLE_USER_SEARCH": True,
     "ENABLE_USER_EXPORT": True,
     "ENABLE_USER_DELETION": True,
-    
     # Grade Checking
     "BATCH_CHECK_ENABLED": True,
     "BATCH_CHECK_SIZE": 50,
     "BATCH_CHECK_DELAY": 2,  # seconds between batches
-    
     # Notifications
     "BROADCAST_ENABLED": True,
     "BROADCAST_MAX_LENGTH": 4096,
     "BROADCAST_CONFIRMATION": True,
-    
     # Backup
     "BACKUP_COMPRESSION": True,
     "BACKUP_ENCRYPTION": False,
     "BACKUP_RETENTION_DAYS": 30,
-    
     # Monitoring
     "ERROR_LOG_RETENTION_DAYS": 7,
     "ACTIVITY_LOG_RETENTION_DAYS": 30,
     "PERFORMANCE_MONITORING": True,
-    
     # Security
     "ADMIN_ACTION_LOGGING": True,
     "ADMIN_SESSION_TIMEOUT": 3600,  # seconds
@@ -135,7 +118,6 @@ UNIVERSITY_QUERIES = {
         login(username: $username, password: $password)
     }
     """,
-    
     "GET_USER_INFO": """
     query {
       getGUI {
@@ -150,7 +132,6 @@ UNIVERSITY_QUERIES = {
       }
     }
     """,
-    
     "GET_HOMEPAGE": """
     query getPage($name: String!, $params: [PageParam!]) {
       getPage(name: $name, params: $params) {
@@ -163,7 +144,6 @@ UNIVERSITY_QUERIES = {
       }
     }
     """,
-    
     "GET_GRADES": """
     query getPage($name: String!, $params: [PageParam!]) {
       getPage(name: $name, params: $params) {
@@ -176,7 +156,6 @@ UNIVERSITY_QUERIES = {
       }
     }
     """,
-    
     "GET_COURSE_GRADES": """
     query getStudentGrades($t_grade_id: String!) {
       getStudentGrades(t_grade_id: $t_grade_id) {
@@ -195,7 +174,6 @@ UNIVERSITY_QUERIES = {
       }
     }
     """,
-    
     "GET_STUDENT_COURSES": """
     query getStudentCourses($t_grade_id: String!) {
       getStudentCourses(t_grade_id: $t_grade_id) {
@@ -211,7 +189,6 @@ UNIVERSITY_QUERIES = {
       }
     }
     """,
-    
     "GET_GRADE_DETAILS": """
     query getGradeDetails($course_id: String!) {
       getGradeDetails(course_id: $course_id) {
@@ -231,7 +208,6 @@ UNIVERSITY_QUERIES = {
       }
     }
     """,
-    
     "TEST_TOKEN": """
     query TestToken {
         getGUI {
@@ -260,7 +236,6 @@ MESSAGE_TEMPLATES = {
 🎯 **للبدء:**
 اضغط على "🚀 تسجيل الدخول" لإدخال بياناتك الجامعية
     """,
-    
     "GRADE_UPDATE": """
 🎓 **تم تحديث درجاتك!**
 
@@ -271,7 +246,6 @@ MESSAGE_TEMPLATES = {
 
 🕒 **تاريخ التحديث:** {update_time}
     """,
-    
     "ADMIN_DASHBOARD": """
 🎛️ **لوحة التحكم الإدارية**
 
@@ -285,7 +259,6 @@ MESSAGE_TEMPLATES = {
 • 📤 إجمالي الإشعارات: {total_notifications}
 • ⚠️ الأخطاء (24 ساعة): {recent_errors}
     """,
-    
     "BROADCAST_FOOTER": """
 ---
 🔔 **بوت الإشعارات الجامعية**
@@ -345,7 +318,12 @@ FILE_PATHS = {
 
 # Export configuration
 __all__ = [
-    'CONFIG', 'ADMIN_CONFIG', 'UNIVERSITY_QUERIES', 
-    'MESSAGE_TEMPLATES', 'ERROR_MESSAGES', 'SUCCESS_MESSAGES',
-    'VALIDATION_RULES', 'FILE_PATHS'
+    "CONFIG",
+    "ADMIN_CONFIG",
+    "UNIVERSITY_QUERIES",
+    "MESSAGE_TEMPLATES",
+    "ERROR_MESSAGES",
+    "SUCCESS_MESSAGES",
+    "VALIDATION_RULES",
+    "FILE_PATHS",
 ]

@@ -84,6 +84,7 @@ class TelegramBot:
         await self._update_bot_info()
         self._add_handlers()
         self.grade_check_task = asyncio.create_task(self._grade_checking_loop())
+        self.daily_quote_task = asyncio.create_task(self.scheduled_daily_quote_broadcast())
         await self.app.initialize()
         await self.app.start()
         port = int(os.environ.get("PORT", 8443))
@@ -113,6 +114,8 @@ class TelegramBot:
         self.running = False
         if self.grade_check_task:
             self.grade_check_task.cancel()
+        if hasattr(self, 'daily_quote_task') and self.daily_quote_task:
+            self.daily_quote_task.cancel()
         if self.app: await self.app.shutdown()
         logger.info("🛑 Bot stopped.")
 
@@ -464,17 +467,24 @@ class TelegramBot:
             if action:
                 await action(update, context)
             else:
-                # Enhanced error message with helpful guidance
-                keyboard_to_show = get_main_keyboard() if self.user_storage.is_user_registered(user_id) else get_unregistered_keyboard()
-                await update.message.reply_text(
-                    "❓ لم أفهم طلبك\n\n"
-                    "💡 **نصائح:**\n"
-                    "• استخدم الأزرار أدناه للتنقل\n"
-                    "• اكتب /help للمساعدة\n"
-                    "• اكتب /start للعودة للرئيسية\n\n"
-                    "📞 للمساعدة: اضغط '📞 الدعم الفني'",
-                    reply_markup=keyboard_to_show
-                )
+                # If user is unregistered, remind them to use the registration button
+                if not self.user_storage.is_user_registered(user_id):
+                    await update.message.reply_text(
+                        "❗️ يرجى استخدام زر '🚀 تسجيل الدخول للجامعة' أدناه لإكمال التسجيل.",
+                        reply_markup=get_unregistered_keyboard()
+                    )
+                else:
+                    # Enhanced error message with helpful guidance
+                    keyboard_to_show = get_main_keyboard()
+                    await update.message.reply_text(
+                        "❓ لم أفهم طلبك\n\n"
+                        "💡 **نصائح:**\n"
+                        "• استخدم الأزرار أدناه للتنقل\n"
+                        "• اكتب /help للمساعدة\n"
+                        "• اكتب /start للعودة للرئيسية\n\n"
+                        "📞 للمساعدة: اضغط '📞 الدعم الفني'",
+                        reply_markup=keyboard_to_show
+                    )
         except Exception as e:
             logger.error(f"Error in _handle_message: {e}", exc_info=True)
             await self._send_message_with_keyboard(
@@ -781,3 +791,41 @@ class TelegramBot:
     async def _cancel_registration(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("تم إلغاء التسجيل.")
         return ConversationHandler.END
+
+    async def send_quote_to_all_users(self, message):
+        users = self.user_storage.get_all_users()
+        sent = 0
+        for user in users:
+            try:
+                await self.app.bot.send_message(chat_id=user['telegram_id'], text=message)
+                sent += 1
+            except Exception:
+                continue
+        return sent
+
+    async def scheduled_daily_quote_broadcast(self):
+        """Background task: send a daily quote to all users at 14:00 UTC+3 (11:00 UTC)."""
+        import pytz
+        from datetime import datetime, time, timedelta
+        tz = pytz.timezone('Asia/Riyadh')  # UTC+3
+        target_hour = 14
+        target_minute = 0
+        logger.info("🕑 Daily quote scheduler started (14:00 UTC+3)")
+        while self.running:
+            now = datetime.now(tz)
+            next_run = now.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)
+            if now >= next_run:
+                next_run += timedelta(days=1)
+            wait_seconds = (next_run - now).total_seconds()
+            logger.info(f"Next daily quote broadcast in {wait_seconds/60:.1f} minutes")
+            await asyncio.sleep(wait_seconds)
+            if not self.running:
+                break
+            # Fetch and send the quote
+            quote = await self.grade_analytics.get_daily_quote()
+            if quote:
+                message = f"من المطور::\n\n\"{quote['text']}\"\n— {quote['author']}"
+            else:
+                message = "💭 حكمة اليوم:\n\nلم تتوفر حكمة اليوم حالياً."
+            count = await self.send_quote_to_all_users(message)
+            logger.info(f"✅ تم إرسال حكمة اليوم إلى {count} مستخدم.")

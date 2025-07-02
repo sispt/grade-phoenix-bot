@@ -59,12 +59,11 @@ async def async_test_working_apis():
         'breakthrough': ['breakthrough', 'innovation', 'discovery', 'achievement'],
         'first_grade': ['beginning', 'start', 'journey', 'first_step']
     }
-    
+
     print("\n🎯 Testing Scenario-Specific Quotes with Philosophy Categories:")
     for scenario, categories in scenarios.items():
         print(f"\n📊 Testing {scenario} (Categories: {', '.join(categories)}):")
         success = False
-        
         # Try Zen Quotes first
         try:
             response = requests.get('https://zenquotes.io/api/random', timeout=10)
@@ -77,7 +76,6 @@ async def async_test_working_apis():
                 success = True
         except Exception as e:
             print(f"❌ {scenario} (Zen Quotes): Error {e}")
-        
         # Try Advice Slip as fallback
         if not success:
             try:
