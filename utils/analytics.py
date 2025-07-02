@@ -172,12 +172,14 @@ class GradeAnalytics:
             completed_courses = sum(1 for grade in old_grades if grade.get("total"))
             avg_grade = self._calculate_average_grade(old_grades)
             # Format the message
-            message = f"""📚 **درجات الفصل الدراسي الأول 2024/2025**\n\n" + \
-                      f"**إحصائيات عامة:**\n" + \
-                      f"• عدد المقررات: {total_courses}\n" + \
-                      f"• المقررات المكتملة: {completed_courses}\n" + \
-                      f"• متوسط الدرجات: {avg_grade:.2f}%\n\n" + \
-                      f"**الدرجات التفصيلية:**\n"
+            message = (
+                f"📚 **درجات الفصل الدراسي الأول 2024/2025**\n\n"
+                f"**إحصائيات عامة:**\n"
+                f"• عدد المقررات: {total_courses}\n"
+                f"• المقررات المكتملة: {completed_courses}\n"
+                f"• متوسط الدرجات: {avg_grade:.2f}%\n\n"
+                f"**الدرجات التفصيلية:**\n"
+            )
             for grade in old_grades:
                 name = grade.get("name", "غير محدد")
                 code = grade.get("code", "-")
@@ -194,7 +196,7 @@ class GradeAnalytics:
             return "❌ حدث خطأ أثناء تحليل الدرجات السابقة."
 
     def _calculate_average_grade(self, grades: List[Dict[str, Any]]) -> float:
-        """Calculate average grade from total grades"""
+        """Calculate average grade from total grades."""
         try:
             total_grades = []
             for grade in grades:
