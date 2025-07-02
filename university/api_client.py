@@ -48,38 +48,19 @@ class UniversityAPI:
                 async with session.post(self.api_url, headers=headers, json=payload) as response:
                     if response.status == 200:
                         data = await response.json()
-                        return data.get("data", {}).get("me") is not None
-            return False
-        except Exception as e:
-            logger.error(f"Error testing token: {e}")
+                        return "data" in data and data["data"].get("getGUI", {}).get("user") is not None
+                    return False
+        except Exception:
             return False
 
     async def get_user_data(self, token: str) -> Optional[Dict[str, Any]]:
         try:
-            headers = {**self.api_headers, "Authorization": f"Bearer {token}"}
-            payload = {"query": UNIVERSITY_QUERIES["GET_USER_DATA"]}
-            async with aiohttp.ClientSession(timeout=self.timeout) as session:
-                async with session.post(self.api_url, headers=headers, json=payload) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        return self._parse_user_data(data)
-            return None
+            user_info = await self._get_user_info(token)
+            if not user_info: return None
+            grades = await self._get_grades(token)
+            return {**user_info, "grades": grades}
         except Exception as e:
-            logger.error(f"Error getting user data: {e}")
-            return None
-
-    async def get_old_grades(self, token: str) -> Optional[List[Dict[str, Any]]]:
-        try:
-            headers = {**self.api_headers, "Authorization": f"Bearer {token}"}
-            payload = {"query": UNIVERSITY_QUERIES["GET_OLD_GRADES"]}
-            async with aiohttp.ClientSession(timeout=self.timeout) as session:
-                async with session.post(self.api_url, headers=headers, json=payload) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        return self._parse_old_grades(data)
-            return None
-        except Exception as e:
-            logger.error(f"Error getting old grades: {e}")
+            logger.error(f"Error getting user data: {e}", exc_info=True)
             return None
 
     async def _get_user_info(self, token: str) -> Optional[Dict[str, Any]]:
@@ -90,63 +71,101 @@ class UniversityAPI:
                 async with session.post(self.api_url, headers=headers, json=payload) as response:
                     if response.status == 200:
                         data = await response.json()
-                        return self._parse_user_info(data)
-            return None
+                        if data.get("data", {}).get("getGUI"):
+                            return data["data"]["getGUI"]["user"]
+                    return None
         except Exception as e:
-            logger.error(f"Error getting user info: {e}")
+            logger.error(f"Error getting user info: {e}", exc_info=True)
             return None
 
-    def _parse_user_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def get_old_grades(self, token: str) -> Optional[List[Dict[str, Any]]]:
+        """Get old grades using the old term ID"""
         try:
-            user_data = data.get("data", {}).get("me", {})
-            grades = data.get("data", {}).get("grades", [])
-            
-            return {
-                "firstname": user_data.get("firstname"),
-                "lastname": user_data.get("lastname"),
-                "fullname": f"{user_data.get('firstname', '')} {user_data.get('lastname', '')}".strip(),
-                "email": user_data.get("email"),
-                "grades": self._parse_grades(grades)
-            }
+            logger.info("🔍 Fetching old grades with term ID 8530...")
+            old_grades = await self._get_term_grades(token, "8530")  # 1st term 2024-2025
+            logger.info(f"✅ Found {len(old_grades)} old grades")
+            return old_grades
         except Exception as e:
-            logger.error(f"Error parsing user data: {e}")
-            return {}
+            logger.error(f"Error getting old grades: {e}")
+            return None
 
-    def _parse_old_grades(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    async def _get_grades(self, token: str) -> List[Dict[str, Any]]:
+        logger.info("🔍 Starting direct grade fetch with known term IDs...")
+        all_grades = []
+        known_term_ids = ["10459"]  # 2nd term 2024-2025 (current)
+        for term_id in known_term_ids:
+            logger.info(f"📊 Fetching grades for term ID: {term_id}")
+            term_grades = await self._get_term_grades(token, term_id)
+            if term_grades:
+                logger.info(f"✅ Found {len(term_grades)} grades for term ID {term_id}")
+                all_grades.extend(term_grades)
+        logger.info(f"🎉 Total grades retrieved: {len(all_grades)}")
+        return all_grades
+
+    async def _get_term_grades(self, token: str, t_grade_id: str) -> List[Dict[str, Any]]:
         try:
-            old_grades = data.get("data", {}).get("oldGrades", [])
-            return self._parse_grades(old_grades)
+            headers = {**self.api_headers, "Authorization": f"Bearer {token}"}
+            payload = {"operationName": "getPage", "variables": {"name": "test_student_tracks", "params": [{"name": "t_grade_id", "value": t_grade_id}]}, "query": UNIVERSITY_QUERIES["GET_GRADES"]}
+            async with aiohttp.ClientSession(timeout=self.timeout) as session:
+                async with session.post(self.api_url, headers=headers, json=payload) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        if data.get("data", {}).get("getPage"):
+                            return self._parse_grades_from_graphql(data["data"]["getPage"])
+                    return []
         except Exception as e:
-            logger.error(f"Error parsing old grades: {e}")
+            logger.error(f"Error getting term grades: {e}", exc_info=True)
             return []
 
-    def _parse_user_info(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        try:
-            user_info = data.get("data", {}).get("me", {})
-            return {
-                "firstname": user_info.get("firstname"),
-                "lastname": user_info.get("lastname"),
-                "fullname": f"{user_info.get('firstname', '')} {user_info.get('lastname', '')}".strip(),
-                "email": user_info.get("email")
-            }
-        except Exception as e:
-            logger.error(f"Error parsing user info: {e}")
-            return {}
+    def _parse_grades_from_graphql(self, page_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        all_grades = []
+        if not page_data or "panels" not in page_data: return []
+        for panel in page_data.get("panels", []):
+            for block in panel.get("blocks", []):
+                html_content = block.get('body', '')
+                if html_content and self._contains_course_data(html_content):
+                    all_grades.extend(self._parse_grades_table_html(html_content))
+        return all_grades
 
-    def _parse_grades(self, grades_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _parse_grades_table_html(self, html_content: str) -> List[Dict[str, Any]]:
         try:
-            parsed_grades = []
-            for grade in grades_data:
-                parsed_grade = {
-                    "name": grade.get("course", {}).get("name"),
-                    "code": grade.get("course", {}).get("code"),
-                    "ects": grade.get("course", {}).get("ects"),
-                    "coursework": grade.get("coursework"),
-                    "final_exam": grade.get("finalExam"),
-                    "total": grade.get("total")
-                }
-                parsed_grades.append(parsed_grade)
-            return parsed_grades
+            grades, soup = [], BeautifulSoup(html_content, 'html.parser')
+            tables = soup.find_all('table')
+            if not tables: return []
+            HEADER_MAPPING = {"المقرر": "name", "كود المادة": "code", "رصيد ECTS": "ects", "درجة الأعمال": "coursework", "درجة النظري": "final_exam", "الدرجة": "total"}
+            for table in tables:
+                header_row = table.find('thead') or table.find('tr')
+                if not header_row: continue
+                headers, column_map = header_row.find_all(['th', 'td']), {}
+                for index, th in enumerate(headers):
+                    header_text = th.get_text(strip=True).lower()
+                    for map_key, standard_key in HEADER_MAPPING.items():
+                        if map_key in header_text: column_map[standard_key] = index; break
+                if 'name' not in column_map: continue
+                data_rows = (table.find('tbody') or table).find_all('tr')[1:]
+                for row in data_rows:
+                    cells = row.find_all('td')
+                    if len(cells) < len(column_map): continue
+                    grade_entry = {key: cells[index].get_text(strip=True) for key, index in column_map.items() if index < len(cells)}
+                    if grade_entry.get("name"): grades.append(grade_entry)
+            return grades
         except Exception as e:
-            logger.error(f"Error parsing grades: {e}")
-            return [] 
+            logger.error(f"Error during HTML table parsing: {e}", exc_info=True)
+            return []
+
+    def _contains_course_data(self, html_content: str) -> bool:
+        try:
+            soup = BeautifulSoup(html_content, 'html.parser')
+            tables = soup.find_all("table")
+            if not tables: return False
+            indicators = ['مقرر', 'درجة', 'رصيد', 'كود']
+            for table in tables:
+                thead = table.find("thead")
+                if not thead: continue
+                headers = [th.get_text(strip=True).lower() for th in thead.find_all("th")]
+                if sum(any(indicator in header for indicator in indicators) for header in headers) >= 2:
+                    return True
+            return False
+        except Exception as e:
+            logger.error(f"Error checking for course data: {e}", exc_info=True)
+            return False 
