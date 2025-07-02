@@ -167,7 +167,7 @@ class GradeAnalytics:
 
             # Add quote if available
             if quote:
-                message += f"""💭 **حكمة اليوم:**
+                message += f"""💬 **رسالة اليوم:**
 "{quote['text']}"
 — {quote['author']}
 

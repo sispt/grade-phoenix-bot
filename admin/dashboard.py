@@ -147,18 +147,18 @@ class AdminDashboard:
                 pass
             elif action == "send_quote_to_all":
                 await query.edit_message_text(
-                    text="🔄 جاري إرسال حكمة اليوم لجميع المستخدمين..."
+                    text="🔄 جاري إرسال رسالة اليوم لجميع المستخدمين..."
                 )
                 quote = await self.bot.grade_analytics.get_daily_quote()
                 if quote:
                     message = (
-                        f"💭 حكمة اليوم:\n\n\"{quote['text']}\"\n— {quote['author']}"
+                        f"💬 رسالة اليوم:\n\n\"{quote['text']}\"\n— {quote['author']}"
                     )
                 else:
-                    message = "💭 حكمة اليوم:\n\nلم تتوفر حكمة اليوم حالياً."
+                    message = "💬 رسالة اليوم:\n\nلم تتوفر رسالة اليوم حالياً."
                 sent, failed = await self.send_quote_to_all_users(message)
                 await query.edit_message_text(
-                    text=f"✅ تم إرسال حكمة اليوم إلى {sent} مستخدم. (فشل: {failed})",
+                    text=f"✅ تم إرسال رسالة اليوم إلى {sent} مستخدم. (فشل: {failed})",
                     reply_markup=get_enhanced_admin_dashboard_keyboard(),
                 )
             else:
