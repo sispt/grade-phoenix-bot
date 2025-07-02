@@ -255,3 +255,33 @@ class PostgreSQLUserStorage:
         except Exception as e:
             logger.error(f"❌ Unexpected error in migrate_user_password for {telegram_id}: {e}", exc_info=True)
             return False
+
+    def delete_user(self, telegram_id: int) -> bool:
+        """
+        Delete user and all associated grades (cascade)
+        
+        Args:
+            telegram_id: User's Telegram ID
+            
+        Returns:
+            True if deletion successful, False otherwise
+        """
+        try:
+            with self.db_manager.get_session() as session:
+                user = session.query(User).filter_by(telegram_id=telegram_id).first()
+                if user:
+                    # Delete user (this will cascade to grades due to foreign key constraint)
+                    session.delete(user)
+                    session.commit()
+                    logger.info(f"✅ User {telegram_id} and all associated grades deleted from PostgreSQL")
+                    return True
+                else:
+                    logger.warning(f"⚠️ User {telegram_id} not found for deletion")
+                    return False
+        except SQLAlchemyError as e:
+            session.rollback()
+            logger.error(f"❌ Error deleting user {telegram_id} from PostgreSQL: {e}", exc_info=True)
+            return False
+        except Exception as e:
+            logger.error(f"❌ Unexpected error in delete_user for {telegram_id}: {e}", exc_info=True)
+            return False
