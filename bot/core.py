@@ -1,5 +1,3 @@
-# This is the final, correct, and clean version of bot/core.py, based on your last version.
-
 """
 🎓 Telegram Bot Core - Main Bot Implementation
 """
@@ -122,7 +120,10 @@ class TelegramBot:
     def _add_handlers(self):
         # This function from your last version is correct and complete
         registration_handler = ConversationHandler(
-            entry_points=[CommandHandler("register", self._register_start), MessageHandler(filters.Regex("^🚀 تسجيل الدخول$"), self._register_start)],
+            entry_points=[
+                CommandHandler("register", self._register_start),
+                MessageHandler(filters.Regex("^🚀 تسجيل الدخول للجامعة$"), self._register_start)
+            ],
             states={ASK_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._register_username)], ASK_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._register_password)]},
             fallbacks=[CommandHandler("cancel", self._cancel_registration)],
         )
