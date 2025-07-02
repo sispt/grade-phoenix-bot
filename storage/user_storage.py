@@ -73,7 +73,7 @@ class UserStorage:
                 'lastname': user_data.get('lastname'),
                 'fullname': user_data.get('fullname'),
                 'email': user_data.get('email'),
-                'created_at': datetime.now().isoformat(),
+                'registration_date': datetime.now().isoformat(),
                 'last_login': datetime.now().isoformat(),
                 'is_active': True
             }
@@ -176,7 +176,7 @@ class PostgreSQLUserStorage:
                         lastname=lastname,
                         fullname=fullname,
                         email=email,
-                        created_at=datetime.utcnow(),
+                        registration_date=datetime.utcnow(),
                         last_login=datetime.utcnow(),
                         is_active=True
                     )
@@ -206,7 +206,7 @@ class PostgreSQLUserStorage:
                         'lastname': user.lastname,
                         'fullname': user.fullname,
                         'email': user.email,
-                        'created_at': user.created_at.isoformat() if user.created_at else None,
+                        'registration_date': user.registration_date.isoformat() if user.registration_date else None,
                         'last_login': user.last_login.isoformat() if user.last_login else None,
                         'is_active': user.is_active
                     }
@@ -232,7 +232,7 @@ class PostgreSQLUserStorage:
                         'lastname': user.lastname,
                         'fullname': user.fullname,
                         'email': user.email,
-                        'created_at': user.created_at.isoformat() if user.created_at else None,
+                        'registration_date': user.registration_date.isoformat() if user.registration_date else None,
                         'last_login': user.last_login.isoformat() if user.last_login else None,
                         'is_active': user.is_active
                     }
