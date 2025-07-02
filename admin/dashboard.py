@@ -204,9 +204,13 @@ class AdminDashboard:
 
     def _get_users_overview_text(self) -> str:
         try:
+            logger.debug("Fetching users overview...")
             total = self.user_storage.get_users_count()
+            logger.debug(f"Total users: {total}")
             active = self.user_storage.get_active_users_count()
+            logger.debug(f"Active users: {active}")
             inactive = total - active
+            logger.debug(f"Inactive users: {inactive}")
             if total > 0:
                 return (
                     f"👥 **نظرة عامة للمستخدمين**\n\n"
@@ -217,10 +221,11 @@ class AdminDashboard:
                     f"- نسبة النشاط: {(active/total*100):.1f}%"
                 )
             else:
+                logger.debug("No users found in storage.")
                 return "👥 لا يوجد مستخدمون مسجلون بعد."
         except Exception as e:
             logger.error(f"Error in _get_users_overview_text: {e}", exc_info=True)
-            return "❌ حدث خطأ أثناء جلب نظرة المستخدمين."
+            return f"❌ حدث خطأ أثناء جلب نظرة المستخدمين.\n[DEBUG: {e}]"
 
     def _get_users_list_text(self, page=1, per_page=10):
         try:
