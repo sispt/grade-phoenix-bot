@@ -9,7 +9,7 @@ from config import CONFIG
 from storage.models import DatabaseManager, Base, User
 from storage.postgresql_users import PostgreSQLUserStorage
 from storage.users import UserStorage
-from utils.password_utils import is_password_hashed, hash_password
+from utils.security_enhancements import is_password_hashed, hash_password
 
 logger = logging.getLogger(__name__)
 
@@ -40,16 +40,17 @@ def migrate_postgresql_passwords():
             already_hashed_count = 0
             
             for user in users:
-                if not user.password:
+                password = str(user.password) if user.password is not None else None
+                if not password:
                     logger.warning(f"⚠️ User {user.telegram_id} has no password")
                     continue
                 
-                if is_password_hashed(user.password):
+                if is_password_hashed(password):
                     already_hashed_count += 1
                     logger.debug(f"✅ User {user.telegram_id} already has hashed password")
                 else:
                     # This is a plain text password that needs migration
-                    # Nwhote: We can't migrate without the original password
+                    # Note: We can't migrate without the original password
                     # This is a limitation - we can only hash new passwords
                     logger.warning(f"⚠️ User {user.telegram_id} has plain text password - cannot migrate without original")
                     logger.info(f"💡 User {user.telegram_id} will need to re-enter password on next login")
