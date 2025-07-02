@@ -11,8 +11,9 @@ import requests
 import asyncio
 import logging
 import httpx
-from deep_translator import GoogleTranslator
+from deep_translator import GoogleTranslator, LibreTranslator
 import re
+from googletrans import Translator
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -136,9 +137,10 @@ class GradeAnalytics:
 
     async def translate_text(self, text, target_lang="ar"):
         try:
-            # Use deep-translator for local translation
-            translated = GoogleTranslator(source='en', target=target_lang).translate(text)
-            return translated
+            # Use googletrans async API
+            async with Translator() as translator:
+                result = await translator.translate(text, dest=target_lang)
+                return result.text
         except Exception as e:
             logger.warning(f"Translation failed: {e}")
             return text
@@ -162,11 +164,9 @@ class GradeAnalytics:
                 translated = GoogleTranslator(source='ar', target='en').translate(text)
                 if translated.strip() and translated.strip() != text.strip():
                     if author:
-                        return f'"{text}"
-— {author}\n(EN) "{translated}"\n— {author}'
+                        return f'"{text}"\n— {author}\n(EN) "{translated}"\n— {author}'
                     else:
-                        return f'"{text}"
-(EN) "{translated}"'
+                        return f'"{text}"\n(EN) "{translated}"'
                 else:
                     return f'"{text}"' + (f'\n— {author}' if author else '')
             else:
@@ -174,13 +174,9 @@ class GradeAnalytics:
                 translated = GoogleTranslator(source='en', target='ar').translate(text)
                 if translated.strip() and translated.strip() != text.strip():
                     if author:
-                        return f'"{translated}"
-
-(EN) "{text}"\n— {author}'
+                        return f'"{translated}"\n\n(EN) "{text}"\n— {author}'
                     else:
-                        return f'"{translated}"
-
-(EN) "{text}"'
+                        return f'"{translated}"\n\n(EN) "{text}"'
                 else:
                     return f'"{text}"' + (f'\n— {author}' if author else '')
         except Exception as e:

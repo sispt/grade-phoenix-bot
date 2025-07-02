@@ -10,6 +10,7 @@ import random
 import pytest
 import os
 import sys
+from utils.analytics import GradeAnalytics
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -102,6 +103,49 @@ async def async_test_working_apis():
     print(f"✅ Quote Structure: {test_quote}")
     print(f"   Has philosophy attribute: {'philosophy' in test_quote}")
     print(f"   Philosophy value: {test_quote.get('philosophy', 'None')}")
+
+@pytest.mark.asyncio
+async def test_format_quote_dual_language_english():
+    analytics = GradeAnalytics(None)
+    quote = {'text': 'Success is not final, failure is not fatal.', 'author': 'Winston Churchill'}
+    result = await analytics.format_quote_dual_language(quote)
+    assert 'Success is not final' in result
+    assert '(EN)' not in result or '"' in result  # Should show Arabic translation and English
+
+@pytest.mark.asyncio
+async def test_format_quote_dual_language_arabic():
+    analytics = GradeAnalytics(None)
+    arabic_text = 'العلم نور'
+    quote = {'text': arabic_text, 'author': 'Anonymous'}
+    result = await analytics.format_quote_dual_language(quote)
+    assert arabic_text in result
+    assert '(EN)' in result or 'العلم نور' in result  # Should show English translation and Arabic
+
+@pytest.mark.asyncio
+async def test_format_quote_dual_language_no_author():
+    analytics = GradeAnalytics(None)
+    quote = {'text': 'Knowledge is power.'}
+    result = await analytics.format_quote_dual_language(quote)
+    assert 'Knowledge is power.' in result
+    # Should show Arabic translation and English
+
+@pytest.mark.asyncio
+async def test_translate_text_en_to_ar():
+    analytics = GradeAnalytics(None)
+    text_en = 'Knowledge is power.'
+    translated = await analytics.translate_text(text_en, target_lang='ar')
+    # Should not be the same and should contain Arabic characters
+    assert translated != text_en
+    assert any('\u0600' <= c <= '\u06FF' for c in translated)
+
+@pytest.mark.asyncio
+async def test_translate_text_ar_to_en():
+    analytics = GradeAnalytics(None)
+    text_ar = 'العلم نور'
+    translated = await analytics.translate_text(text_ar, target_lang='en')
+    # Should not be the same and should contain English letters
+    assert translated != text_ar
+    assert any('a' <= c.lower() <= 'z' for c in translated)
 
 def test_working_apis():
     asyncio.run(async_test_working_apis())
