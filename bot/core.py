@@ -298,25 +298,27 @@ class TelegramBot:
                 await update.message.reply_text("❗️ يجب إعادة تسجيل الدخول.")
                 return
             user_data = await self.university_api.get_user_data(token)
-            grades = user_data.get("grades", [])
+            grades = user_data.get("grades", []) if user_data else []
             if not grades:
-                await update.message.reply_text("لا توجد درجات متاحة حالياً.")
+                await update.message.reply_text("📚 لا توجد درجات متاحة حالياً.")
                 return
             msg = "📚 **درجاتك الأكاديمية:**\n\n"
             for g in grades:
-                msg += f"• {g.get('name', '-')} ({g.get('code', '-')})\n  الأعمال: {g.get('coursework', '-')} | النظري: {g.get('final_exam', '-')} | النهائي: {g.get('total', '-')}\n\n"
-            try:
-                # Send as plain text to avoid Markdown issues
+                name = g.get('name', '-')
+                code = g.get('code', '-')
+                coursework = g.get('coursework', 'لم يتم النشر')
+                final_exam = g.get('final_exam', 'لم يتم النشر')
+                total = g.get('total', '')
+                msg += f"• {name} ({code})\n  الأعمال: {coursework} | النظري: {final_exam} | النهائي: {total}\n\n"
+            if len(msg) > 4096:
+                for i in range(0, len(msg), 4096):
+                    await update.message.reply_text(msg[i:i+4096])
+            else:
                 await update.message.reply_text(msg)
-            except Exception as e:
-                logger.error(f"Error sending grades message: {e}")
         except Exception as e:
             logger.error(f"Error in _grades_command: {e}", exc_info=True)
-            await self._send_message_with_keyboard(
-                update, 
-                "❌ حدث خطأ أثناء جلب الدرجات. يرجى المحاولة مرة أخرى أو التواصل مع الدعم.",
-                "error_recovery"
-            )
+            context.user_data.pop('last_action', None)
+            await update.message.reply_text("❌ حدث خطأ غير متوقع أثناء جلب الدرجات. يرجى المحاولة لاحقاً أو التواصل مع الدعم.")
 
     async def _old_grades_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show old term grades with analysis and quotes"""
@@ -331,25 +333,25 @@ class TelegramBot:
             if not token:
                 await update.message.reply_text("❗️ يجب إعادة تسجيل الدخول.")
                 return
-            
             old_grades = await self.university_api.get_old_grades(token)
-            if not old_grades:
-                await update.message.reply_text("📚 لا توجد درجات سابقة متاحة للفصل الدراسي الأول 2024/2025.")
+            if old_grades is None:
+                await update.message.reply_text("❌ حدث خطأ في الاتصال أو جلب الدرجات. حاول لاحقاً أو تواصل مع الدعم.")
                 return
-            
+            if not old_grades:
+                await update.message.reply_text("📚 لا توجد درجات سابقة متاحة للفصل الدراسي السابق.")
+                return
             formatted_message = await self.grade_analytics.format_old_grades_with_analysis(telegram_id, old_grades)
-            try:
+            # Telegram message length check
+            if len(formatted_message) > 4096:
+                # Split and send in chunks
+                for i in range(0, len(formatted_message), 4096):
+                    await update.message.reply_text(formatted_message[i:i+4096])
+            else:
                 await update.message.reply_text(formatted_message)
-            except Exception as e:
-                logger.error(f"Error sending old grades message: {e}")
-            
         except Exception as e:
             logger.error(f"Error in _old_grades_command: {e}", exc_info=True)
-            await self._send_message_with_keyboard(
-                update, 
-                "❌ حدث خطأ أثناء جلب الدرجات السابقة. يرجى المحاولة مرة أخرى أو التواصل مع الدعم.",
-                "error_recovery"
-            )
+            context.user_data.pop('last_action', None)
+            await update.message.reply_text("❌ حدث خطأ غير متوقع أثناء جلب الدرجات السابقة. يرجى المحاولة لاحقاً أو التواصل مع الدعم.")
 
     async def _profile_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
@@ -408,16 +410,19 @@ class TelegramBot:
             if user_id == CONFIG["ADMIN_ID"] and context.user_data.get('awaiting_user_search'):
                 handled = await self.admin_dashboard.handle_user_search_message(update, context)
                 if handled:
+                    context.user_data.pop('awaiting_user_search', None)
                     return
             # Admin user delete mode
             if user_id == CONFIG["ADMIN_ID"] and context.user_data.get('awaiting_user_delete'):
                 handled = await self.admin_dashboard.handle_user_delete_message(update, context)
                 if handled:
+                    context.user_data.pop('awaiting_user_delete', None)
                     return
             # Admin user broadcast mode
             if user_id == CONFIG["ADMIN_ID"] and context.user_data.get('awaiting_broadcast'):
                 handled = await self.admin_dashboard.handle_dashboard_message(update, context)
                 if handled:
+                    context.user_data.pop('awaiting_broadcast', None)
                     return
             # Error recovery actions
             if text in ["🔄 إعادة المحاولة", "🏠 العودة للرئيسية"]:
@@ -457,16 +462,14 @@ class TelegramBot:
             if action:
                 await action(update, context)
             else:
-                # Universal fallback for unhandled buttons and advanced/settings features
                 await update.message.reply_text(
-                    "هذه الميزة قيد التطوير. سيتم توفيرها قريباً.\n\n📞 للمساعدة: اضغط '📞 الدعم الفني' أو الزر أدناه.",
-                    reply_markup=self._get_contact_support_keyboard()
+                    "هذه الميزة قيد التطوير. سيتم توفيرها قريباً.\n\n📞 للمساعدة: اضغط '📞 الدعم الفني' أو الزر أدناه."
                 )
         except Exception as e:
             logger.error(f"Error in _handle_message: {e}", exc_info=True)
+            context.user_data.clear()
             await update.message.reply_text(
-                "❌ حدث خطأ غير متوقع\n\n**الحلول:**\n• جرب مرة أخرى بعد قليل\n• إذا استمرت المشكلة، تواصل مع الدعم\n• تأكد من اتصالك بالإنترنت\n\n📞 للمساعدة: اضغط '📞 الدعم الفني' أو الزر أدناه.",
-                reply_markup=self._get_contact_support_keyboard()
+                "❌ حدث خطأ غير متوقع\n\n**الحلول:**\n• جرب مرة أخرى بعد قليل\n• إذا استمرت المشكلة، تواصل مع الدعم\n• تأكد من اتصالك بالإنترنت\n\n📞 للمساعدة: اضغط '📞 الدعم الفني' أو الزر أدناه."
             )
 
     async def _handle_error_recovery(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

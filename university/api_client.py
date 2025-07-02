@@ -159,9 +159,14 @@ class UniversityAPI:
                             return self._parse_grades_from_graphql(
                                 data["data"]["getPage"]
                             )
-                    return []
+                        else:
+                            logger.warning(f"No 'getPage' in API response for term {t_grade_id}: {data}")
+                            return []
+                    else:
+                        logger.error(f"API returned status {response.status} for term {t_grade_id}")
+                        return []
         except Exception as e:
-            logger.error(f"Error getting term grades: {e}", exc_info=True)
+            logger.error(f"Error getting term grades for {t_grade_id}: {e}", exc_info=True)
             return []
 
     def _parse_grades_from_graphql(
