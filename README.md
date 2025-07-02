@@ -1,3 +1,5 @@
+![Project Logo](logo.png)
+
 # 🎓 Telegram University Bot
 
 **Version: 2.5.7** | **Security Rating: A+** | **Status: Production Ready**
@@ -262,3 +264,8 @@ For support and questions:
 "الطريقة الوحيدة للقيام بعمل عظيم هي أن تحب ما تفعله."
 — Steve Jobs
 ```
+
+## July 2025 Update: New Logo & Repo Name
+
+- The project now features a new official logo, symbolizing academic achievement and growth.
+- The repository has been renamed to `grade-phoenix-bot` to reflect the new branding and vision.

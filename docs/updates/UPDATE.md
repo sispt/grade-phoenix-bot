@@ -129,6 +129,11 @@
   - Basic functionality implementation
   - Core system development
 
+### July 2025 Update: New Logo & Repo Name
+
+- The project now features a new official logo, representing academic achievement and renewal.
+- The repository has been renamed to `grade-phoenix-bot` for improved clarity and branding.
+
 ### July 2025 Update: Quote & Translation System (Revised)
 
 - Quotes are always fetched in English and translated to Arabic for all users.

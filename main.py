@@ -178,8 +178,8 @@ async def main():
 
 
 if __name__ == "__main__":
-    print("🎓 Telegram University Bot v2.1.3")
-    print("بوت إشعارات الدرجات الجامعية")
+    print("🎓 grade-phoenix-bot v2.1.3")
+    print("بوت إشعارات الدرجات الجامعية (grade-phoenix-bot)")
     print("=" * 50)
 
     try:
