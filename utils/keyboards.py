@@ -9,6 +9,7 @@ from telegram import (
     InlineKeyboardMarkup,
     InlineKeyboardButton,
 )
+from config import CONFIG
 
 
 def get_main_keyboard() -> ReplyKeyboardMarkup:
@@ -373,3 +374,11 @@ def get_grade_display_settings_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("🔙 العودة للإعدادات", callback_data="back_to_settings")],
     ]
     return InlineKeyboardMarkup(buttons)
+
+
+def get_contact_support_inline_keyboard():
+    """Returns an inline keyboard with a Contact Support button."""
+    admin_username = CONFIG.get("ADMIN_USERNAME", "@admin")
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📞 تواصل مع الدعم الفني", url=f"https://t.me/{admin_username.lstrip('@')}")]
+    ])

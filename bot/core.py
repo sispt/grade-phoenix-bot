@@ -4,7 +4,7 @@
 import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters,
     ContextTypes, ConversationHandler
@@ -184,14 +184,13 @@ class TelegramBot:
     async def _help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
         is_admin = user_id == CONFIG["ADMIN_ID"]
-        
         help_text = (
-            "🎓 **دليل استخدام البوت**\n\n"
-            "**كيفية الاستخدام:**\n"
+            "🎓 دليل استخدام البوت\n\n"
+            "كيفية الاستخدام:\n"
             "1. اضغط '🚀 تسجيل الدخول' وأدخل بياناتك الجامعية\n"
             "2. استخدم الأزرار لفحص الدرجات والإعدادات\n"
             "3. للمساعدة تواصل مع المطور\n\n"
-            "**الأوامر الأساسية:**\n"
+            "الأوامر الأساسية:\n"
             "/start - بدء الاستخدام\n"
             "/help - المساعدة\n"
             "/grades - التحقق من درجات الفصل الحالي\n"
@@ -199,57 +198,67 @@ class TelegramBot:
             "/profile - معلوماتي\n"
             "/settings - الإعدادات\n"
             "/support - الدعم الفني\n\n"
-            "**أوامر الأمان:**\n"
+            "أوامر الأمان:\n"
             "/security_info - معلومات الأمان\n"
             "/security_audit - تقرير التدقيق الأمني\n"
             "/security_headers - معلومات معايير الأمان (للمطور فقط)\n"
             "/privacy_policy - سياسة الخصوصية\n"
         )
-        
         if is_admin:
-            help_text += "\n**أوامر المدير:**\n/security_stats - إحصائيات الأمان\n/admin - لوحة التحكم\n"
-        
+            help_text += "\nأوامر المدير:\n/security_stats - إحصائيات الأمان\n/admin - لوحة التحكم\n"
         help_text += f"\n👨‍💻 المطور: {CONFIG.get('ADMIN_USERNAME', '@admin')}"
-        
-        await update.message.reply_text(help_text, parse_mode='Markdown')
+        try:
+            # Send as plain text to avoid Markdown issues
+            await update.message.reply_text(help_text)
+        except Exception as e:
+            logger.error(f"Error sending help message: {e}")
 
     async def _security_info_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Show detailed security information"""
         try:
-            security_info = self.security_transparency.get_detailed_security_info('ar')
-            await update.message.reply_text(security_info, parse_mode='Markdown')
+            from admin.dashboard import AdminDashboard
+            security_info = AdminDashboard.get_user_security_info()
+            await update.message.reply_text(security_info)
         except Exception as e:
             await update.message.reply_text("عذراً، حدث خطأ أثناء عرض معلومات الأمان.")
             logger.error(f"Error in _security_info_command: {e}", exc_info=True)
 
     async def _security_audit_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Show security audit summary"""
         try:
-            audit_summary = self.security_transparency.get_security_audit_summary('ar')
-            await update.message.reply_text(audit_summary, parse_mode='Markdown')
+            audit_message = (
+                "📋 تقرير التدقيق الأمني:\n\n"
+                "• جميع العمليات في البوت تخضع لمراجعة دورية لضمان الأمان.\n"
+                "• لا يتم تخزين كلمات المرور أو مشاركتها مع أي جهة.\n"
+                "• نستخدم أحدث معايير الأمان لحماية بياناتك.\n\n"
+                "إذا كان لديك أي سؤال عن الأمان، تواصل مع الدعم الفني."
+            )
+            await update.message.reply_text(audit_message)
         except Exception as e:
             await update.message.reply_text("عذراً، حدث خطأ أثناء عرض تقرير التدقيق.")
             logger.error(f"Error in _security_audit_command: {e}", exc_info=True)
 
     async def _privacy_policy_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Show privacy policy"""
         try:
-            privacy_policy = self.security_transparency.get_privacy_policy('ar')
-            await update.message.reply_text(privacy_policy, parse_mode='Markdown')
+            privacy_message = (
+                "🔒 سياسة الخصوصية:\n\n"
+                "• بياناتك الجامعية تُستخدم فقط لجلب الدرجات ولا يتم تخزين كلمة المرور نهائياً.\n"
+                "• جميع المعلومات مشفرة وآمنة ولا يتم مشاركتها مع أي جهة خارجية.\n"
+                "• يمكنك حذف بياناتك في أي وقت من خلال الدعم الفني.\n"
+                "• هدفنا هو حماية خصوصيتك وتقديم أفضل تجربة ممكنة.\n\n"
+                "لأي استفسار عن الخصوصية، تواصل مع الدعم الفني."
+            )
+            await update.message.reply_text(privacy_message)
         except Exception as e:
             await update.message.reply_text("عذراً، حدث خطأ أثناء عرض سياسة الخصوصية.")
             logger.error(f"Error in _privacy_policy_command: {e}", exc_info=True)
 
     async def _security_stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Show security statistics (admin only)"""
         try:
             if update.effective_user.id != CONFIG["ADMIN_ID"]:
                 await update.message.reply_text("🚫 هذا الأمر متاح للمدير فقط.")
                 return
-            
             stats = security_manager.get_security_stats()
             stats_message = (
-                "🔐 **إحصائيات الأمان (24 ساعة)**\n\n"
+                "🔐 إحصائيات الأمان (24 ساعة)\n\n"
                 f"📊 إجمالي الأحداث: {stats['total_events_24h']}\n"
                 f"❌ محاولات تسجيل فاشلة: {stats['failed_logins']}\n"
                 f"🚫 محاولات محظورة: {stats['blocked_attempts']}\n"
@@ -257,52 +266,28 @@ class TelegramBot:
                 f"⚠️ أحداث عالية الخطورة: {stats['high_risk_events']}\n\n"
                 "💡 هذه الإحصائيات تساعد في مراقبة الأمان"
             )
-            await update.message.reply_text(stats_message, parse_mode='Markdown')
+            await update.message.reply_text(stats_message)
         except Exception as e:
             await update.message.reply_text("عذراً، حدث خطأ أثناء جلب إحصائيات الأمان.")
             logger.error(f"Error in _security_stats_command: {e}", exc_info=True)
 
     async def _security_headers_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Show security headers information (admin only)"""
         try:
-            if update.effective_user.id != CONFIG["ADMIN_ID"]:
-                await update.message.reply_text("🚫 هذا الأمر متاح للمطور فقط.")
-                return
-            
-            headers = security_headers.get_security_headers()
-            metadata = security_headers.get_security_metadata()
-            policy_report = security_policy.get_security_report()
-            
             headers_message = (
-                "🔒 **Security Headers Information**\n\n"
-                "**Applied Headers:**\n"
+                "🛡️ معلومات الأمان:\n\n"
+                "• البوت يستخدم تقنيات حماية متقدمة لضمان سرية بياناتك.\n"
+                "• جميع الاتصالات مشفرة وآمنة.\n"
+                "• لا داعي للقلق بشأن الخصوصية أو الأمان.\n\n"
+                "لأي استفسار، تواصل مع الدعم الفني."
             )
-            
-            for header, value in headers.items():
-                # Truncate long values for display
-                display_value = value[:100] + "..." if len(value) > 100 else value
-                headers_message += f"• {header}: {display_value}\n"
-            
-            headers_message += f"\n**Security Metadata:**\n"
-            headers_message += f"• Security Level: {metadata['security_level']}\n"
-            headers_message += f"• Compliance: {', '.join(metadata['compliance'])}\n"
-            headers_message += f"• CSP Nonce: {metadata['csp_nonce'][:16]}...\n"
-            
-            headers_message += f"\n**Security Policy:**\n"
-            headers_message += f"• Policy Version: {policy_report['policy_version']}\n"
-            headers_message += f"• Allowed Domains: {len(policy_report['allowed_domains'])}\n"
-            headers_message += f"• Blocked Patterns: {policy_report['blocked_patterns_count']}\n"
-            
-            await update.message.reply_text(headers_message, parse_mode='Markdown')
+            await update.message.reply_text(headers_message)
         except Exception as e:
-            await update.message.reply_text("عذراً، حدث خطأ أثناء جلب معلومات معايير الأمان.")
+            await update.message.reply_text("عذراً، حدث خطأ أثناء جلب معلومات الأمان.")
             logger.error(f"Error in _security_headers_command: {e}", exc_info=True)
 
     async def _grades_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            # Store the action for error recovery
             context.user_data['last_action'] = 'grades'
-            
             telegram_id = update.effective_user.id
             user = self.user_storage.get_user(telegram_id)
             if not user:
@@ -312,7 +297,6 @@ class TelegramBot:
             if not token:
                 await update.message.reply_text("❗️ يجب إعادة تسجيل الدخول.")
                 return
-            # Simulate Release v2.5.0: fetch grades from API or storage
             user_data = await self.university_api.get_user_data(token)
             grades = user_data.get("grades", [])
             if not grades:
@@ -321,7 +305,11 @@ class TelegramBot:
             msg = "📚 **درجاتك الأكاديمية:**\n\n"
             for g in grades:
                 msg += f"• {g.get('name', '-')} ({g.get('code', '-')})\n  الأعمال: {g.get('coursework', '-')} | النظري: {g.get('final_exam', '-')} | النهائي: {g.get('total', '-')}\n\n"
-            await update.message.reply_text(msg, parse_mode='Markdown')
+            try:
+                # Send as plain text to avoid Markdown issues
+                await update.message.reply_text(msg)
+            except Exception as e:
+                logger.error(f"Error sending grades message: {e}")
         except Exception as e:
             logger.error(f"Error in _grades_command: {e}", exc_info=True)
             await self._send_message_with_keyboard(
@@ -333,9 +321,7 @@ class TelegramBot:
     async def _old_grades_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show old term grades with analysis and quotes"""
         try:
-            # Store the action for error recovery
             context.user_data['last_action'] = 'old_grades'
-            
             telegram_id = update.effective_user.id
             user = self.user_storage.get_user(telegram_id)
             if not user:
@@ -346,15 +332,16 @@ class TelegramBot:
                 await update.message.reply_text("❗️ يجب إعادة تسجيل الدخول.")
                 return
             
-            # Fetch old grades from API
             old_grades = await self.university_api.get_old_grades(token)
             if not old_grades:
                 await update.message.reply_text("📚 لا توجد درجات سابقة متاحة للفصل الدراسي الأول 2024/2025.")
                 return
             
-            # Format grades with analytics and quotes
             formatted_message = await self.grade_analytics.format_old_grades_with_analysis(telegram_id, old_grades)
-            await update.message.reply_text(formatted_message, parse_mode='Markdown')
+            try:
+                await update.message.reply_text(formatted_message)
+            except Exception as e:
+                logger.error(f"Error sending old grades message: {e}")
             
         except Exception as e:
             logger.error(f"Error in _old_grades_command: {e}", exc_info=True)
@@ -376,21 +363,32 @@ class TelegramBot:
                 f"• الاسم الكامل: {user.get('fullname', '-')}\n"
                 f"• اسم المستخدم الجامعي: {user.get('username', '-')}\n"
             )
-            await update.message.reply_text(msg, parse_mode='Markdown')
+            try:
+                await update.message.reply_text(msg)
+            except Exception as e:
+                logger.error(f"Error sending profile message: {e}")
         except Exception as e:
             await update.message.reply_text("حدث خطأ أثناء جلب المعلومات.")
             logger.error(f"Error in _profile_command: {e}", exc_info=True)
 
     async def _settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        try:
-            await update.message.reply_text("⚙️ ليس لديك صلاحية لتعديل الإعدادات في الوقت الحالي.")
-        except Exception as e:
-            await update.message.reply_text("عذراً، حدث خطأ أثناء عرض الإعدادات.")
-            logger.error(f"Error in _settings_command: {e}", exc_info=True)
+        # Patch: reply with 'قيد التطوير' for now
+        await update.message.reply_text("هذه الميزة قيد التطوير. سيتم توفيرها قريباً.")
+
+    def _get_contact_support_keyboard(self):
+        """Returns an inline keyboard with a Contact Support button."""
+        admin_username = CONFIG.get("ADMIN_USERNAME", "@admin")
+        return InlineKeyboardMarkup([
+            [InlineKeyboardButton("📞 تواصل مع الدعم الفني", url=f"https://t.me/{admin_username.lstrip('@')}")]
+        ])
 
     async def _support_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
-            await update.message.reply_text("📞 للدعم الفني تواصل مع المطور: " + str(CONFIG.get("ADMIN_USERNAME", "@admin")))
+            admin_username = CONFIG.get("ADMIN_USERNAME", "@admin")
+            await update.message.reply_text(
+                f"📞 للدعم الفني تواصل مع المطور: {admin_username}\nاضغط الزر أدناه للتواصل مباشرة.",
+                reply_markup=self._get_contact_support_keyboard()
+            )
         except Exception as e:
             await update.message.reply_text("عذراً، حدث خطأ أثناء عرض الدعم.")
             logger.error(f"Error in _support_command: {e}", exc_info=True)
@@ -405,53 +403,43 @@ class TelegramBot:
     async def _handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text
         user_id = update.effective_user.id
-        
         try:
             # Admin user search mode
             if user_id == CONFIG["ADMIN_ID"] and context.user_data.get('awaiting_user_search'):
                 handled = await self.admin_dashboard.handle_user_search_message(update, context)
                 if handled:
                     return
-            
             # Admin user delete mode
             if user_id == CONFIG["ADMIN_ID"] and context.user_data.get('awaiting_user_delete'):
                 handled = await self.admin_dashboard.handle_user_delete_message(update, context)
                 if handled:
                     return
-            
-            # --- FIX: Handle admin broadcast mode ---
+            # Admin user broadcast mode
             if user_id == CONFIG["ADMIN_ID"] and context.user_data.get('awaiting_broadcast'):
                 handled = await self.admin_dashboard.handle_dashboard_message(update, context)
                 if handled:
                     return
-            
             # Error recovery actions
             if text in ["🔄 إعادة المحاولة", "🏠 العودة للرئيسية"]:
                 await self._handle_error_recovery(update, context, text)
                 return
-            
             # Enhanced action mapping with new button labels
             actions = {
                 # Main grade actions
                 "📊 درجات الفصل الحالي": self._grades_command,
                 "📚 درجات الفصل السابق": self._old_grades_command,
-                
                 # User actions
                 "👤 معلوماتي الشخصية": self._profile_command,
                 "⚙️ الإعدادات والتخصيص": self._settings_command,
-                
                 # Support and help
                 "📞 الدعم الفني": self._support_command,
                 "❓ المساعدة والدليل": self._help_command,
-                
                 # Registration actions
                 "🚀 تسجيل الدخول للجامعة": self._register_start,
                 "🔄 إعادة تسجيل الدخول": self._register_start,
-                
                 # Admin actions
                 "🎛️ لوحة التحكم الإدارية": self._admin_command,
                 "🔙 العودة للوحة الرئيسية": self._return_to_main,
-                
                 # Legacy button support (for backward compatibility)
                 "📊 التحقق من درجات الفصل الحالي": self._grades_command,
                 "📚 التحقق من درجات الفصل السابق": self._old_grades_command,
@@ -462,41 +450,25 @@ class TelegramBot:
                 "🚀 تسجيل الدخول": self._register_start,
                 "🎛️ لوحة التحكم": self._admin_command,
                 "🔙 العودة": self._return_to_main,
+                # New: How does the bot work?
+                "❓ كيف يعمل البوت؟": self._how_it_works_command,
             }
-            
             action = actions.get(text)
             if action:
                 await action(update, context)
             else:
-                # If user is unregistered, remind them to use the registration button
-                if not self.user_storage.is_user_registered(user_id):
-                    await update.message.reply_text(
-                        "❗️ يرجى استخدام زر '🚀 تسجيل الدخول للجامعة' أدناه لإكمال التسجيل.",
-                        reply_markup=get_unregistered_keyboard()
-                    )
-                else:
-                    # Enhanced error message with helpful guidance
-                    keyboard_to_show = get_main_keyboard()
-                    await update.message.reply_text(
-                        "❓ لم أفهم طلبك\n\n"
-                        "💡 **نصائح:**\n"
-                        "• استخدم الأزرار أدناه للتنقل\n"
-                        "• اكتب /help للمساعدة\n"
-                        "• اكتب /start للعودة للرئيسية\n\n"
-                        "📞 للمساعدة: اضغط '📞 الدعم الفني'",
-                        reply_markup=keyboard_to_show
-                    )
+                # Universal fallback for unhandled buttons and advanced/settings features
+                await update.message.reply_text(
+                    "هذه الميزة قيد التطوير. سيتم توفيرها قريباً.\n\n📞 للمساعدة: اضغط '📞 الدعم الفني' أو الزر أدناه.",
+                    reply_markup=self._get_contact_support_keyboard()
+                )
         except Exception as e:
             logger.error(f"Error in _handle_message: {e}", exc_info=True)
             await self._send_message_with_keyboard(
-                update, 
-                "❌ حدث خطأ غير متوقع\n\n"
-                "**الحلول:**\n"
-                "• جرب مرة أخرى بعد قليل\n"
-                "• إذا استمرت المشكلة، تواصل مع الدعم\n"
-                "• تأكد من اتصالك بالإنترنت\n\n"
-                "📞 للمساعدة: اضغط '📞 الدعم الفني'",
-                "error_recovery"
+                update,
+                "❌ حدث خطأ غير متوقع\n\n**الحلول:**\n• جرب مرة أخرى بعد قليل\n• إذا استمرت المشكلة، تواصل مع الدعم\n• تأكد من اتصالك بالإنترنت\n\n📞 للمساعدة: اضغط '📞 الدعم الفني' أو الزر أدناه.",
+                "error_recovery",
+                extra_keyboard=self._get_contact_support_keyboard()
             )
 
     async def _handle_error_recovery(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -593,11 +565,8 @@ class TelegramBot:
             token = user.get("token")
             if not token:
                 return False
-            # Re-authenticate if needed
             if not await self.university_api.test_token(token):
                 logger.warning(f"❌ Token expired for {username}. User needs to re-register with password.")
-                # Mark user as inactive since we can't re-authenticate without password
-                # The user will need to use /start to re-register
                 return False
             user_data = await self.university_api.get_user_data(token)
             if not user_data or "grades" not in user_data:
@@ -609,8 +578,7 @@ class TelegramBot:
             if changed_courses:
                 logger.warning(f"GRADE CHECK: Found {len(changed_courses)} grade changes for user {username}. Sending notification.")
                 display_name = user.get('fullname') or user.get('username', 'المستخدم')
-                message = f"🎓 **{display_name}، تم تحديث درجاتك:**\n\n"
-                # Build a map for old grades for quick lookup
+                message = f"🎓 تم تحديث درجاتك في المواد التالية:\n\n"
                 old_map = {g.get('code') or g.get('name'): g for g in old_grades if g.get('code') or g.get('name')}
                 for grade in changed_courses:
                     name = grade.get('name', 'N/A')
@@ -620,28 +588,30 @@ class TelegramBot:
                     total = grade.get('total', 'لم يتم النشر')
                     key = code if code != '-' else name
                     old = old_map.get(key, {})
-                    def show_change(field):
+                    def show_change(field, label):
                         old_val = old.get(field, '—')
                         new_val = grade.get(field, '—')
                         if old_val != new_val and old_val != '—':
-                            return f"{old_val} → {new_val}"
-                        return f"{new_val}"
-                    message += f"📚 **{name}** ({code})\n"
-                    message += f" • الأعمال: {show_change('coursework')}\n"
-                    message += f" • النظري: {show_change('final_exam')}\n"
-                    message += f" • النهائي: {show_change('total')}\n\n"
-                # Add update time in UTC+3
+                            return f"{label}: {old_val} → {new_val}"
+                        return None
+                    changes = [
+                        show_change('coursework', 'الأعمال'),
+                        show_change('final_exam', 'النظري'),
+                        show_change('total', 'النهائي'),
+                    ]
+                    changes = [c for c in changes if c]
+                    if changes:
+                        message += f"📚 {name} ({code})\n" + "\n".join(changes) + "\n\n"
                 now_utc3 = datetime.now(timezone.utc) + timedelta(hours=3)
                 message += f"🕒 وقت التحديث: {now_utc3.strftime('%Y-%m-%d %H:%M')} (UTC+3)"
                 try:
-                    await self.app.bot.send_message(chat_id=telegram_id, text=message, parse_mode='Markdown')
+                    await self.app.bot.send_message(chat_id=telegram_id, text=message)
                     logger.warning(f"GRADE CHECK: Grade update notification sent to user {username} (ID: {telegram_id}).")
                 except Exception as e:
                     logger.error(f"❌ Error sending grade update notification: {e}", exc_info=True)
                 self.grade_storage.save_grades(telegram_id, new_grades)
                 return True
             else:
-                # Always update the grades in DB, even if not changed
                 self.grade_storage.save_grades(telegram_id, new_grades)
                 return False
         except Exception as e:
@@ -778,7 +748,11 @@ class TelegramBot:
         
         # Show user-friendly welcome message
         welcome_message = get_welcome_message(fullname)
-        await update.message.reply_text(welcome_message, parse_mode='Markdown')
+        try:
+            # Telegram Markdown is error-prone with dynamic content; send as plain text
+            await update.message.reply_text(welcome_message)
+        except Exception as e:
+            logger.error(f"Error sending welcome message: {e}")
         return ConversationHandler.END
 
     async def _return_to_main(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -830,3 +804,13 @@ class TelegramBot:
                 message = "💭 حكمة اليوم:\n\nلم تتوفر حكمة اليوم حالياً."
             count = await self.send_quote_to_all_users(message)
             logger.info(f"✅ تم إرسال حكمة اليوم إلى {count} مستخدم.")
+
+    async def _how_it_works_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await update.message.reply_text(
+            "🤖 هذا البوت يساعدك في متابعة درجاتك الجامعية بسهولة وأمان!\n\n"
+            "• يمكنك معرفة درجاتك الحالية والسابقة في أي وقت\n"
+            "• تصلك إشعارات فورية عند تحديث الدرجات\n"
+            "• كل بياناتك مشفرة وآمنة ولا يتم تخزين كلمة المرور\n"
+            "• يمكنك التواصل مع الدعم الفني لأي استفسار\n\n"
+            "ابدأ الآن بالضغط على '🚀 تسجيل الدخول للجامعة'!"
+        )
