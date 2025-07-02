@@ -28,6 +28,7 @@ from utils.messages import get_welcome_message, get_help_message, get_simple_wel
 from security.transparency import SecurityTransparency
 from security.enhancements import security_manager, is_valid_length
 from security.headers import security_headers, security_policy
+from utils.analytics import GradeAnalytics
 
 logger = logging.getLogger(__name__)
 ASK_USERNAME, ASK_PASSWORD = range(2)
@@ -38,6 +39,7 @@ class TelegramBot:
     def __init__(self):
         self.app, self.db_manager, self.user_storage, self.grade_storage = None, None, None, None
         self.university_api = UniversityAPI()
+        self.grade_analytics = GradeAnalytics()
         
         # --- CRITICAL FIX: Initialize storage FIRST ---
         self._initialize_storage() 
