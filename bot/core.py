@@ -11,7 +11,7 @@ from telegram.ext import (
     Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters,
     ContextTypes, ConversationHandler
 )
-from typing import Dict, List
+from typing import Dict, List, Any
 import re
 
 from config import CONFIG
@@ -542,6 +542,41 @@ class TelegramBot:
         count = await self._notify_all_users_grades()
         await update.message.reply_text(f"✅ تم فحص الدرجات وإشعار {count} مستخدم (إذا كان هناك تغيير).")
 
+    async def get_token_expiration_stats(self) -> Dict[str, Any]:
+        """Get statistics about token expiration for admin insights"""
+        try:
+            users = self.user_storage.get_all_users()
+            total_users = len(users)
+            expired_tokens = 0
+            valid_tokens = 0
+            no_tokens = 0
+            
+            for user in users:
+                token = user.get('token')
+                if not token:
+                    no_tokens += 1
+                elif not await self.university_api.test_token(token):
+                    expired_tokens += 1
+                else:
+                    valid_tokens += 1
+            
+            return {
+                'total_users': total_users,
+                'valid_tokens': valid_tokens,
+                'expired_tokens': expired_tokens,
+                'no_tokens': no_tokens,
+                'expiration_rate': (expired_tokens / total_users * 100) if total_users > 0 else 0
+            }
+        except Exception as e:
+            logger.error(f"❌ Error getting token expiration stats: {e}", exc_info=True)
+            return {
+                'total_users': 0,
+                'valid_tokens': 0,
+                'expired_tokens': 0,
+                'no_tokens': 0,
+                'expiration_rate': 0
+            }
+
     async def _grade_checking_loop(self):
         await asyncio.sleep(10)  # Give the bot a moment to start
         while self.running:
@@ -585,9 +620,41 @@ class TelegramBot:
             # Re-authenticate if needed
             if not await self.university_api.test_token(token):
                 logger.warning(f"❌ Token expired for {username}. User needs to re-register with password.")
-                # Mark user as inactive since we can't re-authenticate without password
-                # The user will need to use /start to re-register
+                
+                # Notify user about token expiration with helpful message
+                try:
+                    display_name = user.get('fullname') or user.get('username', 'المستخدم')
+                    expiration_message = (
+                        f"⏰ **مرحباً {display_name}**\n\n"
+                        f"🔐 **انتهت صلاحية جلسة تسجيل الدخول**\n\n"
+                        f"**لماذا حدث هذا؟**\n"
+                        f"• انتهت صلاحية الجلسة تلقائياً\n"
+                        f"• هذا طبيعي ويحدث كل فترة\n"
+                        f"• بياناتك آمنة ومشفرة\n\n"
+                        f"**الحل:**\n"
+                        f"• اضغط '🔄 إعادة تسجيل الدخول'\n"
+                        f"• أدخل بياناتك مرة أخرى\n"
+                        f"• ستتمكن من متابعة درجاتك\n\n"
+                        f"💡 **نصيحة:**\n"
+                        f"يمكنك استخدام '🔄 إعادة تسجيل الدخول' في أي وقت"
+                    )
+                    
+                    await self.app.bot.send_message(
+                        chat_id=telegram_id, 
+                        text=expiration_message, 
+                        parse_mode='Markdown',
+                        reply_markup=get_main_keyboard_with_relogin()
+                    )
+                    
+                    # Mark user as needing re-authentication
+                    self.user_storage.update_user(telegram_id, {'token': None})
+                    
+                    logger.info(f"✅ Token expiration notification sent to user {username} (ID: {telegram_id}).")
+                except Exception as e:
+                    logger.error(f"❌ Error sending token expiration notification: {e}", exc_info=True)
+                
                 return False
+                
             user_data = await self.university_api.get_user_data(token)
             if not user_data or "grades" not in user_data:
                 logger.info(f"No grade data available for {username} in this check.")
