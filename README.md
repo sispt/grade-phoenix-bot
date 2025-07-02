@@ -244,9 +244,14 @@ For support and questions:
 - Quotes are always fetched in English from APIs using a wide range of intellectual keywords.
 - Each quote is translated to Arabic using the googletrans library, configured with `service_urls` and `user_agent` as per the official documentation.
 - Strict debugging logs and error handling are implemented for translation attempts.
-- The dual-language quote is included at the end of current term grade messages and in broadcast quote messages.
+- The dual-language quote (always wrapped in double quotes) is included at the end of:
+  - Current term grade messages
+  - Past term grade messages
+  - Grade update notifications
+  - All broadcast quote messages (admin and scheduled)
 - Only English quotes are fetched; Arabic quotes are never fetched directly.
-- **Note:** Translation reliability depends on Google and the maintenance of the googletrans library. If you encounter persistent errors, check your library version and configuration, or consider the official Google Cloud Translation API for production use.
+- The button and keyboard system is robust, covers all user flows (registration, error recovery, admin, settings, notifications, broadcasts), and uses both reply and inline keyboards for optimal UX.
+- **Note:** Translation reliability depends on Google and the maintenance of the googletrans library. If you encounter persistent errors, check your library version and configuration, or consider the official Google Cloud Translation API for production use. Translation tests are skipped if the API is blocked (403), so test results reflect only actual code issues.
 
 ## Example Output
 

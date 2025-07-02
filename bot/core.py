@@ -5,6 +5,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.constants import ParseMode
 from telegram.ext import (
     Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters,
     ContextTypes, ConversationHandler
@@ -300,25 +301,14 @@ class TelegramBot:
             user_data = await self.university_api.get_user_data(token)
             grades = user_data.get("grades", []) if user_data else []
             if not grades:
-                await update.message.reply_text("📚 لا توجد درجات متاحة حالياً.")
+                await update.message.reply_text("لا يوجد درجات متاحة بعد.")
                 return
-            msg = "📚 **درجاتك الأكاديمية:**\n\n"
-            for g in grades:
-                name = g.get('name', '-')
-                code = g.get('code', '-')
-                coursework = g.get('coursework', 'لم يتم النشر')
-                final_exam = g.get('final_exam', 'لم يتم النشر')
-                total = g.get('total', '')
-                msg += f"• {name} ({code})\n  الأعمال: {coursework} | النظري: {final_exam} | النهائي: {total}\n\n"
-            if len(msg) > 4096:
-                for i in range(0, len(msg), 4096):
-                    await update.message.reply_text(msg[i:i+4096])
-            else:
-                await update.message.reply_text(msg)
+            # Use the new method to include the quote
+            message = await self.grade_analytics.format_current_grades_with_quote(telegram_id, grades)
+            await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
         except Exception as e:
-            logger.error(f"Error in _grades_command: {e}", exc_info=True)
-            context.user_data.pop('last_action', None)
-            await update.message.reply_text("❌ حدث خطأ غير متوقع أثناء جلب الدرجات. يرجى المحاولة لاحقاً أو التواصل مع الدعم.")
+            logger.error(f"Error in _grades_command: {e}")
+            await update.message.reply_text("❌ حدث خطأ أثناء جلب الدرجات.")
 
     async def _old_grades_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show old term grades with analysis and quotes"""
@@ -604,6 +594,15 @@ class TelegramBot:
                         message += f"📚 {name} ({code})\n" + "\n".join(changes) + "\n\n"
                 now_utc3 = datetime.now(timezone.utc) + timedelta(hours=3)
                 message += f"🕒 وقت التحديث: {now_utc3.strftime('%Y-%m-%d %H:%M')} (UTC+3)"
+                # Add quote (English then Arabic, no language markers)
+                try:
+                    quote = await self.grade_analytics.get_daily_quote()
+                    if quote:
+                        quote_text = await self.grade_analytics.format_quote_dual_language(quote)
+                        if quote_text.strip() not in message:
+                            message += f"\n\n{quote_text}"
+                except Exception as e:
+                    logger.warning(f"Failed to append quote to grade update: {e}")
                 try:
                     await self.app.bot.send_message(chat_id=telegram_id, text=message)
                     logger.warning(f"GRADE CHECK: Grade update notification sent to user {username} (ID: {telegram_id}).")
@@ -814,3 +813,21 @@ class TelegramBot:
             "• يمكنك التواصل مع الدعم الفني لأي استفسار\n\n"
             "ابدأ الآن بالضغط على '🚀 تسجيل الدخول للجامعة'!"
         )
+
+    async def _broadcast_quote(self, context: ContextTypes.DEFAULT_TYPE):
+        try:
+            quote = await self.grade_analytics.get_daily_quote()
+            if not quote:
+                logger.warning("No quote available for broadcast.")
+                return
+            # Format as dual-language (English then Arabic, author at end)
+            quote_text = await self.grade_analytics.format_quote_dual_language(quote)
+            for user in self.user_storage.get_all_users():
+                telegram_id = user.get("telegram_id")
+                if telegram_id:
+                    try:
+                        await context.bot.send_message(chat_id=telegram_id, text=quote_text, parse_mode=ParseMode.MARKDOWN)
+                    except Exception as e:
+                        logger.warning(f"Failed to send quote to {telegram_id}: {e}")
+        except Exception as e:
+            logger.error(f"Error in _broadcast_quote: {e}")

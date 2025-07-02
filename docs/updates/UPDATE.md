@@ -135,6 +135,9 @@
 - Translation is performed using googletrans, now configured with `service_urls` and `user_agent` as per the official documentation.
 - Strict debugging logs and error handling are implemented for translation attempts.
 - Translation reliability depends on Google and the maintenance of the googletrans library. Persistent errors may require checking your library version or switching to the official API.
+- **All notifications, broadcasts, and grade messages (current, past, and updates) now include a dual-language motivational quote, always wrapped in double quotes.**
+- **The button and keyboard system is robust, covers all user flows (registration, error recovery, admin, settings, notifications, broadcasts), and uses both reply and inline keyboards for optimal UX.**
+- **Translation tests are skipped if the API is blocked (403), so test results reflect only actual code issues.**
 
 ---
 
