@@ -20,7 +20,7 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     telegram_id = Column(BigInteger, unique=True, nullable=False, index=True) # CRITICAL: BigInteger for Telegram IDs
     username = Column(String(100), nullable=False)
-    password = Column(String(255), nullable=False)  # Consider encryption
+    password = Column(String(255), nullable=False)  # Hashed password for verification
     token = Column(String(500), nullable=True)
     firstname = Column(String(100), nullable=True)
     lastname = Column(String(100), nullable=True)
@@ -38,7 +38,7 @@ class Grade(Base):
     __tablename__ = 'grades'
     
     id = Column(Integer, primary_key=True)
-    telegram_id = Column(BigInteger, ForeignKey("users.telegram_id"), nullable=False, index=True) # CRITICAL: BigInteger
+    telegram_id = Column(BigInteger, ForeignKey("users.telegram_id", ondelete="CASCADE"), nullable=False, index=True) # CRITICAL: BigInteger with CASCADE
     
     # --- CRITICAL: ADDED ALL GRADE DETAIL COLUMNS ---
     course_name = Column(String(255), nullable=False)

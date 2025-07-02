@@ -10,6 +10,7 @@ from sqlalchemy.orm import sessionmaker
 
 from storage.models import Base, User, DatabaseManager # Import User model
 from config import CONFIG # Assuming CONFIG holds encryption settings if used
+from utils.password_utils import hash_password, verify_password, migrate_plain_password
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +33,13 @@ class PostgreSQLUserStorage:
                 fullname = user_data.get("fullname")
                 email = user_data.get("email")
 
+                # Hash password for secure storage
+                hashed_password = hash_password(password)
+
                 if user:
                     # Update existing user
                     user.username = username
-                    user.password = password # Consider encrypting password
+                    user.password = hashed_password  # Store hashed password
                     user.token = token
                     user.firstname = firstname
                     user.lastname = lastname
@@ -43,13 +47,13 @@ class PostgreSQLUserStorage:
                     user.email = email
                     user.last_login = datetime.utcnow()
                     user.is_active = True
-                    logger.info(f"✅ User {username} (ID: {telegram_id}) updated in PostgreSQL.")
+                    logger.info(f"✅ User {username} (ID: {telegram_id}) updated in PostgreSQL with hashed password.")
                 else:
                     # Create new user
                     user = User(
                         telegram_id=telegram_id,
                         username=username,
-                        password=password, # Consider encrypting password
+                        password=hashed_password,  # Store hashed password
                         token=token,
                         firstname=firstname,
                         lastname=lastname,
@@ -60,7 +64,7 @@ class PostgreSQLUserStorage:
                         is_active=True
                     )
                     session.add(user)
-                    logger.info(f"✅ New user {username} (ID: {telegram_id}) added to PostgreSQL.")
+                    logger.info(f"✅ New user {username} (ID: {telegram_id}) added to PostgreSQL with hashed password.")
                 session.commit()
         except SQLAlchemyError as e:
             session.rollback()
@@ -197,3 +201,57 @@ class PostgreSQLUserStorage:
         except Exception as e:
             logger.error(f"❌ Unexpected error in get_active_users: {e}", exc_info=True)
             return []
+
+    def verify_user_password(self, telegram_id: int, plain_password: str) -> bool:
+        """
+        Verify a user's password against the stored hash
+        
+        Args:
+            telegram_id: User's Telegram ID
+            plain_password: Plain text password to verify
+            
+        Returns:
+            True if password matches, False otherwise
+        """
+        try:
+            with self.db_manager.get_session() as session:
+                user = session.query(User).filter_by(telegram_id=telegram_id).first()
+                if user and user.password:
+                    return verify_password(plain_password, user.password)
+                return False
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Error verifying password for user {telegram_id}: {e}", exc_info=True)
+            return False
+        except Exception as e:
+            logger.error(f"❌ Unexpected error in verify_user_password for {telegram_id}: {e}", exc_info=True)
+            return False
+
+    def migrate_user_password(self, telegram_id: int, plain_password: str) -> bool:
+        """
+        Migrate a user's plain password to hashed format
+        
+        Args:
+            telegram_id: User's Telegram ID
+            plain_password: Plain text password to hash and store
+            
+        Returns:
+            True if migration successful, False otherwise
+        """
+        try:
+            with self.db_manager.get_session() as session:
+                user = session.query(User).filter_by(telegram_id=telegram_id).first()
+                if user:
+                    # Hash the plain password
+                    hashed_password = hash_password(plain_password)
+                    user.password = hashed_password
+                    session.commit()
+                    logger.info(f"✅ Password migrated for user {telegram_id}")
+                    return True
+                return False
+        except SQLAlchemyError as e:
+            session.rollback()
+            logger.error(f"❌ Error migrating password for user {telegram_id}: {e}", exc_info=True)
+            return False
+        except Exception as e:
+            logger.error(f"❌ Unexpected error in migrate_user_password for {telegram_id}: {e}", exc_info=True)
+            return False

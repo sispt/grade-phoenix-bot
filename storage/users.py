@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 
 from config import CONFIG
+from utils.security_enhancements import hash_password, verify_password, migrate_plain_password
 
 logger = logging.getLogger(__name__)
 
@@ -51,10 +52,13 @@ class UserStorage:
             # Check if user exists
             existing_user = self.get_user(telegram_id)
             
+            # Hash password for secure storage
+            hashed_password = hash_password(password)
+            
             user_record = {
                 "telegram_id": telegram_id,
                 "username": username,
-                "password": password,
+                "password": hashed_password,  # Store hashed password
                 "token": token,
                 "firstname": user_data.get("firstname"),
                 "lastname": user_data.get("lastname"),
@@ -77,7 +81,7 @@ class UserStorage:
                 self.users.append(user_record)
             
             self._save_users()
-            logger.info(f"User saved: {username} (ID: {telegram_id})")
+            logger.info(f"User saved with hashed password: {username} (ID: {telegram_id})")
             
         except Exception as e:
             logger.error(f"Error saving user: {e}")
@@ -205,4 +209,49 @@ class UserStorage:
             "active_users": active_users,
             "users_with_tokens": users_with_tokens,
             "inactive_users": total_users - active_users
-        } 
+        }
+
+    def verify_user_password(self, telegram_id: int, plain_password: str) -> bool:
+        """
+        Verify a user's password against the stored hash
+        
+        Args:
+            telegram_id: User's Telegram ID
+            plain_password: Plain text password to verify
+            
+        Returns:
+            True if password matches, False otherwise
+        """
+        try:
+            user = self.get_user(telegram_id)
+            if user and user.get("password"):
+                return verify_password(plain_password, user["password"])
+            return False
+        except Exception as e:
+            logger.error(f"Error verifying password for user {telegram_id}: {e}")
+            return False
+
+    def migrate_user_password(self, telegram_id: int, plain_password: str) -> bool:
+        """
+        Migrate a user's plain password to hashed format
+        
+        Args:
+            telegram_id: User's Telegram ID
+            plain_password: Plain text password to hash and store
+            
+        Returns:
+            True if migration successful, False otherwise
+        """
+        try:
+            for i, user in enumerate(self.users):
+                if user.get("telegram_id") == telegram_id:
+                    # Hash the plain password
+                    hashed_password = hash_password(plain_password)
+                    self.users[i]["password"] = hashed_password
+                    self._save_users()
+                    logger.info(f"Password migrated for user {telegram_id}")
+                    return True
+            return False
+        except Exception as e:
+            logger.error(f"Error migrating password for user {telegram_id}: {e}")
+            return False 

@@ -10,4 +10,6 @@ psycopg2-binary
 sqlalchemy==2.0.23
 alembic==1.13.1
 pytest
-python-telegram-bot[tests] 
+python-telegram-bot[tests]
+bcrypt==4.1.2
+validators>=0.35.0 

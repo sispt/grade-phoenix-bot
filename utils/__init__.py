@@ -10,5 +10,5 @@ __all__ = [
     'get_admin_keyboard', 
     'get_cancel_keyboard',
     'get_welcome_message', 
-    'get_help_message'
+    'get_help_message',
 ] 
