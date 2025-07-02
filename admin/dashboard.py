@@ -28,7 +28,10 @@ class AdminDashboard:
         self.user_storage = bot.user_storage
 
     async def show_dashboard(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if update.effective_user.id != CONFIG["ADMIN_ID"]:
+        if not update.effective_user or update.effective_user.id != CONFIG["ADMIN_ID"]:
+            return
+        if not update.message:
+            logger.error("show_dashboard called with no message in update.")
             return
         dashboard_text = self._get_dashboard_text()
         keyboard = get_enhanced_admin_dashboard_keyboard()
@@ -36,27 +39,48 @@ class AdminDashboard:
 
     async def handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
+        if query is None:
+            logger.error("handle_callback called with no callback_query in update.")
+            return
         action = query.data
+        if action is None:
+            logger.error("handle_callback called with no data in callback_query.")
+            return
+        if not hasattr(context, 'user_data') or context.user_data is None:
+            logger.error("handle_callback called with no user_data in context.")
+            return
         await query.answer()
 
         try:
             if action.startswith("users_overview"):
+                try:
+                    overview_text = self._get_users_overview_text()
+                except Exception as e:
+                    logger.error(f"Error in users_overview: {e}", exc_info=True)
+                    overview_text = "❌ حدث خطأ أثناء جلب نظرة المستخدمين. تأكد من سلامة البيانات أو أعد المحاولة."
                 await query.edit_message_text(
-                    text=self._get_users_overview_text(),
+                    text=overview_text,
                     reply_markup=get_enhanced_admin_dashboard_keyboard(),
                 )
             elif action.startswith("view_users"):
-                # Pagination logic
-                page = 1
-                if ":" in action:
-                    try:
-                        page = int(action.split(":")[1])
-                    except:
-                        page = 1
-                users = self.user_storage.get_all_users()
-                total_pages = max(1, (len(users) + 9) // 10)  # 10 users per page
+                try:
+                    page = 1
+                    if ":" in action:
+                        try:
+                            page = int(action.split(":")[1])
+                        except:
+                            page = 1
+                    users = self.user_storage.get_all_users()
+                    if not isinstance(users, list):
+                        raise ValueError("users data is not a list")
+                    total_pages = max(1, (len(users) + 9) // 10)  # 10 users per page
+                    list_text = self._get_users_list_text(page=page)
+                except Exception as e:
+                    logger.error(f"Error in view_users: {e}", exc_info=True)
+                    list_text = "❌ حدث خطأ أثناء جلب قائمة المستخدمين. تأكد من سلامة البيانات أو أعد المحاولة."
+                    total_pages = 1
                 await query.edit_message_text(
-                    text=self._get_users_list_text(page=page),
+                    text=list_text,
                     reply_markup=get_user_management_keyboard(page, total_pages),
                 )
             elif action.startswith("user_search"):
@@ -179,32 +203,43 @@ class AdminDashboard:
         )
 
     def _get_users_overview_text(self) -> str:
-        total = self.user_storage.get_users_count()
-        active = self.user_storage.get_active_users_count()
-        inactive = total - active
-        return (
-            f"👥 **نظرة عامة للمستخدمين**\n\n"
-            f"📊 **الإحصائيات:**\n"
-            f"- إجمالي المستخدمين: {total}\n"
-            f"- النشطين: {active}\n"
-            f"- غير النشطين: {inactive}\n"
-            f"- نسبة النشاط: {(active/total*100):.1f}%"
-            if total > 0
-            else "0%"
-        )
+        try:
+            total = self.user_storage.get_users_count()
+            active = self.user_storage.get_active_users_count()
+            inactive = total - active
+            if total > 0:
+                return (
+                    f"👥 **نظرة عامة للمستخدمين**\n\n"
+                    f"📊 **الإحصائيات:**\n"
+                    f"- إجمالي المستخدمين: {total}\n"
+                    f"- النشطين: {active}\n"
+                    f"- غير النشطين: {inactive}\n"
+                    f"- نسبة النشاط: {(active/total*100):.1f}%"
+                )
+            else:
+                return "👥 لا يوجد مستخدمون مسجلون بعد."
+        except Exception as e:
+            logger.error(f"Error in _get_users_overview_text: {e}", exc_info=True)
+            return "❌ حدث خطأ أثناء جلب نظرة المستخدمين."
 
     def _get_users_list_text(self, page=1, per_page=10):
-        users = self.user_storage.get_all_users()
-        total = len(users)
-        start = (page - 1) * per_page
-        end = start + per_page
-        users_page = users[start:end]
-        text = f"👥 **قائمة المستخدمين** (صفحة {page}):\n\n"
-        for i, user in enumerate(users_page, start + 1):
-            status = "🟢" if user.get("is_active", True) else "🔴"
-            text += f"{i}. {status} {user.get('username', '-')} (ID: {user.get('telegram_id', '-')})\n"
-        text += f"\n📊 إجمالي المستخدمين: {total}"
-        return text
+        try:
+            users = self.user_storage.get_all_users()
+            if not isinstance(users, list):
+                raise ValueError("users data is not a list")
+            total = len(users)
+            start = (page - 1) * per_page
+            end = start + per_page
+            users_page = users[start:end]
+            text = f"👥 **قائمة المستخدمين** (صفحة {page}):\n\n"
+            for i, user in enumerate(users_page, start + 1):
+                status = "🟢" if user.get("is_active", True) else "🔴"
+                text += f"{i}. {status} {user.get('username', '-')} (ID: {user.get('telegram_id', '-')})\n"
+            text += f"\n📊 إجمالي المستخدمين: {total}"
+            return text
+        except Exception as e:
+            logger.error(f"Error in _get_users_list_text: {e}", exc_info=True)
+            return "❌ حدث خطأ أثناء جلب قائمة المستخدمين. تأكد من سلامة البيانات أو أعد المحاولة."
 
     def _get_users_stats_text(self) -> str:
         users = self.user_storage.get_all_users()
