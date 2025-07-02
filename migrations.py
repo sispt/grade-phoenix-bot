@@ -1,47 +1,157 @@
 #!/usr/bin/env python3
 """
-Database Migration Script - Root Level Entry Point
-This file is used by Railway deployment to run migrations before starting the bot
+Database Migration & Password Security Script
+This script is used by Railway deployment to run all migrations and password audits before starting the bot.
 """
 import sys
 import os
+import logging
+from sqlalchemy import text
+from config import CONFIG
+from storage.models import DatabaseManager, Base, User
+from storage.postgresql_users import PostgreSQLUserStorage
+from storage.users import UserStorage
+from utils.security_enhancements import is_password_hashed, hash_password
 
-# Add the current directory to Python path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-try:
-    from utils.migrations import run_migrations, run_password_migrations, check_database_status
-    
-    def main():
-        """Main migration function"""
-        print("🔄 Starting database migrations...")
-        
-        # Check database status first
-        if not check_database_status():
-            print("❌ Database connection failed")
+def check_database_status():
+    """Check database connection and table status"""
+    try:
+        db_url = CONFIG.get("DATABASE_URL")
+        if not db_url:
+            logger.error("❌ DATABASE_URL not found in config")
             return False
-        
-        # Run database migrations
-        if not run_migrations():
-            print("❌ Database migrations failed")
+        db_manager = DatabaseManager(db_url)
+        if not db_manager.test_connection():
+            logger.error("❌ Cannot connect to database")
             return False
-        
-        # Run password migrations
-        if not run_password_migrations():
-            print("❌ Password migrations failed")
-            return False
-        
-        print("✅ All migrations completed successfully")
+        logger.info("✅ Database status check passed")
         return True
-    
-    if __name__ == "__main__":
-        success = main()
-        sys.exit(0 if success else 1)
-        
-except ImportError as e:
-    print(f"❌ Import error: {e}")
-    print("💡 Make sure all dependencies are installed")
-    sys.exit(1)
-except Exception as e:
-    print(f"❌ Migration error: {e}")
-    sys.exit(1) 
+    except Exception as e:
+        logger.error(f"❌ Database status check failed: {e}")
+        return False
+
+def migrate_schema():
+    """Run database schema migrations (create tables, remove deprecated columns)"""
+    try:
+        db_url = CONFIG.get("DATABASE_URL")
+        if not db_url:
+            logger.error("❌ DATABASE_URL not found in config")
+            return False
+        db_manager = DatabaseManager(db_url)
+        if not db_manager.test_connection():
+            logger.error("❌ Cannot connect to database")
+            return False
+        logger.info("🔄 Running database migrations...")
+        with db_manager.get_session() as session:
+            # Remove deprecated columns if needed
+            try:
+                result = session.execute(text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'users' AND column_name = 'encrypted_password'
+                """))
+                column_exists = result.fetchone() is not None
+                if column_exists:
+                    logger.info("📝 Removing encrypted_password column from users table...")
+                    session.execute(text("""
+                        ALTER TABLE users 
+                        DROP COLUMN encrypted_password
+                    """))
+                    session.commit()
+                    logger.info("✅ encrypted_password column removed successfully")
+                else:
+                    logger.info("✅ encrypted_password column does not exist (already removed)")
+            except Exception as e:
+                logger.error(f"❌ Error removing encrypted_password column: {e}")
+                session.rollback()
+                return False
+        # Create tables if they don't exist
+        try:
+            Base.metadata.create_all(bind=db_manager.engine)
+            logger.info("✅ Database tables created/verified successfully")
+        except Exception as e:
+            logger.error(f"❌ Error creating tables: {e}")
+            return False
+        logger.info("✅ Database migrations completed successfully")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Error running migrations: {e}", exc_info=True)
+        return False
+
+def audit_passwords():
+    """Audit password storage for all users (PostgreSQL and JSON)"""
+    logger.info("🔐 Starting Password Security Audit...")
+    storage_type = CONFIG.get("STORAGE_TYPE", "postgresql").lower()
+    success = True
+    # PostgreSQL
+    if storage_type in ("postgresql", "both"):
+        db_url = CONFIG.get("DATABASE_URL")
+        if db_url:
+            db_manager = DatabaseManager(db_url)
+            if db_manager.test_connection():
+                with db_manager.get_session() as session:
+                    users = session.query(User).all()
+                    total = len(users)
+                    hashed = 0
+                    plain = 0
+                    for user in users:
+                        password = str(user.password) if user.password is not None else None
+                        if not password:
+                            continue
+                        if is_password_hashed(password):
+                            hashed += 1
+                        else:
+                            plain += 1
+                            logger.warning(f"🚨 User {user.telegram_id} has PLAIN TEXT password: {password[:10]}... (must re-login)")
+                    logger.info(f"📊 PostgreSQL: {hashed}/{total} hashed, {plain} plain text.")
+                    if plain > 0:
+                        logger.error("❌ Found plain text passwords in PostgreSQL!")
+                        success = False
+            else:
+                logger.warning("⚠️ Cannot connect to PostgreSQL for password audit.")
+    # JSON
+    if storage_type in ("json", "both"):
+        user_storage = UserStorage()
+        users = user_storage.get_all_users()
+        total = len(users)
+        hashed = 0
+        plain = 0
+        for user in users:
+            password = user.get("password")
+            if not password:
+                continue
+            if is_password_hashed(password):
+                hashed += 1
+            else:
+                plain += 1
+                logger.warning(f"🚨 User {user.get('telegram_id')} has PLAIN TEXT password: {password[:10]}... (must re-login)")
+        logger.info(f"📊 JSON: {hashed}/{total} hashed, {plain} plain text.")
+        if plain > 0:
+            logger.error("❌ Found plain text passwords in JSON storage!")
+            success = False
+    if success:
+        logger.info("✅ All passwords are properly hashed!")
+    else:
+        logger.error("🚨 CRITICAL: Some users must re-login to secure their passwords!")
+    return success
+
+def main():
+    logger.info("🔄 Starting database migrations and password audit...")
+    if not check_database_status():
+        logger.error("❌ Database connection failed")
+        sys.exit(1)
+    if not migrate_schema():
+        logger.error("❌ Database migrations failed")
+        sys.exit(1)
+    if not audit_passwords():
+        logger.error("❌ Password audit failed")
+        sys.exit(1)
+    logger.info("✅ All migrations and password audits completed successfully!")
+    sys.exit(0)
+
+if __name__ == "__main__":
+    main() 
