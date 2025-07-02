@@ -81,18 +81,31 @@ class UniversityAPI:
             
     # --- THIS FUNCTION NAME IS NOW CORRECT ---
     async def _get_grades(self, token: str) -> List[Dict[str, Any]]:
-        logger.info("🔍 DEBUG: Starting direct grade fetch with hardcoded known term IDs...")
+        """Get current term grades (2nd term 2024-2025)"""
+        logger.info("🔍 DEBUG: Starting current term grade fetch...")
         all_grades = []
-        known_term_ids = ["10459"] 
-        # 1st term 2024-2025: 8530
-        # 2nd term 2024-2025: 10459
-        for term_id in known_term_ids:
-            logger.info(f"📊 DEBUG: Directly fetching grades for known term ID: {term_id}")
-            term_grades = await self._get_term_grades(token, term_id)
-            if term_grades:
-                logger.info(f"✅ DEBUG: Found {len(term_grades)} grades for term ID {term_id}.")
-                all_grades.extend(term_grades)
-        logger.info(f"🎉 DEBUG: Total grades retrieved directly: {len(all_grades)}")
+        current_term_id = "10459"  # 2nd term 2024-2025
+        
+        logger.info(f"📊 DEBUG: Fetching grades for current term ID: {current_term_id}")
+        term_grades = await self._get_term_grades(token, current_term_id)
+        if term_grades:
+            logger.info(f"✅ DEBUG: Found {len(term_grades)} grades for current term ID {current_term_id}.")
+            all_grades.extend(term_grades)
+        logger.info(f"🎉 DEBUG: Total current grades retrieved: {len(all_grades)}")
+        return all_grades
+
+    async def get_old_grades(self, token: str) -> List[Dict[str, Any]]:
+        """Get old term grades (1st term 2024-2025)"""
+        logger.info("🔍 DEBUG: Starting old term grade fetch...")
+        all_grades = []
+        old_term_id = "8530"  # 1st term 2024-2025
+        
+        logger.info(f"📊 DEBUG: Fetching grades for old term ID: {old_term_id}")
+        term_grades = await self._get_term_grades(token, old_term_id)
+        if term_grades:
+            logger.info(f"✅ DEBUG: Found {len(term_grades)} grades for old term ID {old_term_id}.")
+            all_grades.extend(term_grades)
+        logger.info(f"🎉 DEBUG: Total old grades retrieved: {len(all_grades)}")
         return all_grades
 
     async def _get_term_grades(self, token: str, t_grade_id: str) -> List[Dict[str, Any]]:

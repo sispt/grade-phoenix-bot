@@ -727,4 +727,116 @@ class GradeAnalytics:
                     f"📈 {len(changes)} تغييرات في الدرجات\n\n💭 \"{quote['text']}\"\n— {quote['author']}"
                 ]
         
-        return random.choice(messages) 
+        return random.choice(messages)
+
+    async def format_old_grades_with_analysis(self, user_id: int, grades: List[Dict]) -> str:
+        """Format old term grades with analysis and past-focused quotes"""
+        analytics = self.analyze_grades(user_id, grades)
+        
+        # Build the formatted message
+        message = "📚 **درجات الفصل الدراسي الأول 2024/2025**\n\n"
+        
+        # Summary section
+        summary = analytics['summary']
+        message += f"🎯 **الملخص العام:**\n"
+        message += f"• عدد المواد: {summary['total_courses']}\n"
+        message += f"• مجموع الساعات: {summary['total_ects']}\n"
+        message += f"• المعدل العام: {summary['average_grade']}% {summary['grade_emoji']}\n"
+        message += f"• أعلى درجة: {summary['highest_grade']}%\n"
+        message += f"• أدنى درجة: {summary['lowest_grade']}%\n\n"
+        
+        # Past-focused quote
+        quote = await self.get_past_focused_quote(analytics)
+        if quote:
+            message += f"💭 **اقتباس عن الماضي:**\n"
+            message += f"\"{quote['text']}\"\n"
+            message += f"— {quote['author']}\n\n"
+        
+        # Insights with past perspective
+        if analytics['insights']:
+            message += "🔍 **ملاحظات من الماضي:**\n"
+            for insight in analytics['insights']:
+                message += f"• {insight}\n"
+            message += "\n"
+        
+        # Achievements from the past
+        if analytics['achievements']:
+            message += "🏆 **إنجازاتك السابقة:**\n"
+            for achievement in analytics['achievements'][-3:]:
+                message += f"{achievement['icon']} {achievement['title']}\n"
+            message += "\n"
+        
+        # Grade distribution
+        message += "📊 **التوزيع:**\n"
+        for range_name, count in analytics['distribution'].items():
+            if count > 0:
+                bar = "█" * min(count, 5)
+                message += f"• {range_name}%: {bar} ({count})\n"
+        message += "\n"
+        
+        # Individual grades
+        message += "📝 **الدرجات التفصيلية:**\n"
+        for grade in grades:
+            name = grade.get('name', '-')
+            code = grade.get('code', '-')
+            total = grade.get('total', '-')
+            coursework = grade.get('coursework', '-')
+            final_exam = grade.get('final_exam', '-')
+            message += f"• {name} ({code})\n  الأعمال: {coursework} | النظري: {final_exam} | النهائي: {total}\n\n"
+        
+        message += "💡 *هذه الدرجات من الفصل الدراسي السابق. استخدمها للتعلم والتطوير في الفصل الحالي.*"
+        
+        return message
+
+    async def get_past_focused_quote(self, analytics: Dict[str, Any]) -> Optional[Dict[str, str]]:
+        """Get a quote focused on learning from the past"""
+        try:
+            avg_grade = analytics['summary']['average_grade']
+            
+            # Choose quote based on performance
+            if avg_grade >= 90:
+                scenario = "excellent_past"
+            elif avg_grade >= 80:
+                scenario = "good_past"
+            elif avg_grade >= 70:
+                scenario = "average_past"
+            else:
+                scenario = "improvement_needed"
+            
+            # Try to get a past-focused quote
+            quote = await self.get_scenario_quote(scenario)
+            if quote:
+                return quote
+            
+            # Fallback to local past-focused quotes
+            past_quotes = [
+                {
+                    "text": "الماضي هو أفضل معلم، والمستقبل هو أفضل دافع",
+                    "author": "حكمة عربية"
+                },
+                {
+                    "text": "من لا يتعلم من الماضي محكوم عليه بتكراره",
+                    "author": "جورج سانتايانا"
+                },
+                {
+                    "text": "كل تجربة في الماضي هي درس للمستقبل",
+                    "author": "حكمة صينية"
+                },
+                {
+                    "text": "النجاح في الماضي هو أساس النجاح في المستقبل",
+                    "author": "نابليون هيل"
+                },
+                {
+                    "text": "التاريخ يعلمنا أن كل شيء ممكن إذا تعلمنا من أخطائنا",
+                    "author": "ألبرت أينشتاين"
+                }
+            ]
+            
+            return random.choice(past_quotes)
+            
+        except Exception as e:
+            logger.error(f"Error getting past-focused quote: {e}")
+            return {
+                "text": "الماضي هو أفضل معلم، والمستقبل هو أفضل دافع",
+                "author": "حكمة عربية"
+            } 

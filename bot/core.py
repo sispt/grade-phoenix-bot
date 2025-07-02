@@ -129,6 +129,7 @@ class TelegramBot:
         self.app.add_handler(CommandHandler("start", self._start_command))
         self.app.add_handler(CommandHandler("help", self._help_command))
         self.app.add_handler(CommandHandler("grades", self._grades_command))
+        self.app.add_handler(CommandHandler("old_grades", self._old_grades_command))
         self.app.add_handler(CommandHandler("profile", self._profile_command))
         self.app.add_handler(CommandHandler("settings", self._settings_command))
         self.app.add_handler(CommandHandler("support", self._support_command))
@@ -190,6 +191,7 @@ class TelegramBot:
             "/start - بدء الاستخدام\n"
             "/help - المساعدة\n"
             "/grades - فحص الدرجات\n"
+            "/old_grades - الدرجات السابقة\n"
             "/profile - معلوماتي\n"
             "/settings - الإعدادات\n"
             "/support - الدعم الفني\n\n"
@@ -287,6 +289,40 @@ class TelegramBot:
                 "error_recovery"
             )
 
+    async def _old_grades_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show old term grades with analysis and quotes"""
+        try:
+            # Store the action for error recovery
+            context.user_data['last_action'] = 'old_grades'
+            
+            telegram_id = update.effective_user.id
+            user = self.user_storage.get_user(telegram_id)
+            if not user:
+                await update.message.reply_text("❗️ يجب التسجيل أولاً.")
+                return
+            token = user.get("token")
+            if not token:
+                await update.message.reply_text("❗️ يجب إعادة تسجيل الدخول.")
+                return
+            
+            # Fetch old grades from API
+            old_grades = await self.university_api.get_old_grades(token)
+            if not old_grades:
+                await update.message.reply_text("📚 لا توجد درجات سابقة متاحة للفصل الدراسي الأول 2024/2025.")
+                return
+            
+            # Format grades with analytics and quotes
+            formatted_message = await self.grade_analytics.format_old_grades_with_analysis(telegram_id, old_grades)
+            await update.message.reply_text(formatted_message, parse_mode='Markdown')
+            
+        except Exception as e:
+            logger.error(f"Error in _old_grades_command: {e}", exc_info=True)
+            await self._send_message_with_keyboard(
+                update, 
+                "❌ حدث خطأ أثناء جلب الدرجات السابقة. يرجى المحاولة مرة أخرى أو التواصل مع الدعم.",
+                "error_recovery"
+            )
+
     async def _profile_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             telegram_id = update.effective_user.id
@@ -355,6 +391,7 @@ class TelegramBot:
             
             actions = {
                 "📊 فحص الدرجات": self._grades_command,
+                "📚 الدرجات السابقة": self._old_grades_command,
                 "❓ المساعدة": self._help_command,
                 "👤 معلوماتي": self._profile_command,
                 "⚙️ الإعدادات": self._settings_command,
@@ -393,6 +430,8 @@ class TelegramBot:
                 try:
                     if last_action == "grades":
                         await self._grades_command(update, context)
+                    elif last_action == "old_grades":
+                        await self._old_grades_command(update, context)
                     elif last_action == "profile":
                         await self._profile_command(update, context)
                     elif last_action == "settings":

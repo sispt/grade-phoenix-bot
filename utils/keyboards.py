@@ -6,7 +6,7 @@ from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardMar
 def get_main_keyboard() -> ReplyKeyboardMarkup:
     """Returns the main keyboard layout for REGISTERED users."""
     keyboard = [
-        ["📊 فحص الدرجات", "❓ المساعدة"],
+        ["📊 فحص الدرجات", "📚 الدرجات السابقة"],
         ["👤 معلوماتي", "⚙️ الإعدادات"],
         ["📞 الدعم", "🎛️ لوحة التحكم"]
     ]

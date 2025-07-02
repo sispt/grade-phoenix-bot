@@ -75,14 +75,14 @@ telegram_university_bot/
 ### Installation
 
 1. **Clone and setup:**
-   ```bash
-   git clone <your-repo-url>
-   cd telegram_university_bot
-   pip install -r requirements.txt
-   ```
+```bash
+git clone <your-repo-url>
+cd telegram_university_bot
+pip install -r requirements.txt
+```
 
 2. **Set environment variables:**
-   ```bash
+```bash
    export TELEGRAM_TOKEN="your_bot_token"
    export ADMIN_ID="your_telegram_id"
    export DATABASE_URL="postgresql://user:pass@host:port/db"  # Optional
@@ -94,7 +94,7 @@ telegram_university_bot/
    ```
 
 4. **Start the bot:**
-   ```bash
+```bash
    python main.py
    ```
 
