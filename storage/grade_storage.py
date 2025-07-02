@@ -116,9 +116,7 @@ class PostgreSQLGradeStorage:
                         ects_credits=ects,
                         coursework_grade=coursework,
                         final_exam_grade=final_exam,
-                        total_grade=total,
-                        created_at=datetime.utcnow(),
-                        updated_at=datetime.utcnow()
+                        total_grade_value=total
                     )
                     session.add(grade)
                     saved_count += 1
@@ -142,7 +140,7 @@ class PostgreSQLGradeStorage:
                         'ects': grade.ects_credits,
                         'coursework': grade.coursework_grade,
                         'final_exam': grade.final_exam_grade,
-                        'total': grade.total_grade
+                        'total': grade.total_grade_value
                     }
                     for grade in grades
                 ]
