@@ -171,13 +171,20 @@ class GradeAnalytics:
             total_courses = len(old_grades)
             completed_courses = sum(1 for grade in old_grades if grade.get("total"))
             avg_grade = self._calculate_average_grade(old_grades)
+            has_numeric = any(
+                isinstance(grade.get("total"), (int, float)) or (isinstance(grade.get("total"), str) and grade.get("total", "").replace(".", "", 1).isdigit())
+                for grade in old_grades
+            )
+            avg_grade_str = (
+                f"{avg_grade:.2f}%" if has_numeric and avg_grade > 0 else "لا يوجد درجات رقمية لحساب المتوسط"
+            )
             # Format the message
             message = (
                 f"📚 **درجات الفصل الدراسي الأول 2024/2025**\n\n"
                 f"**إحصائيات عامة:**\n"
                 f"• عدد المقررات: {total_courses}\n"
                 f"• المقررات المكتملة: {completed_courses}\n"
-                f"• متوسط الدرجات: {avg_grade:.2f}%\n\n"
+                f"• متوسط الدرجات: {avg_grade_str}\n\n"
                 f"**الدرجات التفصيلية:**\n"
             )
             for grade in old_grades:
