@@ -12,6 +12,7 @@ from telegram.ext import (
 )
 from typing import Dict, List
 import re
+import os
 
 from config import CONFIG
 from storage.models import DatabaseManager
@@ -77,7 +78,6 @@ class TelegramBot:
                 raise RuntimeError("Failed to initialize any data storage.")
 
     async def start(self):
-        import os
         self.running = True
         self.app = Application.builder().token(CONFIG["TELEGRAM_TOKEN"]).build()
         await self._update_bot_info()
@@ -778,13 +778,22 @@ class TelegramBot:
         return sent
 
     async def scheduled_daily_quote_broadcast(self):
-        """Background task: send a daily quote to all users at 14:00 UTC+3 (11:00 UTC)."""
+        """Background task: send a daily quote to all users at the time specified by QUOTE_SCHEDULE (UTC+3, format HH:MM)."""
         import pytz
         from datetime import datetime, time, timedelta
         tz = pytz.timezone('Asia/Riyadh')  # UTC+3
-        target_hour = 14
-        target_minute = 0
-        logger.info("🕑 Daily quote scheduler started (14:00 UTC+3)")
+        # Read schedule from env var
+        def get_scheduled_time():
+            time_str = os.getenv("QUOTE_SCHEDULE", "14:00")
+            try:
+                hour, minute = map(int, time_str.strip().split(":"))
+                if 0 <= hour < 24 and 0 <= minute < 60:
+                    return hour, minute
+            except Exception:
+                pass
+            return 14, 0  # fallback
+        target_hour, target_minute = get_scheduled_time()
+        logger.info(f"🕑 Daily quote scheduler started (UTC+3) at {target_hour:02d}:{target_minute:02d}")
         while self.running:
             now = datetime.now(tz)
             next_run = now.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)

@@ -138,6 +138,10 @@
 - **All notifications, broadcasts, and grade messages (current, past, and updates) now include a dual-language motivational quote, always wrapped in double quotes.**
 - **The button and keyboard system is robust, covers all user flows (registration, error recovery, admin, settings, notifications, broadcasts), and uses both reply and inline keyboards for optimal UX.**
 - **Translation tests are skipped if the API is blocked (403), so test results reflect only actual code issues.**
+- **The daily quote broadcast time is now configurable via the `QUOTE_SCHEDULE` environment variable.**
+  - Format: `HH:MM` (24-hour, e.g., `09:30`, `18:00`)
+  - Timezone: Always UTC+3 (Asia/Riyadh)
+  - If not set or invalid, defaults to `14:00` (2pm UTC+3)
 
 ---
 

@@ -185,6 +185,7 @@ python -m pytest tests/storage/
 | `DATABASE_URL` | PostgreSQL connection | ❌ | SQLite |
 | `BOT_VERSION` | Bot version | ❌ | dev |
 | `GRADE_CHECK_INTERVAL` | Check interval (minutes) | ❌ | 15 |
+| `QUOTE_SCHEDULE` | Daily quote broadcast time | ❌ | 14:00 |
 
 ### **Security Configuration**
 - **Rate Limiting:** 5 attempts per 5 minutes
@@ -252,6 +253,7 @@ For support and questions:
 - Only English quotes are fetched; Arabic quotes are never fetched directly.
 - The button and keyboard system is robust, covers all user flows (registration, error recovery, admin, settings, notifications, broadcasts), and uses both reply and inline keyboards for optimal UX.
 - **Note:** Translation reliability depends on Google and the maintenance of the googletrans library. If you encounter persistent errors, check your library version and configuration, or consider the official Google Cloud Translation API for production use. Translation tests are skipped if the API is blocked (403), so test results reflect only actual code issues.
+- The daily quote broadcast time is controlled by the `QUOTE_SCHEDULE` environment variable (see above). The scheduler always uses UTC+3 and validates the format strictly.
 
 ## Example Output
 
