@@ -16,11 +16,9 @@ import re
 
 from config import CONFIG
 from storage.models import DatabaseManager
-from storage.postgresql_users import PostgreSQLUserStorage
-from storage.postgresql_grades import PostgreSQLGradeStorage
-from storage.users import UserStorage
-from storage.grades import GradeStorage
-from university.api import UniversityAPI
+from storage.user_storage import UserStorage, PostgreSQLUserStorage
+from storage.grade_storage import GradeStorage, PostgreSQLGradeStorage
+from university.api_client import UniversityAPI
 from admin.dashboard import AdminDashboard
 from admin.broadcast import BroadcastSystem
 from utils.keyboards import (
@@ -29,8 +27,9 @@ from utils.keyboards import (
     remove_keyboard, get_error_recovery_keyboard
 )
 from utils.messages import get_welcome_message, get_help_message, get_simple_welcome_message, get_security_welcome_message, get_credentials_security_info_message
-from utils.security_transparency import SecurityTransparency
-from utils.security_enhancements import security_manager, is_valid_length
+from security.transparency import SecurityTransparency
+from security.enhancements import security_manager, is_valid_length
+from security.headers import security_headers, security_policy
 
 logger = logging.getLogger(__name__)
 ASK_USERNAME, ASK_PASSWORD = range(2)
@@ -138,6 +137,7 @@ class TelegramBot:
         self.app.add_handler(CommandHandler("security_audit", self._security_audit_command))
         self.app.add_handler(CommandHandler("privacy_policy", self._privacy_policy_command))
         self.app.add_handler(CommandHandler("security_stats", self._security_stats_command))
+        self.app.add_handler(CommandHandler("security_headers", self._security_headers_command))
         # Use a different command for the admin panel entry to avoid confusion with the keyboard
         self.app.add_handler(CommandHandler("admin", self._admin_command))
         self.app.add_handler(CommandHandler("notify_grades", self._admin_notify_grades))
@@ -198,6 +198,7 @@ class TelegramBot:
             "**أوامر الأمان:**\n"
             "/security_info - معلومات الأمان\n"
             "/security_audit - تقرير التدقيق الأمني\n"
+            "/security_headers - معلومات معايير الأمان (للمطور فقط)\n"
             "/privacy_policy - سياسة الخصوصية\n"
         )
         
@@ -256,6 +257,42 @@ class TelegramBot:
         except Exception as e:
             await update.message.reply_text("عذراً، حدث خطأ أثناء جلب إحصائيات الأمان.")
             logger.error(f"Error in _security_stats_command: {e}", exc_info=True)
+
+    async def _security_headers_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show security headers information (admin only)"""
+        try:
+            if update.effective_user.id != CONFIG["ADMIN_ID"]:
+                await update.message.reply_text("🚫 هذا الأمر متاح للمطور فقط.")
+                return
+            
+            headers = security_headers.get_security_headers()
+            metadata = security_headers.get_security_metadata()
+            policy_report = security_policy.get_security_report()
+            
+            headers_message = (
+                "🔒 **Security Headers Information**\n\n"
+                "**Applied Headers:**\n"
+            )
+            
+            for header, value in headers.items():
+                # Truncate long values for display
+                display_value = value[:100] + "..." if len(value) > 100 else value
+                headers_message += f"• {header}: {display_value}\n"
+            
+            headers_message += f"\n**Security Metadata:**\n"
+            headers_message += f"• Security Level: {metadata['security_level']}\n"
+            headers_message += f"• Compliance: {', '.join(metadata['compliance'])}\n"
+            headers_message += f"• CSP Nonce: {metadata['csp_nonce'][:16]}...\n"
+            
+            headers_message += f"\n**Security Policy:**\n"
+            headers_message += f"• Policy Version: {policy_report['policy_version']}\n"
+            headers_message += f"• Allowed Domains: {len(policy_report['allowed_domains'])}\n"
+            headers_message += f"• Blocked Patterns: {policy_report['blocked_patterns_count']}\n"
+            
+            await update.message.reply_text(headers_message, parse_mode='Markdown')
+        except Exception as e:
+            await update.message.reply_text("عذراً، حدث خطأ أثناء جلب معلومات معايير الأمان.")
+            logger.error(f"Error in _security_headers_command: {e}", exc_info=True)
 
     async def _grades_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
@@ -389,32 +426,65 @@ class TelegramBot:
                 await self._handle_error_recovery(update, context, text)
                 return
             
+            # Enhanced action mapping with new button labels
             actions = {
+                # Main grade actions
+                "📊 درجات الفصل الحالي": self._grades_command,
+                "📚 درجات الفصل السابق": self._old_grades_command,
+                
+                # User actions
+                "👤 معلوماتي الشخصية": self._profile_command,
+                "⚙️ الإعدادات والتخصيص": self._settings_command,
+                
+                # Support and help
+                "📞 الدعم الفني": self._support_command,
+                "❓ المساعدة والدليل": self._help_command,
+                
+                # Registration actions
+                "🚀 تسجيل الدخول للجامعة": self._register_start,
+                "🔄 إعادة تسجيل الدخول": self._register_start,
+                
+                # Admin actions
+                "🎛️ لوحة التحكم الإدارية": self._admin_command,
+                "🔙 العودة للوحة الرئيسية": self._return_to_main,
+                
+                # Legacy button support (for backward compatibility)
                 "📊 التحقق من درجات الفصل الحالي": self._grades_command,
                 "📚 التحقق من درجات الفصل السابق": self._old_grades_command,
-                "❓ المساعدة": self._help_command,
                 "👤 معلوماتي": self._profile_command,
                 "⚙️ الإعدادات": self._settings_command,
                 "📞 الدعم": self._support_command,
+                "❓ المساعدة": self._help_command,
                 "🚀 تسجيل الدخول": self._register_start,
-                "🔄 إعادة تسجيل الدخول": self._register_start,
                 "🎛️ لوحة التحكم": self._admin_command,
                 "🔙 العودة": self._return_to_main,
             }
+            
             action = actions.get(text)
             if action:
                 await action(update, context)
             else:
+                # Enhanced error message with helpful guidance
                 keyboard_to_show = get_main_keyboard() if self.user_storage.is_user_registered(user_id) else get_unregistered_keyboard()
                 await update.message.reply_text(
-                    "❓ لم أفهم طلبك. استخدم الأزرار أو اكتب /help للمساعدة.",
+                    "❓ لم أفهم طلبك\n\n"
+                    "💡 **نصائح:**\n"
+                    "• استخدم الأزرار أدناه للتنقل\n"
+                    "• اكتب /help للمساعدة\n"
+                    "• اكتب /start للعودة للرئيسية\n\n"
+                    "📞 للمساعدة: اضغط '📞 الدعم الفني'",
                     reply_markup=keyboard_to_show
                 )
         except Exception as e:
             logger.error(f"Error in _handle_message: {e}", exc_info=True)
             await self._send_message_with_keyboard(
                 update, 
-                "❌ حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى أو التواصل مع الدعم.",
+                "❌ حدث خطأ غير متوقع\n\n"
+                "**الحلول:**\n"
+                "• جرب مرة أخرى بعد قليل\n"
+                "• إذا استمرت المشكلة، تواصل مع الدعم\n"
+                "• تأكد من اتصالك بالإنترنت\n\n"
+                "📞 للمساعدة: اضغط '📞 الدعم الفني'",
                 "error_recovery"
             )
 

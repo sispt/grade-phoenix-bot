@@ -1,7 +1,5 @@
-# DEPRECATED: Moved to security/enhancements.py
-
 """
-🔐 Security Enhancements Module
+Security Enhancements Module
 Implements rate limiting, audit logging, session management, and input validation
 """
 import logging
@@ -249,15 +247,11 @@ class SecurityManager:
         """Check if login attempt is allowed"""
         if not self.rate_limiter.is_allowed(user_id):
             self.audit_logger.log_security_event(
-                event_type="LOGIN_BLOCKED",
-                user_id=user_id,
-                details={"reason": "Rate limit exceeded"},
-                success=False,
-                risk_level="MEDIUM",
-                ip_address=ip_address
+                "LOGIN_BLOCKED", user_id, 
+                {"reason": "rate_limit_exceeded", "ip_address": ip_address},
+                success=False, risk_level="MEDIUM"
             )
             return False
-        
         return True
     
     def record_login_attempt(self, user_id: int, success: bool, 
@@ -269,72 +263,68 @@ class SecurityManager:
         risk_level = "LOW" if success else "MEDIUM"
         
         self.audit_logger.log_security_event(
-            event_type=event_type,
-            user_id=user_id,
-            details={"username": username, "attempts": self.rate_limiter.get_attempts_count(user_id)},
-            success=success,
-            risk_level=risk_level,
-            ip_address=ip_address
+            event_type, user_id,
+            {"username": username, "ip_address": ip_address},
+            success=success, risk_level=risk_level
         )
     
     def create_user_session(self, user_id: int, token: str, user_data: Dict[str, Any] | None = None):
         """Create user session"""
         session_id = self.session_manager.create_session(user_id, token, user_data)
-        
         self.audit_logger.log_security_event(
-            event_type="SESSION_CREATED",
-            user_id=user_id,
-            details={"session_id": session_id},
-            success=True,
-            risk_level="LOW"
+            "SESSION_CREATED", user_id,
+            {"session_id": session_id, "user_data_keys": list(user_data.keys()) if user_data else []}
         )
-        
         return session_id
     
     def get_security_stats(self) -> Dict[str, Any]:
         """Get security statistics"""
+        # Get recent events (last 24 hours)
         recent_events = self.audit_logger.get_recent_events(24)
+        failed_logins = len([e for e in recent_events if e.event_type == "LOGIN_FAILED"])
         
         return {
             "total_events_24h": len(recent_events),
-            "failed_logins": len([e for e in recent_events if e.event_type == "LOGIN_FAILED"]),
-            "blocked_attempts": len([e for e in recent_events if e.event_type == "LOGIN_BLOCKED"]),
-            "active_sessions": len([s for s in self.session_manager.sessions.values() if s.get('is_active')]),
-            "high_risk_events": len([e for e in recent_events if e.risk_level in ["HIGH", "CRITICAL"]])
+            "failed_logins": failed_logins,
+            "rate_limiter": {
+                "blocked_users": len(self.rate_limiter.blocked_users),
+                "total_attempts": sum(len(attempts) for attempts in self.rate_limiter.attempts.values())
+            },
+            "audit_logger": {
+                "total_events": len(self.audit_logger.events),
+                "recent_events": len(recent_events)
+            },
+            "session_manager": {
+                "active_sessions": len([s for s in self.session_manager.sessions.values() if s.get('is_active')])
+            }
         }
 
-# Password security functions
+# Global security manager instance
+security_manager = SecurityManager()
+
+# Password hashing functions
 def hash_password(password: str) -> str:
-    """Hash a password using bcrypt with salt"""
-    try:
-        password_bytes = password.encode('utf-8')
-        salt = bcrypt.gensalt()
-        hashed = bcrypt.hashpw(password_bytes, salt)
-        return hashed.decode('utf-8')
-    except Exception as e:
-        logger.error(f"Error hashing password: {e}")
-        raise
+    """Hash password using bcrypt"""
+    password_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode('utf-8')
 
 def verify_password(password: str, hashed_password: str) -> bool:
-    """Verify a password against its hash"""
-    try:
-        password_bytes = password.encode('utf-8')
-        hashed_bytes = hashed_password.encode('utf-8')
-        return bcrypt.checkpw(password_bytes, hashed_bytes)
-    except Exception as e:
-        logger.error(f"Error verifying password: {e}")
-        return False
+    """Verify password against hash"""
+    password_bytes = password.encode('utf-8')
+    hashed_bytes = hashed_password.encode('utf-8')
+    return bcrypt.checkpw(password_bytes, hashed_bytes)
 
 def is_password_hashed(password: str) -> bool:
-    """Check if a password is already hashed"""
-    return password.startswith('$2b$') and len(password) == 60
+    """Check if password is already hashed"""
+    return password.startswith('$2b$')
 
 def migrate_plain_password(password: str) -> str:
-    """Migrate a plain text password to hashed format"""
+    """Migrate plain text password to hash"""
     if is_password_hashed(password):
         return password
-    else:
-        return hash_password(password)
+    return hash_password(password)
 
 # Input validation functions
 def is_valid_email(email: str) -> bool:
@@ -351,7 +341,13 @@ def is_valid_ipv4(ip: str) -> bool:
 
 def is_valid_length(value: str, min_len: int | None = None, max_len: int | None = None) -> bool:
     """Validate string length"""
-    return validators.length(value, min=min_len, max=max_len) is True
-
-# Global security manager instance
-security_manager = SecurityManager() 
+    if not isinstance(value, str):
+        return False
+    
+    if min_len is not None and len(value) < min_len:
+        return False
+    
+    if max_len is not None and len(value) > max_len:
+        return False
+    
+    return True 

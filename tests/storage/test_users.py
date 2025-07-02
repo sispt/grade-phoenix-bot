@@ -5,12 +5,12 @@ import pytest
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from storage.users import UserStorage
+from storage.user_storage import UserStorage
 
 @pytest.fixture
 def user_storage(tmp_path, monkeypatch):
     # Use a temp directory for test isolation
-    monkeypatch.setattr('storage.users.CONFIG', {"DATA_DIR": str(tmp_path)})
+    monkeypatch.setattr('storage.user_storage.CONFIG', {"DATA_DIR": str(tmp_path)})
     return UserStorage()
 
 def test_save_and_get_user(user_storage):

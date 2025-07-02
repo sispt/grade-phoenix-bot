@@ -18,6 +18,10 @@ def run_pytest_tests():
     project_root = os.path.dirname(os.path.abspath(__file__))
     sys.path.insert(0, project_root)
     
+    # Set environment variables for consistent testing
+    env = os.environ.copy()
+    env['BOT_VERSION'] = '2.5.7'
+    
     # Run pytest on all test directories
     test_dirs = [
         "tests/storage",
@@ -31,7 +35,7 @@ def run_pytest_tests():
             print(f"\n📁 Testing {test_dir}:")
             result = subprocess.run([
                 sys.executable, "-m", "pytest", test_dir, "-v"
-            ], capture_output=True, text=True)
+            ], capture_output=True, text=True, env=env)
             
             if result.returncode == 0:
                 print("✅ All tests passed")
@@ -47,6 +51,10 @@ def run_manual_tests():
     print("\n🔧 Running Manual Tests...")
     print("=" * 50)
     
+    # Set environment variables for consistent testing
+    env = os.environ.copy()
+    env['BOT_VERSION'] = '2.5.7'
+    
     manual_tests = [
         ("tests/api/test_api_quotes.py", "API Quote Tests"),
         ("tests/security/test_password_security.py", "Password Security Tests"),
@@ -59,7 +67,7 @@ def run_manual_tests():
             print(f"\n📋 Running {test_name}:")
             result = subprocess.run([
                 sys.executable, test_file
-            ], capture_output=True, text=True)
+            ], capture_output=True, text=True, env=env)
             
             if result.returncode == 0:
                 print("✅ Test passed")

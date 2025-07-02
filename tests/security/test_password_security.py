@@ -9,8 +9,9 @@ import os
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from utils.security_enhancements import (
-    hash_password, verify_password, is_password_hashed
+from security.enhancements import (
+    hash_password, verify_password, is_password_hashed, migrate_plain_password,
+    RateLimiter, AuditLogger, SessionManager, security_manager
 )
 
 # Configure logging

@@ -10,7 +10,7 @@ import os
 # Add the project root to the Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from utils.security_transparency import SecurityTransparency
+from security.transparency import SecurityTransparency
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -256,10 +256,12 @@ def test_content_quality():
         info = security.security_info
         
         # Check version
-        assert info['version'] == '2.5.6', "Version should match current version"
+        from config import CONFIG
+        expected_version = CONFIG.get('BOT_VERSION', '2.5.7')
+        assert info['version'] == expected_version, f"Version should match current version ({expected_version})"
         
         # Check security rating
-        assert 'B+' in info['security_rating'], "Security rating should be B+"
+        assert 'A+' in info['security_rating'], "Security rating should be A+"
         
         # Check compliance info
         compliance = info['compliance']

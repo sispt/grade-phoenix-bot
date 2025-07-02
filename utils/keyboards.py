@@ -1,58 +1,67 @@
 """
 ⌨️ Custom Keyboards (Enhanced Version)
+Improved UX with clearer labels and better organization
 """
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton
 
 def get_main_keyboard() -> ReplyKeyboardMarkup:
-    """Returns the main keyboard layout for REGISTERED users."""
+    """Returns the main keyboard layout for REGISTERED users with enhanced UX."""
     keyboard = [
-        ["📊 التحقق من درجات الفصل الحالي"],
-        ["👤 معلوماتي", "⚙️ الإعدادات"],
-        ["📚 التحقق من درجات الفصل السابق", "📞 الدعم"],
-        ["🎛️ لوحة التحكم"]
+        ["📊 درجات الفصل الحالي", "📚 درجات الفصل السابق"],
+        ["👤 معلوماتي الشخصية", "⚙️ الإعدادات والتخصيص"],
+        ["📞 الدعم الفني", "❓ المساعدة والدليل"],
+        ["🎛️ لوحة التحكم الإدارية"]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
 def get_unregistered_keyboard() -> ReplyKeyboardMarkup:
-    """Returns the keyboard for UNREGISTERED users, featuring the login button."""
+    """Returns the keyboard for UNREGISTERED users with clear call-to-action."""
     keyboard = [
-        ["🚀 تسجيل الدخول", "❓ المساعدة"], # Prominent login button
-        ["📞 الدعم"] # Still allow access to support
+        ["🚀 تسجيل الدخول للجامعة", "❓ كيف يعمل البوت؟"], 
+        ["📞 الدعم الفني", "🔐 معلومات الأمان"]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
 def get_main_keyboard_with_relogin() -> ReplyKeyboardMarkup:
-    """Returns the keyboard for REGISTERED users whose token expired, with relogin option."""
+    """Returns the keyboard for REGISTERED users whose token expired."""
     keyboard = [
-        ["🔄 إعادة تسجيل الدخول", "📊 التحقق من درجات الفصل الحالي"], # Re-login button for known users
-        ["👤 معلوماتي", "⚙️ الإعدادات"],
-        ["📚 التحقق من درجات الفصل السابق", "📞 الدعم"],
-        ["🎛️ لوحة التحكم"]
+        ["🔄 إعادة تسجيل الدخول", "📊 درجات الفصل الحالي"],
+        ["👤 معلوماتي الشخصية", "⚙️ الإعدادات والتخصيص"],
+        ["📚 درجات الفصل السابق", "📞 الدعم الفني"],
+        ["❓ المساعدة والدليل", "🎛️ لوحة التحكم الإدارية"]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
 def get_admin_keyboard() -> ReplyKeyboardMarkup:
-    """Returns the admin keyboard layout - simplified to match dashboard functionality."""
+    """Returns the admin keyboard layout - simplified and clear."""
     keyboard = [
-        ["🎛️ لوحة التحكم"], # Single button to access the inline dashboard
-        ["🔙 العودة"]
+        ["🎛️ لوحة التحكم الإدارية"], 
+        ["🔙 العودة للوحة الرئيسية"]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
 def get_cancel_keyboard() -> ReplyKeyboardMarkup:
     """Returns a simple keyboard with a cancel button for conversations."""
-    keyboard = [["❌ إلغاء"]]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True) # One-time so it disappears after cancel
+    keyboard = [["❌ إلغاء العملية"]]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
 
 def remove_keyboard() -> ReplyKeyboardRemove:
     """Returns a keyboard removal markup to hide the current keyboard."""
-    return ReplyKeyboardRemove(remove_keyboard=True, selective=False)
+    return ReplyKeyboardRemove(selective=False)
 
 def get_error_recovery_keyboard() -> ReplyKeyboardMarkup:
-    """Returns a keyboard for error recovery scenarios."""
+    """Returns a keyboard for error recovery scenarios with clear options."""
     keyboard = [
         ["🔄 إعادة المحاولة", "🏠 العودة للرئيسية"],
-        ["📞 الدعم", "❓ المساعدة"]
+        ["📞 الدعم الفني", "❓ المساعدة والدليل"]
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+
+def get_registration_keyboard() -> ReplyKeyboardMarkup:
+    """Returns a keyboard specifically for registration process."""
+    keyboard = [
+        ["❌ إلغاء التسجيل"],
+        ["🔙 العودة للرئيسية"]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
 
@@ -64,8 +73,8 @@ def get_enhanced_admin_dashboard_keyboard() -> InlineKeyboardMarkup:
          InlineKeyboardButton("📊 التحليل والإحصائيات", callback_data="analysis")],
         
         # Communication row
-        [InlineKeyboardButton("📢 بث رسالة", callback_data="broadcast"),
-         InlineKeyboardButton("📋 تقرير النظام", callback_data="system_report")],
+        [InlineKeyboardButton("📢 بث رسالة للجميع", callback_data="broadcast"),
+         InlineKeyboardButton("📋 تقرير حالة النظام", callback_data="system_report")],
         
         # User management actions
         [InlineKeyboardButton("🔍 بحث عن مستخدم", callback_data="user_search"),
@@ -73,7 +82,7 @@ def get_enhanced_admin_dashboard_keyboard() -> InlineKeyboardMarkup:
         
         # System actions
         [InlineKeyboardButton("🔄 تحديث البيانات", callback_data="refresh_data"),
-         InlineKeyboardButton("💾 نسخة احتياطية", callback_data="backup_data")],
+         InlineKeyboardButton("💾 إنشاء نسخة احتياطية", callback_data="backup_data")],
         
         # Close button
         [InlineKeyboardButton("❌ إغلاق لوحة التحكم", callback_data="close_dashboard")]
@@ -107,8 +116,8 @@ def get_user_management_keyboard(page=1, total_pages=1) -> InlineKeyboardMarkup:
 def get_broadcast_confirmation_keyboard() -> InlineKeyboardMarkup:
     """Returns a keyboard for broadcast confirmation."""
     buttons = [
-        [InlineKeyboardButton("✅ تأكيد البث", callback_data="confirm_broadcast"),
-         InlineKeyboardButton("❌ إلغاء", callback_data="cancel_broadcast")],
+        [InlineKeyboardButton("✅ تأكيد البث للجميع", callback_data="confirm_broadcast"),
+         InlineKeyboardButton("❌ إلغاء البث", callback_data="cancel_broadcast")],
         [InlineKeyboardButton("🔙 العودة للوحة التحكم", callback_data="back_to_dashboard")]
     ]
     return InlineKeyboardMarkup(buttons)
@@ -134,7 +143,7 @@ def get_settings_main_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("🎨 إعدادات الواجهة", callback_data="settings_ui"),
          InlineKeyboardButton("⚙️ إعدادات النظام", callback_data="settings_system")],
         [InlineKeyboardButton("📋 ملخص الإعدادات", callback_data="settings_summary"),
-         InlineKeyboardButton("🔄 إعادة تعيين", callback_data="settings_reset")],
+         InlineKeyboardButton("🔄 إعادة تعيين الإعدادات", callback_data="settings_reset")],
         [InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="back_to_main")]
     ]
     return InlineKeyboardMarkup(buttons)
@@ -173,8 +182,6 @@ def get_language_settings_keyboard() -> InlineKeyboardMarkup:
     ]
     return InlineKeyboardMarkup(buttons)
 
-
-
 def get_ui_settings_keyboard() -> InlineKeyboardMarkup:
     """Returns keyboard for UI settings."""
     buttons = [
@@ -208,8 +215,8 @@ def get_grade_display_settings_keyboard() -> InlineKeyboardMarkup:
          InlineKeyboardButton("🎯 الدرجة الحرفية", callback_data="toggle_letter_grade")],
         [InlineKeyboardButton("📅 الفترة الزمنية", callback_data="grade_time_period"),
          InlineKeyboardButton("📊 المعدل التراكمي", callback_data="toggle_show_gpa")],
-        [InlineKeyboardButton("💭 الاقتباسات", callback_data="toggle_philosophical_quotes"),
-         InlineKeyboardButton("🔍 الملاحظات", callback_data="toggle_insights")],
+        [InlineKeyboardButton("💭 الاقتباسات الفلسفية", callback_data="toggle_philosophical_quotes"),
+         InlineKeyboardButton("🔍 الملاحظات والتحليل", callback_data="toggle_insights")],
         [InlineKeyboardButton("🏆 الإنجازات", callback_data="toggle_achievements")],
         [InlineKeyboardButton("🔙 العودة للإعدادات", callback_data="back_to_settings")]
     ]

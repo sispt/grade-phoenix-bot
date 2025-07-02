@@ -1,7 +1,9 @@
 """
 Storage package for Telegram University Bot
 """
-from .users import UserStorage
-from .grades import GradeStorage
+from .user_storage import *
+from .grade_storage import *
+from .models import *
+from .credential_cache import *
 
-__all__ = ['UserStorage', 'GradeStorage'] 
+__all__ = ['user_storage', 'grade_storage', 'models', 'credential_cache'] 

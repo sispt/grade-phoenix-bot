@@ -1,6 +1,6 @@
 """
 University API package for Telegram University Bot
 """
-from .api import UniversityAPI
+from .api_client import *
 
-__all__ = ['UniversityAPI'] 
+__all__ = ['api_client'] 

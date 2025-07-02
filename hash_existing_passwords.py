@@ -7,8 +7,8 @@ import logging
 import sys
 from config import CONFIG
 from storage.models import DatabaseManager, User
-from storage.users import UserStorage
-from utils.security_enhancements import is_password_hashed, hash_password
+from storage.user_storage import UserStorage
+from security.enhancements import is_password_hashed, hash_password
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)

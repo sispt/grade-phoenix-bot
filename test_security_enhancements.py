@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 # Add the project root to the path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from utils.security_enhancements import security_manager, RateLimiter, AuditLogger, SessionManager
+from security.enhancements import security_manager, RateLimiter, AuditLogger, SessionManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
