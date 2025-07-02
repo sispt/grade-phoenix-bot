@@ -9,7 +9,7 @@ import os
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from utils.password_utils import (
+from utils.security_enhancements import (
     hash_password, verify_password, is_password_hashed
 )
 

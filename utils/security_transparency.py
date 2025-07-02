@@ -428,7 +428,7 @@ class SecurityTransparency:
     def _check_input_validation(self) -> bool:
         """Check if input validation is available"""
         try:
-            from utils.input_validator import is_valid_length
+            from utils.security_enhancements import is_valid_length
             return True
         except ImportError:
             return False
@@ -449,7 +449,7 @@ class SecurityTransparency:
     def _check_secure_storage(self) -> bool:
         """Check if secure storage is implemented"""
         try:
-            from utils.password_utils import hash_password
+            from utils.security_enhancements import hash_password
             return True
         except ImportError:
             return False 

@@ -10,7 +10,7 @@ from sqlalchemy.orm import sessionmaker
 
 from storage.models import Base, User, DatabaseManager # Import User model
 from config import CONFIG # Assuming CONFIG holds encryption settings if used
-from utils.password_utils import hash_password, verify_password, migrate_plain_password
+from utils.security_enhancements import hash_password, verify_password, migrate_plain_password
 
 logger = logging.getLogger(__name__)
 
