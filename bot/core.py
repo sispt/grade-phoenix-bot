@@ -39,12 +39,10 @@ class TelegramBot:
     def __init__(self):
         self.app, self.db_manager, self.user_storage, self.grade_storage = None, None, None, None
         self.university_api = UniversityAPI()
-        self.grade_analytics = GradeAnalytics()
-        
         # --- CRITICAL FIX: Initialize storage FIRST ---
         self._initialize_storage() 
-        
         # --- THEN initialize classes that depend on storage ---
+        self.grade_analytics = GradeAnalytics(self.user_storage)
         self.admin_dashboard = AdminDashboard(self)
         self.broadcast_system = BroadcastSystem(self)
         self.security_transparency = SecurityTransparency()
