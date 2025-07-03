@@ -479,6 +479,8 @@ class TelegramBot:
                 "❓ كيف يعمل البوت؟": self._how_it_works_command,
                 # Logout action
                 "🚪 تسجيل الخروج": self._logout_command,
+                # Keyboard refresh for registered users
+                "🔄 تحديث الأزرار": self._refresh_keyboard,
             }
             action = actions.get(text)
             if action:
@@ -788,13 +790,15 @@ class TelegramBot:
         # Create secure session
         security_manager.create_user_session(telegram_id, token, user_data)
         
-        # Show user-friendly welcome message
+        # Show user-friendly welcome message with registered user keyboard
         welcome_message = get_welcome_message(fullname)
         try:
-            # Telegram Markdown is error-prone with dynamic content; send as plain text
-            await update.message.reply_text(welcome_message)
+            # Send welcome message with registered user keyboard
+            await update.message.reply_text(welcome_message, reply_markup=get_main_keyboard())
         except Exception as e:
             logger.error(f"Error sending welcome message: {e}")
+            # Fallback: send message without keyboard
+            await update.message.reply_text(welcome_message)
         return ConversationHandler.END
 
     async def _return_to_main(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -883,6 +887,20 @@ class TelegramBot:
                         logger.warning(f"Failed to send quote to {telegram_id}: {e}")
         except Exception as e:
             logger.error(f"Error in _broadcast_quote: {e}")
+
+    async def _refresh_keyboard(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Refresh keyboard based on user registration status"""
+        user = self.user_storage.get_user(update.effective_user.id)
+        if user:
+            await update.message.reply_text(
+                "✅ تم تحديث الأزرار للمستخدمين المسجلين.",
+                reply_markup=get_main_keyboard()
+            )
+        else:
+            await update.message.reply_text(
+                "❌ أنت غير مسجل. يرجى التسجيل أولاً.",
+                reply_markup=get_unregistered_keyboard()
+            )
 
     async def _logout_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         telegram_id = update.effective_user.id

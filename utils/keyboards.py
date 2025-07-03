@@ -29,6 +29,7 @@ def get_unregistered_keyboard() -> ReplyKeyboardMarkup:
     keyboard = [
         ["🚀 تسجيل الدخول للجامعة", "❓ كيف يعمل البوت؟"],
         ["📞 الدعم الفني", "🔐 معلومات الأمان"],
+        ["🔄 تحديث الأزرار"],
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
