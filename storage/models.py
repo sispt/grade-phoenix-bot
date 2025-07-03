@@ -33,7 +33,6 @@ class User(Base):
         BigInteger, unique=True, nullable=False, index=True
     )  # CRITICAL: BigInteger for Telegram IDs
     username = Column(String(100), nullable=False)
-    password = Column(String(255), nullable=True)  # Password is not stored; field kept for legacy compatibility
     token = Column(String(500), nullable=True)
     firstname = Column(String(100), nullable=True)
     lastname = Column(String(100), nullable=True)
