@@ -181,5 +181,5 @@ def get_credentials_security_info_message() -> str:
     )
 
 
+# Database manager for message utilities
 db_manager = DatabaseManager(CONFIG["DATABASE_URL"])
-Base.metadata.create_all(bind=db_manager.engine)
