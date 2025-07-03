@@ -52,10 +52,6 @@ def add_token_expired_notified_column():
             print("token_expired_notified column already exists.")
 
 def main():
-    if os.getenv("DATABASE_MIGRATE", "false").lower() != "true":
-        logger.info("DATABASE_MIGRATE is not set to true. Skipping migration.")
-        return
-
     db_url = CONFIG.get("DATABASE_URL")
     if not db_url:
         logger.error("DATABASE_URL not found in config.")
@@ -86,7 +82,5 @@ def main():
     logger.info("Database migration completed.")
 
 if __name__ == "__main__":
-    if os.getenv("DATABASE_MIGRATE", "false").lower() == "true":
-        add_token_expired_notified_column()
-    else:
-        main() 
+    add_token_expired_notified_column()
+    main() 
