@@ -232,6 +232,7 @@ class PostgreSQLUserStorage:
                             user.last_login.isoformat() if user.last_login else None
                         ),
                         "is_active": user.is_active,
+                        "token_expired_notified": user.token_expired_notified,
                     }
                 return None
         except SQLAlchemyError as e:
@@ -264,6 +265,7 @@ class PostgreSQLUserStorage:
                             user.last_login.isoformat() if user.last_login else None
                         ),
                         "is_active": user.is_active,
+                        "token_expired_notified": user.token_expired_notified,
                     }
                     for user in users
                 ]
@@ -301,4 +303,21 @@ class PostgreSQLUserStorage:
             return False
         except Exception as e:
             logger.error(f"❌ Error deleting user {telegram_id}: {e}")
+            return False
+
+    def update_token_expired_notified(self, telegram_id: int, notified: bool) -> bool:
+        """Update the token_expired_notified flag for a user."""
+        try:
+            with self.db_manager.get_session() as session:
+                user = session.query(User).filter_by(telegram_id=telegram_id).first()
+                if user:
+                    user.token_expired_notified = notified
+                    session.commit()
+                    return True
+                return False
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Database error updating token_expired_notified for user {telegram_id}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"❌ Error updating token_expired_notified for user {telegram_id}: {e}")
             return False

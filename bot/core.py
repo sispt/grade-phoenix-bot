@@ -560,11 +560,32 @@ class TelegramBot:
             telegram_id = user.get("telegram_id")
             username = user.get("username")
             token = user.get("token")
+            # Notify only once if token expired
             if not token:
                 return False
+            is_pg = hasattr(self.user_storage, 'update_token_expired_notified')
+            notified = user.get("token_expired_notified", False)
             if not await self.university_api.test_token(token):
-                logger.warning(f"❌ Token expired for {username}. User needs to re-register with password.")
+                if not notified:
+                    await self.app.bot.send_message(
+                        chat_id=telegram_id,
+                        text="⏰ انتهت صلاحية الجلسة\n\nيرجى إعادة تسجيل الدخول بالضغط على '🔄 إعادة تسجيل الدخول' ثم إدخال بياناتك من جديد. هذا طبيعي ويحدث كل فترة.\n\nYour session has expired. Please re-login by pressing '🔄 إعادة تسجيل الدخول' and entering your credentials again. This is normal and happens periodically.",
+                        reply_markup=get_main_keyboard_with_relogin()
+                    )
+                    # Mark as notified
+                    if is_pg:
+                        self.user_storage.update_token_expired_notified(telegram_id, True)
+                    else:
+                        user["token_expired_notified"] = True
+                        self.user_storage._save_users()
                 return False
+            # If token is valid and user was previously notified, reset the flag
+            if notified:
+                if is_pg:
+                    self.user_storage.update_token_expired_notified(telegram_id, False)
+                else:
+                    user["token_expired_notified"] = False
+                    self.user_storage._save_users()
             user_data = await self.university_api.get_user_data(token)
             if not user_data or "grades" not in user_data:
                 logger.info(f"No grade data available for {username} in this check.")
@@ -601,27 +622,11 @@ class TelegramBot:
                         message += f"📚 {name} ({code})\n" + "\n".join(changes) + "\n\n"
                 now_utc3 = datetime.now(timezone.utc) + timedelta(hours=3)
                 message += f"🕒 وقت التحديث: {now_utc3.strftime('%Y-%m-%d %H:%M')} (UTC+3)"
-                # Add quote (English then Arabic, no language markers)
-                try:
-                    quote = await self.grade_analytics.get_daily_quote()
-                    if quote:
-                        quote_text = await self.grade_analytics.format_quote_dual_language(quote)
-                        if quote_text.strip() not in message:
-                            message += f"\n\n{quote_text}"
-                except Exception as e:
-                    logger.warning(f"Failed to append quote to grade update: {e}")
-                try:
-                    await self.app.bot.send_message(chat_id=telegram_id, text=message)
-                    logger.warning(f"GRADE CHECK: Grade update notification sent to user {username} (ID: {telegram_id}).")
-                except Exception as e:
-                    logger.error(f"❌ Error sending grade update notification: {e}", exc_info=True)
-                self.grade_storage.save_grades(telegram_id, new_grades)
+                await self.app.bot.send_message(chat_id=telegram_id, text=message)
                 return True
-            else:
-                self.grade_storage.save_grades(telegram_id, new_grades)
-                return False
+            return False
         except Exception as e:
-            logger.error(f"❌ Exception in _check_and_notify_user_grades for user {user.get('username', 'Unknown')}: {e}", exc_info=True)
+            logger.error(f"❌ Error in _check_and_notify_user_grades for user {user.get('username', 'Unknown')}: {e}", exc_info=True)
             return False
 
     def _compare_grades(self, old_grades: List[Dict], new_grades: List[Dict]) -> List[Dict]:

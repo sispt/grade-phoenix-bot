@@ -33,6 +33,24 @@ def drop_column(engine, table_name, column_name):
     except Exception as e:
         logger.error(f"Error dropping column '{column_name}' from '{table_name}': {e}")
 
+def add_token_expired_notified_column():
+    db_url = CONFIG["DATABASE_URL"]
+    engine = create_engine(db_url)
+    with engine.connect() as conn:
+        # Check if column exists
+        result = conn.execute(text("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name='users' AND column_name='token_expired_notified';
+        """))
+        if not result.fetchone():
+            # Add the column
+            conn.execute(text("""
+                ALTER TABLE users ADD COLUMN token_expired_notified BOOLEAN DEFAULT FALSE;
+            """))
+            print("Added token_expired_notified column to users table.")
+        else:
+            print("token_expired_notified column already exists.")
+
 def main():
     if os.getenv("DATABASE_MIGRATE", "false").lower() != "true":
         logger.info("DATABASE_MIGRATE is not set to true. Skipping migration.")
@@ -68,4 +86,7 @@ def main():
     logger.info("Database migration completed.")
 
 if __name__ == "__main__":
-    main() 
+    if os.getenv("DATABASE_MIGRATE", "false").lower() == "true":
+        add_token_expired_notified_column()
+    else:
+        main() 

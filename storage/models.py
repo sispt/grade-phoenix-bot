@@ -42,6 +42,7 @@ class User(Base):
     registration_date = Column(DateTime, default=datetime.utcnow)
     last_login = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     is_active = Column(Boolean, default=True)
+    token_expired_notified = Column(Boolean, default=False)
 
     def __repr__(self):
         return f"<User(telegram_id={self.telegram_id}, username='{self.username}')>"
