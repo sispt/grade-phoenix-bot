@@ -65,7 +65,6 @@ def run_manual_tests():
     manual_tests = [
         ("tests/api/test_api_quotes.py", "API Quote Tests"),
         ("tests/security/test_password_security.py", "Password Security Tests"),
-        ("tests/security/test_security_transparency.py", "Security Transparency Tests"),
     ]
 
     all_passed = True

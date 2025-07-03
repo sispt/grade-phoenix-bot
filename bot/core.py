@@ -27,7 +27,6 @@ from utils.keyboards import (
     remove_keyboard, get_error_recovery_keyboard
 )
 from utils.messages import get_welcome_message, get_help_message, get_simple_welcome_message, get_security_welcome_message, get_credentials_security_info_message
-from security.transparency import SecurityTransparency
 from security.enhancements import security_manager, is_valid_length
 from security.headers import security_headers, security_policy
 from utils.analytics import GradeAnalytics
@@ -47,7 +46,6 @@ class TelegramBot:
         self.grade_analytics = GradeAnalytics(self.user_storage)
         self.admin_dashboard = AdminDashboard(self)
         self.broadcast_system = BroadcastSystem(self)
-        self.security_transparency = SecurityTransparency()
         self.grade_check_task = None
         self.running = False
 
