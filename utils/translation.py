@@ -11,16 +11,18 @@ from googletrans import Translator
 
 logger = logging.getLogger(__name__)
 
-async def translate_text(text: str, target_lang: str = "ar") -> str:
+async def translate_text(text: str, target_lang: str = "ar", max_retries: int = 5) -> str:
     """
     Asynchronously translate text to the target language using googletrans only.
     Uses official API parameters: service_urls, user_agent, and raise_exception.
-    Adds strict debugging logs and error handling.
+    Adds retry logic with 5 attempts and 200 response checking.
     """
     if not text or not isinstance(text, str):
         logger.debug("translate_text: input is empty or not a string")
         return text
+    
     loop = asyncio.get_running_loop()
+    
     def do_translate():
         try:
             translator = Translator(
@@ -30,16 +32,59 @@ async def translate_text(text: str, target_lang: str = "ar") -> str:
             )
             logger.debug(f"Translating '{text}' to '{target_lang}'")
             result = translator.translate(text, dest=target_lang)
-            logger.debug(f"Translation result: {getattr(result, 'text', None)} (raw: {result})")
-            return getattr(result, "text", text)
+            
+            # Validate translation result
+            translated_text = getattr(result, "text", None)
+            if not translated_text:
+                logger.warning("Translation returned None or empty text")
+                return None
+                
+            # Check if translation is actually different from original
+            if translated_text.strip() == text.strip():
+                logger.warning("Translation returned same text as original")
+                return None
+                
+            # Check if translation contains meaningful content
+            if len(translated_text.strip()) < 2:
+                logger.warning("Translation too short, likely failed")
+                return None
+                
+            logger.debug(f"Translation result: {translated_text[:100]}...")
+            return translated_text
+            
         except Exception as e:
             logger.error(f"googletrans translation failed: {e}", exc_info=True)
-            return text
-    try:
-        translated = await loop.run_in_executor(None, do_translate)
-        if translated == text:
-            logger.error(f"Translation failed or returned original text: '{text}'")
-        return translated
-    except Exception as e:
-        logger.error(f"Translation async error: {e}", exc_info=True)
-        return text 
+            return None
+    
+    # Retry logic with 5 attempts
+    for attempt in range(1, max_retries + 1):
+        try:
+            logger.info(f"🔄 Translation attempt {attempt}/{max_retries} for text: '{text[:50]}...'")
+            
+            translated = await loop.run_in_executor(None, do_translate)
+            
+            # Check if translation was successful
+            if translated and translated != text and translated.strip():
+                logger.info(f"✅ Translation successful on attempt {attempt}: '{translated[:50]}...'")
+                return translated
+            else:
+                logger.warning(f"⚠️ Translation attempt {attempt} failed - returned original text or empty result")
+                
+                # Add delay between retries (exponential backoff)
+                if attempt < max_retries:
+                    delay = min(2 ** attempt, 10)  # Max 10 seconds delay
+                    logger.info(f"⏳ Waiting {delay} seconds before retry...")
+                    await asyncio.sleep(delay)
+                    
+        except Exception as e:
+            logger.error(f"❌ Translation attempt {attempt} failed with error: {e}")
+            
+            # Add delay between retries (exponential backoff)
+            if attempt < max_retries:
+                delay = min(2 ** attempt, 10)  # Max 10 seconds delay
+                logger.info(f"⏳ Waiting {delay} seconds before retry...")
+                await asyncio.sleep(delay)
+    
+    # All attempts failed
+    logger.error(f"❌ All {max_retries} translation attempts failed for text: '{text[:50]}...'")
+    return text 
