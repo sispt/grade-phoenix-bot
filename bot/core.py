@@ -18,7 +18,7 @@ from config import CONFIG
 from storage.models import DatabaseManager
 from storage.user_storage import UserStorage, PostgreSQLUserStorage
 from storage.grade_storage import GradeStorage, PostgreSQLGradeStorage
-from university.api_client import UniversityAPI
+from university.api_client import UniversityAPI, silent_migration_if_needed
 from admin.dashboard import AdminDashboard
 from admin.broadcast import BroadcastSystem
 from utils.keyboards import (
@@ -517,6 +517,8 @@ class TelegramBot:
 
     async def _grade_checking_loop(self):
         await asyncio.sleep(10)  # Give the bot a moment to start
+        # --- Silent migration: update all users' grades in storage, no notifications sent ---
+        silent_migration_if_needed(self)
         while self.running:
             try:
                 logger.info("🔔 Running scheduled grade check for all users...")

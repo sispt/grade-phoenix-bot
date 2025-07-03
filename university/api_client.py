@@ -8,6 +8,7 @@ import aiohttp
 import json
 from typing import Dict, List, Optional, Any
 from bs4 import BeautifulSoup
+import os
 
 from config import CONFIG, UNIVERSITY_QUERIES
 
@@ -207,7 +208,8 @@ class UniversityAPI:
 
     def _parse_grades_table_html(self, html_content: str) -> List[Dict[str, Any]]:
         """
-        Improved parser: Extracts all courses (code, name, coursework, final_exam, total) from the HTML using BeautifulSoup, matching the robust script logic.
+        Improved parser: Extracts all real courses (code, name, coursework, final_exam, total) from the HTML using BeautifulSoup.
+        Excludes summary/term rows (e.g., '2nd Term 2024-2025') and rows with no course code.
         """
         try:
             grades = []
@@ -222,9 +224,14 @@ class UniversityAPI:
                         cells = row.find_all("td")
                         if len(cells) < 2:
                             continue
+                        name = cells[0].get_text(strip=True)
+                        code = cells[1].get_text(strip=True) if len(cells) > 1 else ""
+                        # Exclude summary/term rows and rows with no code
+                        if not code or any(term in name for term in ["term", "الفصل", "الدورة", "semester", "quarter", "2nd Term", "1st Term", "الفصل الدراسي"]):
+                            continue
                         course = {
-                            "name": cells[0].get_text(strip=True),
-                            "code": cells[1].get_text(strip=True) if len(cells) > 1 else "",
+                            "name": name,
+                            "code": code,
                             "ects": cells[2].get_text(strip=True) if len(cells) > 2 else "",
                             "coursework": cells[3].get_text(strip=True) if len(cells) > 3 else "",
                             "final_exam": cells[4].get_text(strip=True) if len(cells) > 4 else "",
@@ -232,11 +239,27 @@ class UniversityAPI:
                         }
                         grades.append(course)
             if not grades:
-                logger.warning("No courses found in HTML table.")
+                logger.warning("No real courses found in HTML table.")
             return grades
         except Exception as e:
             logger.error(f"Error during HTML table parsing: {e}", exc_info=True)
             return []
+
+    def _normalize_grade(self, grade: dict) -> dict:
+        """
+        Normalize grade dict for comparison: strip, lowercase, only relevant fields.
+        """
+        return {
+            k: (v.strip().lower() if isinstance(v, str) else v)
+            for k, v in grade.items()
+            if k in ("code", "name", "coursework", "final_exam", "total")
+        }
+
+    def _normalize_grades_list(self, grades: list) -> list:
+        """
+        Normalize and sort grades list for reliable comparison.
+        """
+        return sorted([self._normalize_grade(g) for g in grades], key=lambda g: (g.get("code", ""), g.get("name", "")))
 
     def _contains_course_data(self, html_content: str) -> bool:
         try:
@@ -264,3 +287,33 @@ class UniversityAPI:
         except Exception as e:
             logger.error(f"Error checking for course data: {e}", exc_info=True)
             return False
+
+# --- Silent migration mechanism ---
+MIGRATION_FLAG_FILE = "data/grades_migrated_v2.flag"
+
+def silent_migration_if_needed(bot_instance):
+    """
+    On first run after deploy/refactor, update all users' grades in storage without sending notifications.
+    Uses a persistent flag file to ensure this only happens once.
+    """
+    if os.path.exists(MIGRATION_FLAG_FILE):
+        return False  # Already migrated
+    logger.info("Running silent migration: updating all users' grades in storage, no notifications will be sent.")
+    users = bot_instance.user_storage.get_all_users()
+    for user in users:
+        token = user.get("token")
+        telegram_id = user.get("telegram_id")
+        if not token or not telegram_id:
+            continue
+        try:
+            user_data = asyncio.run(bot_instance.university_api.get_user_data(token))
+            if user_data and "grades" in user_data:
+                bot_instance.grade_storage.save_grades(telegram_id, user_data["grades"])
+        except Exception as e:
+            logger.error(f"Silent migration failed for user {telegram_id}: {e}")
+    with open(MIGRATION_FLAG_FILE, "w") as f:
+        f.write("done")
+    logger.info("Silent migration complete. No notifications sent. Future runs will notify as normal.")
+    return True
+
+# In bot/core.py, call silent_migration_if_needed(self) at the start of the grade checking loop.
