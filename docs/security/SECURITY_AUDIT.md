@@ -14,7 +14,6 @@ The Telegram University Bot has been audited against industry-standard security 
 ### Overall Security Rating: **High**
 
 **Strengths:**
-- ✅ Industry-standard bcrypt password hashing
 - ✅ Comprehensive input validation
 - ✅ Secure environment variable usage
 - ✅ SQL injection prevention
@@ -219,7 +218,6 @@ The Telegram University Bot has been audited against industry-standard security 
 ### **Authentication & Authorization**
 | Control | Status | Implementation | Score |
 |---------|--------|----------------|-------|
-| Password Hashing | ✅ | bcrypt with salt | 10/10 |
 | Session Management | ⚠️ | Basic token-based | 7/10 |
 | Access Control | ✅ | Admin ID verification | 9/10 |
 | Multi-factor Auth | ❌ | Not implemented | 0/10 |
@@ -343,7 +341,7 @@ The Telegram University Bot has been audited against industry-standard security 
 
 | Category | Status | Implementation |
 |----------|--------|----------------|
-| Authentication | ✅ Strong | bcrypt hashing, secure verification |
+| Authentication | ✅ Strong | No password storage or hashing; passwords are never retained. |
 | Data Protection | ✅ Strong | Encrypted storage, HTTPS transmission |
 | Input Validation | ✅ Strong | Comprehensive validation, SQL/XSS protection |
 | Error Handling | ✅ Good | Graceful degradation, secure error messages |
@@ -410,10 +408,10 @@ The Telegram University Bot has been audited against industry-standard security 
 
 ## 🎯 Conclusion
 
-The Telegram University Bot demonstrates **strong security foundations** with industry-standard practices in critical areas. The implementation of bcrypt password hashing, comprehensive input validation, and secure environment variable usage shows a security-conscious development approach.
+The Telegram University Bot demonstrates **strong security foundations** with industry-standard practices in critical areas. No passwords are ever stored or hashed. The bot does not retain or process user passwords, in line with the latest security and privacy best practices. Comprehensive input validation and secure environment variable usage show a security-conscious development approach.
 
 **Key Strengths:**
-- Industry-standard password security
+- No password storage (passwords are used only for login and immediately discarded)
 - Comprehensive input validation
 - Secure configuration management
 - SQL injection prevention
@@ -432,3 +430,30 @@ The bot is **production-ready** with the current security implementation, but im
 **Security Contact:** abdulrahmanabdulkader59@gmail.com  
 **Last Updated:** January 2025  
 **Next Review:** April 2025 
+
+## 🛡️ Privacy Policy
+
+Your password is never stored or logged. It is used only to obtain a session token from the university system and is immediately discarded.
+
+## 🕵️ User Data Transparency
+
+Users can view and download all data stored about them using the /mydata and /download_mydata commands. They can also view a live log of their registration session with /mylog. No passwords are ever stored or shown.
+
+## Versioning & Release Policy
+- Semantic Versioning (SemVer) enforced, validated with BNF grammar.
+- Version set via BOT_VERSION environment variable (default: 1.0.0-dev).
+
+## Password Policy
+- No password is ever stored or hashed.
+- Passwords are used only for login and immediately discarded.
+
+## Security & Privacy Features
+- OWASP, NIST, ISO 27001, GDPR compliant.
+- No password storage or hashing.
+- SQL Injection Prevention, XSS Protection, Input Validation.
+- All secrets/configs are in environment variables only.
+
+## Audit Summary
+- All code, tests, and documentation reflect the no-password-storage policy.
+- Security transparency and audit features are present.
+- Migration script safely removes password column if present. 

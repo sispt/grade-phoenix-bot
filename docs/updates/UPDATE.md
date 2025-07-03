@@ -245,3 +245,28 @@ For support and questions:
 **Last Updated:** December 2024  
 **Security Rating:** A+ (Enterprise-grade)  
 **Version:** 2.5.7
+
+## [1.0.0-dev] - Major Security & Versioning Update
+
+### Versioning & Release Policy
+- Adopted Semantic Versioning (SemVer) starting from 1.0.0-dev, validated with BNF grammar.
+- Version is set via BOT_VERSION environment variable and reflected in all code and documentation.
+
+### Password Policy
+- All password hashing and storage logic removed from the codebase.
+- Passwords are used only for login and immediately discarded.
+- All tests and documentation updated to reflect this policy.
+
+### Security & Privacy Features
+- OWASP, NIST, ISO 27001, GDPR compliance.
+- No password storage or hashing.
+- SQL Injection Prevention, XSS Protection, Input Validation.
+- All secrets/configs are in environment variables only.
+
+### Migration
+- Migration script provided to safely remove the password column from the users table if present.
+
+### Other
+- Security transparency and audit features updated to match new policies.
+- All tests now skip or warn (not fail) if external APIs are unreachable.
+- Strict no-password-storage policy: passwords are never stored, hashed, or retained in any form.
