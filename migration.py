@@ -101,7 +101,7 @@ def get_database_version(engine):
         logger.warning(f"⚠️ Could not get database version: {e}")
         return "Unknown"
 
-def main():
+def run_migration():
     """Main migration function with comprehensive logging."""
     logger.info("🚀 Starting database migration...")
     logger.info(f"🔧 Database URL: {CONFIG['DATABASE_URL']}")
@@ -166,4 +166,4 @@ def main():
         raise
 
 if __name__ == "__main__":
-    main() 
+    run_migration() 

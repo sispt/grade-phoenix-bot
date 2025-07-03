@@ -36,7 +36,7 @@ class BotRunner:
         self.running = False
         self.start_time = None
 
-    async def start(self):
+    def start(self):
         """Start the bot with all features"""
         try:
             logger.info("🚀 Starting Telegram University Bot...")
@@ -45,6 +45,9 @@ class BotRunner:
 
             # Create necessary directories
             self.create_directories()
+
+            # Run database migrations first
+            self.run_migrations()
 
             # Automatically create all tables (schema) before starting the bot
             if CONFIG.get("USE_POSTGRESQL", False):
@@ -55,8 +58,8 @@ class BotRunner:
                 Base.metadata.create_all(bind=db_manager.engine)
                 logger.info("✅ Database tables checked/created.")
 
-            # Start the bot
-            await self.bot.start()
+            # Start the bot (blocking)
+            asyncio.run(self.bot.start())
 
             logger.info("✅ Bot started successfully!")
             logger.info(f"📊 Admin ID: {CONFIG['ADMIN_ID']}")
@@ -65,40 +68,26 @@ class BotRunner:
                 f"🗄️ Database: {'PostgreSQL' if CONFIG.get('USE_POSTGRESQL', False) else 'File-based'}"
             )
 
-            # Keep running
-            while self.running:
-                await asyncio.sleep(1)
-
         except Exception as e:
             logger.error(f"❌ Failed to start bot: {e}")
             raise
 
-    async def run_migrations(self):
+    def run_migrations(self):
         """Run database migrations"""
         try:
-            logger.info("🗄️ Running database migrations...")
+            logger.info("🔄 Running database migrations...")
 
-            # Import migrations module
+            # Import and run migration script
             try:
-                from migrations import run_migrations, check_database_status
-            except ImportError:
-                logger.warning("⚠️ Migrations module not found, skipping database migrations")
+                import migration
+                migration.run_migration()
+                logger.info("✅ Migration script executed successfully")
+            except ImportError as e:
+                logger.warning(f"⚠️ Migration script not found: {e}")
                 return
-
-            # Run migrations
-            if not run_migrations():
-                logger.error("❌ Database migration failed")
-                if CONFIG.get("USE_POSTGRESQL", False):
-                    # If PostgreSQL is required, fail
-                    raise Exception("Database migration failed")
-                else:
-                    # If using file storage, continue
-                    logger.info("🔄 Continuing with file-based storage...")
-                    return
-
-            # Check database status
-            if not check_database_status():
-                logger.warning("⚠️ Database status check failed")
+            except Exception as e:
+                logger.error(f"❌ Migration failed: {e}")
+                return
 
             logger.info("✅ Database migrations completed")
 
@@ -111,13 +100,18 @@ class BotRunner:
                 # If using file storage, continue
                 logger.info("🔄 Continuing with file-based storage...")
 
-    async def stop(self):
+    def stop(self):
         """Stop the bot gracefully"""
         logger.info("🛑 Stopping bot...")
         self.running = False
 
         if self.bot:
-            await self.bot.stop()
+            # If bot.stop is async, run it in event loop
+            try:
+                import asyncio
+                asyncio.run(self.bot.stop())
+            except Exception as e:
+                logger.error(f"❌ Error stopping bot: {e}")
 
         logger.info("✅ Bot stopped successfully!")
 
@@ -153,7 +147,7 @@ def check_environment():
     return True
 
 
-async def main():
+def main():
     """Main function"""
     # Check environment
     if not check_environment():
@@ -165,19 +159,19 @@ async def main():
     # Set up signal handlers
     def signal_handler(signum, frame):
         logger.info(f"Received signal {signum}, shutting down...")
-        asyncio.create_task(runner.stop())
+        runner.stop()
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
     try:
-        await runner.start()
+        runner.start()
     except KeyboardInterrupt:
         logger.info("Received keyboard interrupt")
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
     finally:
-        await runner.stop()
+        runner.stop()
 
 
 if __name__ == "__main__":
@@ -186,7 +180,7 @@ if __name__ == "__main__":
     print("=" * 50)
 
     try:
-        asyncio.run(main())
+        main()
     except Exception as e:
         logger.error(f"❌ Failed to run bot: {e}")
         sys.exit(1)
