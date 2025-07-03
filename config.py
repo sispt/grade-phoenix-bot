@@ -316,6 +316,9 @@ FILE_PATHS = {
     "GRADES_FILE_PREFIX": "data/grades_",
 }
 
+# Debug flag: Set to True to enable raw HTML debug output for development
+PRINT_HTML_DEBUG = False
+
 # Export configuration
 __all__ = [
     "CONFIG",

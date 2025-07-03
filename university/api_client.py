@@ -10,10 +10,9 @@ from typing import Dict, List, Optional, Any
 from bs4 import BeautifulSoup
 import os
 
-from config import CONFIG, UNIVERSITY_QUERIES
+from config import CONFIG, UNIVERSITY_QUERIES, PRINT_HTML_DEBUG
 
 logger = logging.getLogger(__name__)
-
 
 class UniversityAPI:
     """University API integration"""
@@ -201,8 +200,11 @@ class UniversityAPI:
             for block in panel.get("blocks", []):
                 html_content = block.get("body", "")
                 if html_content and self._contains_course_data(html_content):
+                    if PRINT_HTML_DEBUG:
+                        logger.debug(f"[Grade Parse] User {user_id} - Raw HTML content:\n{html_content}")
                     grades = self._parse_grades_table_html(html_content)
-                    logger.debug(f"[Grade Parse] User {user_id} - Parsed grades from HTML: {grades}")
+                    if PRINT_HTML_DEBUG:
+                        logger.debug(f"[Grade Parse] User {user_id} - Parsed grades from HTML: {grades}")
                     all_grades.extend(grades)
         return all_grades
 
