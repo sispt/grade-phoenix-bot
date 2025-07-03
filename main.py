@@ -18,14 +18,14 @@ from bot.core import TelegramBot
 from config import CONFIG
 from storage.models import Base, DatabaseManager
 
-# Set up logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
-)
-logger = logging.getLogger(__name__)
+# Import enhanced logging system
+from utils.logger import get_logger, setup_logging
 
-logger.info("DEBUG: Main script starting - logging test")
+# Setup logging
+setup_logging()
+logger = get_logger("main")
+
+logger.info("🚀 Main script starting - enhanced logging system active")
 
 
 class BotRunner:
@@ -79,7 +79,11 @@ class BotRunner:
             logger.info("🗄️ Running database migrations...")
 
             # Import migrations module
-            from migrations import run_migrations, check_database_status
+            try:
+                from migrations import run_migrations, check_database_status
+            except ImportError:
+                logger.warning("⚠️ Migrations module not found, skipping database migrations")
+                return
 
             # Run migrations
             if not run_migrations():

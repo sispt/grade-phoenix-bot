@@ -2,7 +2,6 @@
 🎓 Telegram Bot Core - Main Bot Implementation
 """
 import asyncio
-import logging
 from datetime import datetime, timedelta, timezone
 from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
@@ -30,8 +29,10 @@ from security.enhancements import security_manager, is_valid_length
 from security.headers import security_headers, security_policy
 from utils.analytics import GradeAnalytics
 from university.api_client import UniversityAPI
+from utils.logger import get_bot_logger
 
-logger = logging.getLogger(__name__)
+# Get bot logger
+logger = get_bot_logger()
 ASK_USERNAME, ASK_PASSWORD = range(2)
 
 class TelegramBot:

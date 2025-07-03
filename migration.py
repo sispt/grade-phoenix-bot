@@ -3,20 +3,12 @@ Database Migration Script
 Removes password and password_hash columns and updates schema for no-password-storage policy.
 """
 import os
-import logging
 from sqlalchemy import create_engine, inspect, text
 from config import CONFIG
+from utils.logger import get_migration_logger
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("bot.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# Get migration logger
+logger = get_migration_logger()
 
 def column_exists(engine, table_name, column_name):
     """Check if a column exists in a table with detailed logging."""
