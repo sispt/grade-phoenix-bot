@@ -103,7 +103,7 @@ class GradeAnalytics:
             else:
                 # Not English, just show the text and author, quoted
                 quote_block = f'"{text}"' + (f'\n{author}' if author else '')
-            disclaimer = "\n_ملاحظة: يتم جلب الاقتباسات آلياً من الإنترنت. المطور لا يختار أو يوافق على أي اقتباس._"
+            disclaimer = "\n\n\n_ملاحظة: يتم جلب الاقتباسات آلياً من الإنترنت. المطور لا يختار أو يوافق على أي اقتباس._"
             return f"{quote_block}{disclaimer}"
         except Exception as e:
             logger.warning(f"Quote translation failed: {e}")
@@ -111,11 +111,11 @@ class GradeAnalytics:
                 text = quote.get('text', '')
                 author = quote.get('author', '')
                 quote_block = f'"{text}"' + (f'\n{author}' if author else '')
-                disclaimer = "\n_ملاحظة: يتم جلب الاقتباسات آلياً من الإنترنت. المطور لا يختار أو يوافق على أي اقتباس._"
+                disclaimer = "\n\n\n_ملاحظة: يتم جلب الاقتباسات آلياً من الإنترنت. المطور لا يختار أو يوافق على أي اقتباس._"
                 return f"{quote_block}{disclaimer}"
             else:
                 quote_block = f'"{quote}"'
-                disclaimer = "\n_ملاحظة: يتم جلب الاقتباسات آلياً من الإنترنت. المطور لا يختار أو يوافق على أي اقتباس._"
+                disclaimer = "\n\n\n_ملاحظة: يتم جلب الاقتباسات آلياً من الإنترنت. المطور لا يختار أو يوافق على أي اقتباس._"
                 return f"{quote_block}{disclaimer}"
 
     async def format_old_grades_with_analysis(
