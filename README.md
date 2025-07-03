@@ -20,7 +20,7 @@ A secure, user-friendly Telegram bot for university students to receive grade no
 - **Current & Old Term Grades:** Access both current and historical academic data
 
 ### 🔐 Security & Privacy
-- **Enterprise Security:** bcrypt password hashing, rate limiting, audit logging
+- **Enterprise Security:** Rate limiting, audit logging
 - **Security Headers:** Comprehensive security headers (CSP, HSTS, X-Frame-Options)
 - **User Transparency:** Clear explanation of credential handling
 - **Input Validation:** Comprehensive validation for all user inputs
@@ -114,7 +114,7 @@ python main.py
 ## 🔐 Security Implementation
 
 ### **Authentication & Authorization**
-- **bcrypt Password Hashing:** Industry-standard password security
+- **No Password Storage:** Passwords are never stored or hashed; used only for login and immediately discarded
 - **Rate Limiting:** 5 login attempts per 5 minutes, 15-minute blocks
 - **Session Management:** 1-hour timeouts, max 3 sessions per user
 - **Input Validation:** Comprehensive validation using validators package

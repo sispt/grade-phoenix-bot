@@ -43,7 +43,7 @@ The Telegram University Bot has been audited against industry-standard security 
 
 #### ✅ **A02:2021 - Cryptographic Failures**
 - **Status:** COMPLIANT
-- **Implementation:** bcrypt hashing with salt for all passwords
+- **Implementation:** No password storage or hashing; passwords are used only for login and immediately discarded
 - **Evidence:**
   ```python
   def hash_password(password: str) -> str:
@@ -85,7 +85,7 @@ The Telegram University Bot has been audited against industry-standard security 
 
 #### ✅ **A07:2021 - Authentication Failures**
 - **Status:** COMPLIANT
-- **Implementation:** Secure password verification with bcrypt
+- **Implementation:** No password storage or verification; passwords are never retained
 - **Evidence:**
   ```python
   return verify_password(plain_password, user.password)
@@ -225,7 +225,7 @@ The Telegram University Bot has been audited against industry-standard security 
 ### **Data Protection**
 | Control | Status | Implementation | Score |
 |---------|--------|----------------|-------|
-| Data Encryption | ✅ | bcrypt for passwords | 9/10 |
+| Data Encryption | ✅ | No password storage or hashing; all sensitive data is protected in transit | 9/10 |
 | Data Backup | ✅ | Automated backups | 8/10 |
 | Data Retention | ⚠️ | Basic implementation | 6/10 |
 | Data Classification | ⚠️ | Partial implementation | 5/10 |

@@ -23,7 +23,6 @@
 - **Current & Old Term Grades:** Access both current and historical academic data
 
 ### 🔐 Security Level: A+
-- bcrypt password hashing with salt
 - Comprehensive security headers (CSP, HSTS, X-Frame-Options)
 - Security policy validation and input sanitization
 - SQL injection protection via SQLAlchemy ORM
@@ -165,7 +164,6 @@
 - ✅ A+ security level implementation
 - ✅ Comprehensive security headers (CSP, HSTS, X-Frame-Options)
 - ✅ Security policy validation and input sanitization
-- ✅ bcrypt password hashing
 - ✅ Input validation
 - ✅ SQL injection protection
 - ✅ GDPR compliance
