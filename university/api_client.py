@@ -289,33 +289,3 @@ class UniversityAPI:
         except Exception as e:
             logger.error(f"Error checking for course data: {e}", exc_info=True)
             return False
-
-# --- Silent migration mechanism ---
-MIGRATION_FLAG_FILE = "data/grades_migrated_v2.flag"
-
-def silent_migration_if_needed(bot_instance):
-    """
-    On first run after deploy/refactor, update all users' grades in storage without sending notifications.
-    Uses a persistent flag file to ensure this only happens once.
-    """
-    if os.path.exists(MIGRATION_FLAG_FILE):
-        return False  # Already migrated
-    logger.info("Running silent migration: updating all users' grades in storage, no notifications will be sent.")
-    users = bot_instance.user_storage.get_all_users()
-    for user in users:
-        token = user.get("token")
-        telegram_id = user.get("telegram_id")
-        if not token or not telegram_id:
-            continue
-        try:
-            user_data = asyncio.run(bot_instance.university_api.get_user_data(token))
-            if user_data and "grades" in user_data:
-                bot_instance.grade_storage.save_grades(telegram_id, user_data["grades"])
-        except Exception as e:
-            logger.error(f"Silent migration failed for user {telegram_id}: {e}")
-    with open(MIGRATION_FLAG_FILE, "w") as f:
-        f.write("done")
-    logger.info("Silent migration complete. No notifications sent. Future runs will notify as normal.")
-    return True
-
-# In bot/core.py, call silent_migration_if_needed(self) at the start of the grade checking loop.
