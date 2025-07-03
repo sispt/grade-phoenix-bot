@@ -11,7 +11,7 @@ from googletrans import Translator
 
 logger = logging.getLogger(__name__)
 
-async def translate_text(text: str, target_lang: str = "ar", max_retries: int = 5) -> str:
+async def translate_text(text: str, target_lang: str = "ar", max_retries: int = 10) -> str:
     """
     Asynchronously translate text to the target language using googletrans only.
     Uses official API parameters: service_urls, user_agent, and raise_exception.
@@ -56,7 +56,7 @@ async def translate_text(text: str, target_lang: str = "ar", max_retries: int = 
             logger.error(f"googletrans translation failed: {e}", exc_info=True)
             return None
     
-    # Retry logic with 5 attempts
+    # Retry logic with 10 attempts
     for attempt in range(1, max_retries + 1):
         try:
             logger.info(f"🔄 Translation attempt {attempt}/{max_retries} for text: '{text[:50]}...'")
@@ -85,6 +85,6 @@ async def translate_text(text: str, target_lang: str = "ar", max_retries: int = 
                 logger.info(f"⏳ Waiting {delay} seconds before retry...")
                 await asyncio.sleep(delay)
     
-    # All attempts failed
-    logger.error(f"❌ All {max_retries} translation attempts failed for text: '{text[:50]}...'")
+    # All attempts failed - fall back to English version
+    logger.error(f"❌ All {max_retries} translation attempts failed for text: '{text[:50]}...' - falling back to English")
     return text 
