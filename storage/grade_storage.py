@@ -50,7 +50,7 @@ class GradeStorage:
             logger.info(f"Grades saved for user {telegram_id}: {len(grades)} courses")
 
         except Exception as e:
-            logger.error(f"Error saving grades for user {telegram_id}: {e}")
+            logger.error(f"Error saving grades for user {telegram_id}: {e}", exc_info=True)
 
     def get_grades(self, telegram_id: int) -> List[Dict[str, Any]]:
         """Get grades for user"""
@@ -65,7 +65,7 @@ class GradeStorage:
                 return []
 
         except Exception as e:
-            logger.error(f"Error getting grades for user {telegram_id}: {e}")
+            logger.error(f"Error getting grades for user {telegram_id}: {e}", exc_info=True)
             return []
 
     def delete_grades(self, telegram_id: int) -> bool:
@@ -78,7 +78,7 @@ class GradeStorage:
                 return True
             return False
         except Exception as e:
-            logger.error(f"Error deleting grades for user {telegram_id}: {e}")
+            logger.error(f"Error deleting grades for user {telegram_id}: {e}", exc_info=True)
             return False
 
 
@@ -131,9 +131,9 @@ class PostgreSQLGradeStorage:
                 )
 
         except SQLAlchemyError as e:
-            logger.error(f"❌ Database error saving grades for user {telegram_id}: {e}")
+            logger.error(f"❌ Database error saving grades for user {telegram_id}: {e}", exc_info=True)
         except Exception as e:
-            logger.error(f"❌ Error saving grades for user {telegram_id}: {e}")
+            logger.error(f"❌ Error saving grades for user {telegram_id}: {e}", exc_info=True)
 
     def get_grades(self, telegram_id: int) -> List[Dict[str, Any]]:
         try:
@@ -152,11 +152,11 @@ class PostgreSQLGradeStorage:
                 ]
         except SQLAlchemyError as e:
             logger.error(
-                f"❌ Database error getting grades for user {telegram_id}: {e}"
+                f"❌ Database error getting grades for user {telegram_id}: {e}", exc_info=True
             )
             return []
         except Exception as e:
-            logger.error(f"❌ Error getting grades for user {telegram_id}: {e}")
+            logger.error(f"❌ Error getting grades for user {telegram_id}: {e}", exc_info=True)
             return []
 
     def delete_grades(self, telegram_id: int) -> bool:
@@ -172,9 +172,9 @@ class PostgreSQLGradeStorage:
                 return True
         except SQLAlchemyError as e:
             logger.error(
-                f"❌ Database error deleting grades for user {telegram_id}: {e}"
+                f"❌ Database error deleting grades for user {telegram_id}: {e}", exc_info=True
             )
             return False
         except Exception as e:
-            logger.error(f"❌ Error deleting grades for user {telegram_id}: {e}")
+            logger.error(f"❌ Error deleting grades for user {telegram_id}: {e}", exc_info=True)
             return False

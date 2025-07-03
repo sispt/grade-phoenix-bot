@@ -156,9 +156,11 @@ class UniversityAPI:
                     if response.status == 200:
                         data = await response.json()
                         if data.get("data", {}).get("getPage"):
-                            return self._parse_grades_from_graphql(
+                            grades = self._parse_grades_from_graphql(
                                 data["data"]["getPage"]
                             )
+                            logger.debug(f"[Grade Fetch] raw grades: {grades}")
+                            return grades
                         else:
                             logger.warning(f"No 'getPage' in API response for term {t_grade_id}: {data}")
                             return []
@@ -179,7 +181,9 @@ class UniversityAPI:
             for block in panel.get("blocks", []):
                 html_content = block.get("body", "")
                 if html_content and self._contains_course_data(html_content):
-                    all_grades.extend(self._parse_grades_table_html(html_content))
+                    grades = self._parse_grades_table_html(html_content)
+                    logger.debug(f"[Grade Parse] parsed grades: {grades}")
+                    all_grades.extend(grades)
         return all_grades
 
     def _parse_grades_table_html(self, html_content: str) -> List[Dict[str, Any]]:

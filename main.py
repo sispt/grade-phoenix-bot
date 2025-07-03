@@ -20,9 +20,8 @@ from storage.models import Base, DatabaseManager
 
 # Set up logging
 logging.basicConfig(
-    level=getattr(logging, CONFIG["LOG_LEVEL"]),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler(CONFIG["LOG_FILE"]), logging.StreamHandler()],
+    level=logging.DEBUG,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s'
 )
 logger = logging.getLogger(__name__)
 
