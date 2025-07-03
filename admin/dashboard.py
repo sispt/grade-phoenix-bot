@@ -15,6 +15,7 @@ from utils.keyboards import (
     get_user_management_keyboard,
     get_broadcast_confirmation_keyboard,
 )
+import aiohttp
 
 logger = logging.getLogger(__name__)
 
@@ -183,6 +184,18 @@ class AdminDashboard:
                     text=f"✅ تم إرسال رسالة اليوم إلى {sent} مستخدم. (فشل: {failed})",
                     reply_markup=get_enhanced_admin_dashboard_keyboard(),
                 )
+            elif action == "force_grade_check":
+                # Prompt admin to enter username
+                await query.edit_message_text(
+                    text="🛠️ أدخل اسم المستخدم (username) أو معرف التليجرام (ID) لفحص الدرجات وبيانات HTML:"
+                )
+                context.user_data["awaiting_force_grade_check"] = True
+            elif action.startswith("force_grade_refresh_only:"):
+                telegram_id = action.split(":", 1)[1]
+                await self._admin_force_grade_refresh_only(query, telegram_id)
+            elif action.startswith("force_grade_show_html:"):
+                telegram_id = action.split(":", 1)[1]
+                await self._admin_force_grade_show_html(query, telegram_id)
             else:
                 await query.edit_message_text(
                     f"Action '{action}' selected.",
@@ -444,3 +457,128 @@ class AdminDashboard:
                 logger.error(f"Quote broadcast failed for {user['telegram_id']}: {e}")
         logger.info(f"Quote broadcast summary: sent={sent}, failed={failed}, total={len(users)}")
         return sent, failed
+
+    async def handle_force_grade_check_message(self, update, context):
+        """
+        Handle admin reply for force grade check: prompt for action (refresh only or show HTML).
+        """
+        if not context.user_data.get("awaiting_force_grade_check"):
+            return False
+        query = update.message.text.strip()
+        users = self.user_storage.get_all_users()
+        user = next(
+            (u for u in users if query == str(u.get("telegram_id")) or query.lower() == (u.get("username", "").lower() or "")),
+            None,
+        )
+        if not user:
+            await update.message.reply_text(
+                "❌ لا يوجد مستخدم مطابق.",
+                reply_markup=get_enhanced_admin_dashboard_keyboard(),
+            )
+            context.user_data["awaiting_force_grade_check"] = False
+            return True
+        telegram_id = user.get("telegram_id")
+        username = user.get("username", "-")
+        # Prompt admin for action: refresh only or show HTML
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("🔄 تحديث فقط", callback_data=f"force_grade_refresh_only:{telegram_id}"),
+                InlineKeyboardButton("📝 عرض HTML الخام", callback_data=f"force_grade_show_html:{telegram_id}"),
+            ],
+            [InlineKeyboardButton("🔙 إلغاء", callback_data="back_to_dashboard")],
+        ])
+        await update.message.reply_text(
+            f"🛠️ اختر الإجراء المطلوب للمستخدم {username} ({telegram_id}):",
+            reply_markup=keyboard,
+        )
+        context.user_data["awaiting_force_grade_check"] = False
+        return True
+
+    async def _admin_force_grade_refresh_only(self, query, telegram_id):
+        """
+        Force refresh grades for a user and print summary (no HTML).
+        """
+        users = self.user_storage.get_all_users()
+        user = next((u for u in users if str(u.get("telegram_id")) == str(telegram_id)), None)
+        if not user:
+            await query.edit_message_text(
+                "❌ المستخدم غير موجود.",
+                reply_markup=get_enhanced_admin_dashboard_keyboard(),
+            )
+            return
+        token = user.get("token")
+        username = user.get("username", "-")
+        if not token:
+            await query.edit_message_text(
+                f"❌ لا يوجد رمز دخول لهذا المستخدم ({username}).",
+                reply_markup=get_enhanced_admin_dashboard_keyboard(),
+            )
+            return
+        try:
+            await query.edit_message_text(f"🔄 جاري تحديث الدرجات للمستخدم: {username} ({telegram_id})...")
+            api = self.bot.university_api
+            grades = await api.fetch_and_parse_grades(token, int(telegram_id))
+            if grades:
+                msg = f"✅ الدرجات الحالية للمستخدم {username} ({telegram_id}):\n"
+                for g in grades:
+                    msg += f"- {g.get('name', '-')}: {g.get('total', '-')}, الأعمال: {g.get('coursework', '-')}, النظري: {g.get('final_exam', '-')}, الكود: {g.get('code', '-')},\n"
+                await query.edit_message_text(msg[:4096])
+            else:
+                await query.edit_message_text("❌ لم يتم العثور على درجات.")
+        except Exception as e:
+            await query.edit_message_text(f"❌ حدث خطأ أثناء جلب الدرجات: {e}")
+
+    async def _admin_force_grade_show_html(self, query, telegram_id):
+        """
+        Fetch and show raw HTML for a user's grades (for troubleshooting).
+        """
+        users = self.user_storage.get_all_users()
+        user = next((u for u in users if str(u.get("telegram_id")) == str(telegram_id)), None)
+        if not user:
+            await query.edit_message_text(
+                "❌ المستخدم غير موجود.",
+                reply_markup=get_enhanced_admin_dashboard_keyboard(),
+            )
+            return
+        token = user.get("token")
+        username = user.get("username", "-")
+        if not token:
+            await query.edit_message_text(
+                f"❌ لا يوجد رمز دخول لهذا المستخدم ({username}).",
+                reply_markup=get_enhanced_admin_dashboard_keyboard(),
+            )
+            return
+        try:
+            await query.edit_message_text(f"📝 جاري جلب بيانات HTML للمستخدم: {username} ({telegram_id})...")
+            api = self.bot.university_api
+            known_term_ids = ["10459"]
+            raw_htmls = []
+            for term_id in known_term_ids:
+                headers = {**api.api_headers, "Authorization": f"Bearer {token}"}
+                payload = {
+                    "operationName": "getPage",
+                    "variables": {
+                        "name": "test_student_tracks",
+                        "params": [{"name": "t_grade_id", "value": term_id}],
+                    },
+                    "query": api.UNIVERSITY_QUERIES["GET_GRADES"] if hasattr(api, "UNIVERSITY_QUERIES") else api.api_queries["GET_GRADES"],
+                }
+                async with aiohttp.ClientSession(timeout=api.timeout) as session:
+                    async with session.post(api.api_url, headers=headers, json=payload) as response:
+                        if response.status == 200:
+                            data = await response.json()
+                            page = data.get("data", {}).get("getPage")
+                            if page and "panels" in page:
+                                for panel in page.get("panels", []):
+                                    for block in panel.get("blocks", []):
+                                        html_content = block.get("body", "")
+                                        if html_content:
+                                            raw_htmls.append(html_content)
+            if raw_htmls:
+                for i, html in enumerate(raw_htmls):
+                    html_preview = html[:1500] + ("..." if len(html) > 1500 else "")
+                    await query.edit_message_text(f"[HTML {i+1}]\n<pre>{html_preview}</pre>", parse_mode="HTML")
+            else:
+                await query.edit_message_text("❌ لم يتم العثور على بيانات HTML.")
+        except Exception as e:
+            await query.edit_message_text(f"❌ حدث خطأ أثناء جلب بيانات HTML: {e}")

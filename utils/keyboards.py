@@ -87,7 +87,7 @@ def get_enhanced_admin_dashboard_keyboard() -> InlineKeyboardMarkup:
         [
             InlineKeyboardButton("📢 بث رسالة للجميع", callback_data="broadcast"),
             InlineKeyboardButton(
-                "💭 إرسال حكمة اليوم", callback_data="send_quote_to_all"
+                "💬 إرسال حكمة اليوم", callback_data="send_quote_to_all"
             ),
             InlineKeyboardButton("📋 تقرير حالة النظام", callback_data="system_report"),
         ],
@@ -95,6 +95,10 @@ def get_enhanced_admin_dashboard_keyboard() -> InlineKeyboardMarkup:
         [
             InlineKeyboardButton("🔍 بحث عن مستخدم", callback_data="user_search"),
             InlineKeyboardButton("🗑️ حذف مستخدم", callback_data="delete_user"),
+        ],
+        # Troubleshooting utilities row
+        [
+            InlineKeyboardButton("🛠️ فحص درجات مستخدم", callback_data="force_grade_check"),
         ],
         # System actions
         [

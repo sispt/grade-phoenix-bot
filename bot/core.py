@@ -414,6 +414,11 @@ class TelegramBot:
                 if handled:
                     context.user_data.pop('awaiting_broadcast', None)
                     return
+            # Admin troubleshooting: force grade check utility
+            if context.user_data.get("awaiting_force_grade_check"):
+                handled = await self.admin_dashboard.handle_force_grade_check_message(update, context)
+                if handled:
+                    return
             # Error recovery actions
             if text in ["🔄 إعادة المحاولة", "🏠 العودة للرئيسية"]:
                 await self._handle_error_recovery(update, context)
