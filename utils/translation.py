@@ -56,7 +56,7 @@ async def translate_text(text: str, target_lang: str = "ar", max_retries: int = 
             logger.error(f"googletrans translation failed: {e}", exc_info=True)
             return None
     
-    # Retry logic with 10 attempts
+    # Retry logic with 10 attempts - all at once without delays
     for attempt in range(1, max_retries + 1):
         try:
             logger.info(f"🔄 Translation attempt {attempt}/{max_retries} for text: '{text[:50]}...'")
@@ -69,21 +69,11 @@ async def translate_text(text: str, target_lang: str = "ar", max_retries: int = 
                 return translated
             else:
                 logger.warning(f"⚠️ Translation attempt {attempt} failed - returned original text or empty result")
-                
-                # Add delay between retries (exponential backoff)
-                if attempt < max_retries:
-                    delay = min(2 ** attempt, 10)  # Max 10 seconds delay
-                    logger.info(f"⏳ Waiting {delay} seconds before retry...")
-                    await asyncio.sleep(delay)
+                # No delay - continue immediately to next attempt
                     
         except Exception as e:
             logger.error(f"❌ Translation attempt {attempt} failed with error: {e}")
-            
-            # Add delay between retries (exponential backoff)
-            if attempt < max_retries:
-                delay = min(2 ** attempt, 10)  # Max 10 seconds delay
-                logger.info(f"⏳ Waiting {delay} seconds before retry...")
-                await asyncio.sleep(delay)
+            # No delay - continue immediately to next attempt
     
     # All attempts failed - fall back to English version
     logger.error(f"❌ All {max_retries} translation attempts failed for text: '{text[:50]}...' - falling back to English")
