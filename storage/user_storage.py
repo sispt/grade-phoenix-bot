@@ -321,3 +321,22 @@ class PostgreSQLUserStorage:
         except Exception as e:
             logger.error(f"❌ Error updating token_expired_notified for user {telegram_id}: {e}")
             return False
+
+    def clear_user_token(self, telegram_id: int) -> bool:
+        """Clear the user's token to force a fresh login."""
+        try:
+            with self.db_manager.get_session() as session:
+                user = session.query(User).filter_by(telegram_id=telegram_id).first()
+                if user:
+                    user.token = None
+                    user.token_expired_notified = False
+                    session.commit()
+                    logger.info(f"✅ Cleared token for user {telegram_id}")
+                    return True
+                return False
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Database error clearing token for user {telegram_id}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"❌ Error clearing token for user {telegram_id}: {e}")
+            return False

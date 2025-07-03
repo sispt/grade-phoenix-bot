@@ -691,6 +691,24 @@ class TelegramBot:
             )
             return ConversationHandler.END
         
+        # Clear existing user data and session for relogin
+        existing_user = self.user_storage.get_user(user_id)
+        if existing_user:
+            logger.info(f"User {user_id} is relogging in. Clearing existing session.")
+            # Invalidate existing session
+            security_manager.invalidate_session(user_id)
+            # Clear user data from context
+            context.user_data.clear()
+            # Clear the user's token to force a fresh login
+            if hasattr(self.user_storage, 'clear_user_token'):
+                # PostgreSQL storage
+                self.user_storage.clear_user_token(user_id)
+            else:
+                # File storage
+                existing_user["token"] = None
+                existing_user["token_expired_notified"] = False
+                self.user_storage._save_users()
+        
         # Show security info message before asking for credentials
         await update.message.reply_text(get_credentials_security_info_message())
         
