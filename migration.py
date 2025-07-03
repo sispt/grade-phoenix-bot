@@ -51,6 +51,16 @@ def add_token_expired_notified_column():
         else:
             print("token_expired_notified column already exists.")
 
+def force_drop_password_column():
+    db_url = CONFIG["DATABASE_URL"]
+    engine = create_engine(db_url)
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE users DROP COLUMN IF EXISTS password;"))
+            print("Force-dropped password column from users table.")
+        except Exception as e:
+            print(f"Error force-dropping password column: {e}")
+
 def main():
     db_url = CONFIG.get("DATABASE_URL")
     if not db_url:
@@ -83,4 +93,5 @@ def main():
 
 if __name__ == "__main__":
     add_token_expired_notified_column()
+    force_drop_password_column()
     main() 
