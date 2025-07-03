@@ -1,6 +1,6 @@
 ![Project Logo](logo.png)
 
-# 🎓 Telegram University Bot
+# Notification Phoenix Bot
 
 **Version:** 1.0.0-dev | **Security Rating: A+** | **Status: Production Ready**
 
@@ -9,6 +9,23 @@
 [![Security](https://img.shields.io/badge/Security-A--Level-brightgreen)](docs/security/SECURITY_AUDIT.md)
 
 A secure, user-friendly Telegram bot for university students to receive grade notifications and academic updates with comprehensive security features and transparent credential handling.
+
+## About
+
+Notification Phoenix Bot is a sophisticated Telegram bot designed specifically for university students to stay informed about their academic progress. Built with security and privacy as top priorities, the bot provides real-time grade notifications, motivational content, and comprehensive analytics while ensuring that user credentials are never stored or compromised.
+
+### Key Principles
+- **Privacy First:** Your password is never stored - it's used only for login and immediately discarded
+- **Security by Design:** Enterprise-grade security features with transparent handling
+- **User-Friendly:** Simple, intuitive interface with dual-language support (Arabic/English)
+- **Academic Focus:** Tailored specifically for university students and their needs
+
+### What Makes It Special
+- **Zero Password Storage:** Unlike other bots, we never save your password
+- **Real-time Notifications:** Instant alerts when your grades change
+- **Motivational Support:** Daily quotes and encouragement to keep you motivated
+- **Comprehensive Analytics:** Detailed insights into your academic performance
+- **Admin Dashboard:** Powerful tools for administrators to manage and support users
 
 ## Features
 - Real-time grade notifications
@@ -48,7 +65,7 @@ Set the following environment variables:
 - `BOT_VERSION`: (optional) Version string (default: 1.0.0-dev)
 - `QUOTE_SCHEDULE`: (optional) Daily quote broadcast time (HH:MM, UTC+3)
 
-## 🔐 Security & Privacy
+## Security & Privacy
 
 **How your credentials are handled:**
 - **Your password is never stored or saved.**
@@ -65,16 +82,16 @@ MIT License. See [LICENSE](LICENSE) for details.
 ## Contact & Support
 For support, open an issue or contact the developer via Telegram: [@sisp_t](https://t.me/sisp_t)
 
-## 🚀 Features
+## Features
 
-### 📊 Core Features
+### Core Features
 - **Real-time Grade Notifications:** Instant alerts when grades change
 - **Grade Analytics:** Comprehensive analysis with insights and trends
 - **Motivational Quotes:** Contextual wisdom based on academic performance
 - **Grade History:** Track progress over time with detailed statistics
 - **Current & Old Term Grades:** Access both current and historical academic data
 
-### 🔐 Security & Privacy
+### Security & Privacy
 
 **How your credentials are handled:**
 
@@ -92,57 +109,57 @@ _This means your password is used only to log in to your university and is immed
 - **GDPR Compliance:** Full data protection and privacy policy
 - **Security Monitoring:** Real-time security statistics and alerts
 
-### 👨‍💼 Admin Features
+### Admin Features
 - **Admin Dashboard:** User analytics and management
 - **Broadcast System:** Send messages to all users
 - **User Management:** Search, view, and manage user accounts
 - **Security Statistics:** Real-time security monitoring dashboard
 - **Backup & Restore:** Automated data backup system
 
-### 🎯 Smart Features
+### Smart Features
 - **Automated Grade Checks:** Periodic background monitoring
 - **Multi-Storage Support:** PostgreSQL and file-based storage
 - **Automatic Migrations:** Database schema updates
 - **Contextual Quotes:** Philosophy-based motivational messages
 - **User Settings:** Customizable notification preferences
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 telegram_university_bot/
-├── 📁 admin/                 # Admin functionality
+├── admin/                 # Admin functionality
 │   ├── dashboard.py         # Admin dashboard
 │   └── broadcast.py         # Broadcast system
-├── 📁 bot/                   # Core bot logic
+├── bot/                   # Core bot logic
 │   └── core.py              # Main bot implementation
-├── 📁 security/              # Security modules
+├── security/              # Security modules
 │   ├── enhancements.py      # Security features
 │   ├── headers.py           # Security headers
 │   ├── input_validation.py  # Input validation
 │   └── transparency.py      # Security transparency
-├── 📁 storage/               # Data storage layer
+├── storage/               # Data storage layer
 │   ├── models.py            # Database models
 │   ├── user_storage.py      # User management
 │   ├── grade_storage.py     # Grade management
 │   └── credential_cache.py  # Credential caching
-├── 📁 university/            # University API integration
+├── university/            # University API integration
 │   └── api_client.py        # API client
-├── 📁 utils/                 # Utility modules
+├── utils/                 # Utility modules
 │   ├── messages.py          # Message templates
 │   ├── keyboards.py         # Bot keyboards
 │   ├── analytics.py         # Analytics utilities
 │   └── settings.py          # Settings management
-├── 📁 tests/                 # Test suite
+├── tests/                 # Test suite
 │   ├── api/                 # API tests
 │   ├── security/            # Security tests
 │   └── storage/             # Storage tests
-├── 📁 docs/                  # Documentation
+├── docs/                  # Documentation
 ├── main.py                  # Application entry point
 ├── config.py                # Configuration
 └── requirements.txt         # Dependencies
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Python 3.8+
@@ -175,7 +192,7 @@ python run_tests.py
 python main.py
 ```
 
-## 🔐 Security Implementation
+## Security Implementation
 
 ### **Authentication & Authorization**
 - **No Password Storage:** Passwords are never stored or hashed; used only for login and immediately discarded
