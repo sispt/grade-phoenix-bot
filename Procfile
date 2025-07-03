@@ -1,1 +1,1 @@
-web: python main.py
+web: bash -c 'if [ "$DATABASE_MIGRATE" = "true" ]; then python migration.py; fi; python main.py'

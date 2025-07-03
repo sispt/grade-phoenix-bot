@@ -83,7 +83,7 @@ class GradeAnalytics:
         return random.choice(fallback_quotes)
 
     async def format_quote_dual_language(self, quote) -> str:
-        """Format quote: "[EN]"\n"[AR]"\n[AUTHOR]. Only translate from English to Arabic. Always wrap quotes in double quotation marks."""
+        """Format quote: "[EN]"\n"[AR]"\n[AUTHOR]. Only translate from English to Arabic. Always wrap quotes in double quotation marks. Adds a disclaimer below the quote."""
         try:
             if isinstance(quote, dict):
                 text = quote.get('text', '')
@@ -97,20 +97,26 @@ class GradeAnalytics:
             if any('a' <= c.lower() <= 'z' for c in text):
                 translated = await translate_text(text, target_lang='ar')
                 if translated.strip() and translated.strip() != text.strip():
-                    return f'"{text}"\n"{translated}"' + (f'\n{author}' if author else '')
+                    quote_block = f'"{text}"\n"{translated}"' + (f'\n{author}' if author else '')
                 else:
-                    return f'"{text}"' + (f'\n{author}' if author else '')
+                    quote_block = f'"{text}"' + (f'\n{author}' if author else '')
             else:
                 # Not English, just show the text and author, quoted
-                return f'"{text}"' + (f'\n{author}' if author else '')
+                quote_block = f'"{text}"' + (f'\n{author}' if author else '')
+            disclaimer = "\n_ملاحظة: يتم جلب الاقتباسات آلياً من الإنترنت. المطور لا يختار أو يوافق على أي اقتباس._"
+            return f"{quote_block}{disclaimer}"
         except Exception as e:
             logger.warning(f"Quote translation failed: {e}")
             if isinstance(quote, dict):
                 text = quote.get('text', '')
                 author = quote.get('author', '')
-                return f'"{text}"' + (f'\n{author}' if author else '')
+                quote_block = f'"{text}"' + (f'\n{author}' if author else '')
+                disclaimer = "\n_ملاحظة: يتم جلب الاقتباسات آلياً من الإنترنت. المطور لا يختار أو يوافق على أي اقتباس._"
+                return f"{quote_block}{disclaimer}"
             else:
-                return f'"{quote}"'
+                quote_block = f'"{quote}"'
+                disclaimer = "\n_ملاحظة: يتم جلب الاقتباسات آلياً من الإنترنت. المطور لا يختار أو يوافق على أي اقتباس._"
+                return f"{quote_block}{disclaimer}"
 
     async def format_old_grades_with_analysis(
         self, telegram_id: int, old_grades: List[Dict[str, Any]]

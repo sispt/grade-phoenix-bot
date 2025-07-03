@@ -7,6 +7,7 @@ Runs all tests from organized test folders
 import sys
 import os
 import subprocess
+import re
 
 
 def run_pytest_tests():
@@ -19,8 +20,14 @@ def run_pytest_tests():
     sys.path.insert(0, project_root)
 
     # Set environment variables for consistent testing
+    SEMVER_REGEX = r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$'
     env = os.environ.copy()
-    env["BOT_VERSION"] = "2.5.7"
+    raw_version = os.getenv("BOT_VERSION", "1.0.0-dev")
+    if re.match(SEMVER_REGEX, raw_version):
+        validated_version = raw_version
+    else:
+        validated_version = "1.0.0-dev"
+    env["BOT_VERSION"] = validated_version
 
     # Run pytest on all test directories
     test_dirs = ["tests/storage", "tests/security", "tests/api"]
@@ -81,7 +88,7 @@ def run_manual_tests():
 
 def main():
     """Main test runner"""
-    print("🚀 Telegram University Bot v2.5.7 - Comprehensive Test Suite")
+    print(f"\U0001F680 Telegram University Bot v{os.getenv('BOT_VERSION', '1.0.0-dev')} - Comprehensive Test Suite")
     print("=" * 60)
 
     # Run pytest tests

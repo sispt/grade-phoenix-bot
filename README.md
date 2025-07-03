@@ -2,13 +2,68 @@
 
 # 🎓 Telegram University Bot
 
-**Version: 2.5.7** | **Security Rating: A+** | **Status: Production Ready**
+**Version:** 1.0.0-dev | **Security Rating: A+** | **Status: Production Ready**
 
 [![Tests](https://img.shields.io/badge/Tests-20%2F20%20Passing-brightgreen)](run_tests.py)
 [![Python](https://img.shields.io/badge/Python-3.12-blue)](requirements.txt)
 [![Security](https://img.shields.io/badge/Security-A--Level-brightgreen)](docs/security/SECURITY_AUDIT.md)
 
 A secure, user-friendly Telegram bot for university students to receive grade notifications and academic updates with comprehensive security features and transparent credential handling.
+
+## Features
+- Real-time grade notifications
+- No password storage: passwords are used only for login and immediately discarded
+- Token-based session management
+- Dual-language (Arabic/English) motivational quotes
+- Admin dashboard and broadcast system
+- Security event logging and statistics
+- Comprehensive security headers (CSP, HSTS, X-Frame-Options)
+- Automated database migration for no-password-storage policy
+
+## Installation
+1. Clone the repository:
+   ```bash
+   git clone <repo-url>
+   cd gradenotification_bot
+   ```
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Set environment variables (see below).
+4. Run the bot:
+   ```bash
+   python main.py
+   ```
+
+## Usage
+- Start the bot and follow the instructions in Telegram.
+- Use the main keyboard to access grades, settings, and support.
+- Admins can access the dashboard for analytics and broadcasts.
+
+## Configuration
+Set the following environment variables:
+- `TELEGRAM_TOKEN`: Your Telegram bot token
+- `DATABASE_URL`: Database connection string (PostgreSQL or SQLite)
+- `BOT_VERSION`: (optional) Version string (default: 1.0.0-dev)
+- `QUOTE_SCHEDULE`: (optional) Daily quote broadcast time (HH:MM, UTC+3)
+
+## 🔐 Security & Privacy
+
+**How your credentials are handled:**
+- **Your password is never stored or saved.**
+- **We use a temporary login token to keep your account safe.**
+- **You always see a message in the bot confirming this when you log in.**
+
+_This means your password is used only to log in to your university and is immediately discarded. Your data and privacy are fully protected._
+
+**Current Version:** 1.0.0-dev
+
+## License
+MIT License. See [LICENSE](LICENSE) for details.
+
+## Contact & Support
+For support, open an issue or contact the developer via Telegram: [@sisp_t](https://t.me/sisp_t)
 
 ## 🚀 Features
 
@@ -20,6 +75,15 @@ A secure, user-friendly Telegram bot for university students to receive grade no
 - **Current & Old Term Grades:** Access both current and historical academic data
 
 ### 🔐 Security & Privacy
+
+**How your credentials are handled:**
+
+- **Your password is never stored or saved.**
+- **We use a temporary login token to keep your account safe.**
+- **You always see a message in the bot confirming this when you log in.**
+
+_This means your password is used only to log in to your university and is immediately discarded. Your data and privacy are fully protected._
+
 - **Enterprise Security:** Rate limiting, audit logging
 - **Security Headers:** Comprehensive security headers (CSP, HSTS, X-Frame-Options)
 - **User Transparency:** Clear explanation of credential handling
@@ -185,7 +249,7 @@ python -m pytest tests/storage/
 | `TELEGRAM_TOKEN` | Telegram bot token | ✅ | - |
 | `ADMIN_ID` | Admin Telegram ID | ✅ | - |
 | `DATABASE_URL` | PostgreSQL connection | ❌ | SQLite |
-| `BOT_VERSION` | Bot version | ❌ | dev |
+| `BOT_VERSION` | Bot version | ✅ | Set via env var (default: 1.0.0-dev) |
 | `GRADE_CHECK_INTERVAL` | Check interval (minutes) | ❌ | 15 |
 | `QUOTE_SCHEDULE` | Daily quote broadcast time | ❌ | 14:00 |
 
@@ -240,7 +304,7 @@ For support and questions:
 
 **Last Updated:** December 2024  
 **Security Rating:** A+ (Enterprise-grade)  
-**Version:** 2.5.7
+**Version:** Set via BOT_VERSION env var (default: 1.0.0-dev)
 
 ## Quote and Translation System (Updated)
 

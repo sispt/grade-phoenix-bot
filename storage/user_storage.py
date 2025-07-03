@@ -13,7 +13,6 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from config import CONFIG
 from storage.models import User, DatabaseManager
-from security.enhancements import hash_password
 
 logger = logging.getLogger(__name__)
 
@@ -62,9 +61,6 @@ class UserStorage:
     ):
         """Save or update user data"""
         try:
-            # Hash password for secure storage
-            hashed_password = hash_password(password)
-
             # Check if user already exists
             existing_user = None
             for user in self.users:
@@ -75,7 +71,7 @@ class UserStorage:
             user_info = {
                 "telegram_id": telegram_id,
                 "username": username,
-                "password": hashed_password,
+                "password": None,  # Password is not stored
                 "token": token,
                 "firstname": user_data.get("firstname"),
                 "lastname": user_data.get("lastname"),
@@ -90,13 +86,13 @@ class UserStorage:
                 # Update existing user
                 existing_user.update(user_info)
                 logger.info(
-                    f"✅ User {username} (ID: {telegram_id}) updated in file storage with hashed password."
+                    f"✅ User {username} (ID: {telegram_id}) updated in file storage."
                 )
             else:
                 # Add new user
                 self.users.append(user_info)
                 logger.info(
-                    f"✅ User {username} (ID: {telegram_id}) saved to file storage with hashed password."
+                    f"✅ User {username} (ID: {telegram_id}) saved to file storage."
                 )
 
             self._save_users()
@@ -172,13 +168,9 @@ class PostgreSQLUserStorage:
                 fullname = user_data.get("fullname")
                 email = user_data.get("email")
 
-                # Hash password for secure storage
-                hashed_password = hash_password(password)
-
                 if user:
                     # Update existing user
                     user.username = username
-                    user.password = hashed_password  # Store hashed password
                     user.token = token
                     user.firstname = firstname
                     user.lastname = lastname
@@ -187,14 +179,13 @@ class PostgreSQLUserStorage:
                     user.last_login = datetime.utcnow()
                     user.is_active = True
                     logger.info(
-                        f"✅ User {username} (ID: {telegram_id}) updated in PostgreSQL with hashed password."
+                        f"✅ User {username} (ID: {telegram_id}) updated in PostgreSQL."
                     )
                 else:
                     # Create new user
                     new_user = User(
                         telegram_id=telegram_id,
                         username=username,
-                        password=hashed_password,  # Store hashed password
                         token=token,
                         firstname=firstname,
                         lastname=lastname,
@@ -206,7 +197,7 @@ class PostgreSQLUserStorage:
                     )
                     session.add(new_user)
                     logger.info(
-                        f"✅ User {username} (ID: {telegram_id}) saved to PostgreSQL with hashed password."
+                        f"✅ User {username} (ID: {telegram_id}) saved to PostgreSQL."
                     )
 
                 session.commit()
@@ -226,7 +217,7 @@ class PostgreSQLUserStorage:
                     return {
                         "telegram_id": user.telegram_id,
                         "username": user.username,
-                        "password": user.password,
+                        "password": None,  # Password is not stored
                         "token": user.token,
                         "firstname": user.firstname,
                         "lastname": user.lastname,
@@ -258,7 +249,7 @@ class PostgreSQLUserStorage:
                     {
                         "telegram_id": user.telegram_id,
                         "username": user.username,
-                        "password": user.password,
+                        "password": None,  # Password is not stored
                         "token": user.token,
                         "firstname": user.firstname,
                         "lastname": user.lastname,

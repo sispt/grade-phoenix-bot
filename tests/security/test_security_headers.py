@@ -9,6 +9,15 @@ from security.headers import (
     security_headers,
     security_policy,
 )
+import os
+import re
+
+SEMVER_REGEX = r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$'
+raw_version = os.getenv("BOT_VERSION", "1.0.0-dev")
+if re.match(SEMVER_REGEX, raw_version):
+    expected_version = raw_version
+else:
+    expected_version = "1.0.0-dev"
 
 
 class TestSecurityHeaders:
@@ -168,7 +177,7 @@ class TestSecurityPolicy:
         policy = SecurityPolicy()
         report = policy.get_security_report()
 
-        assert report["policy_version"] == "2.5.7"
+        assert report["policy_version"] == expected_version
         assert len(report["allowed_domains"]) > 0
         assert report["blocked_patterns_count"] > 0
         assert report["security_level"] == "HIGH"
@@ -191,7 +200,7 @@ class TestGlobalInstances:
         assert isinstance(security_policy, SecurityPolicy)
 
         report = security_policy.get_security_report()
-        assert report["policy_version"] == "2.5.7"
+        assert report["policy_version"] == expected_version
 
 
 if __name__ == "__main__":

@@ -2,7 +2,6 @@
 🔐 Credential Test Cache System
 """
 
-import hashlib
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
@@ -21,18 +20,14 @@ class CredentialCache:
         self.db_manager = database_manager
         self.cache_duration_hours = CONFIG.get("CREDENTIAL_CACHE_DURATION_HOURS", 24)
 
-    def _hash_password(self, password: str) -> str:
-        """Hash password for secure storage"""
-        return hashlib.sha256(password.encode()).hexdigest()
+    def _get_cache_key(self, username: str) -> str:
+        """Get cache key component (username only)"""
+        return username
 
-    def _get_cache_key(self, username: str, password: str) -> Tuple[str, str]:
-        """Get cache key components"""
-        return username, self._hash_password(password)
-
-    def is_credential_tested(self, username: str, password: str) -> bool:
+    def is_credential_tested(self, username: str) -> bool:
         """Check if credentials have been tested recently"""
         try:
-            username_key, password_hash = self._get_cache_key(username, password)
+            username_key = self._get_cache_key(username)
 
             with self.db_manager.get_session() as session:
                 # Check for recent test within cache duration
@@ -44,7 +39,6 @@ class CredentialCache:
                     session.query(CredentialTest)
                     .filter(
                         CredentialTest.username == username_key,
-                        CredentialTest.password_hash == password_hash,
                         CredentialTest.test_date >= cache_cutoff,
                     )
                     .first()
@@ -60,11 +54,11 @@ class CredentialCache:
             return False
 
     def get_cached_result(
-        self, username: str, password: str
+        self, username: str
     ) -> Optional[Dict[str, Any]]:
         """Get cached test result for credentials"""
         try:
-            username_key, password_hash = self._get_cache_key(username, password)
+            username_key = self._get_cache_key(username)
 
             with self.db_manager.get_session() as session:
                 # Get most recent test result
@@ -76,7 +70,6 @@ class CredentialCache:
                     session.query(CredentialTest)
                     .filter(
                         CredentialTest.username == username_key,
-                        CredentialTest.password_hash == password_hash,
                         CredentialTest.test_date >= cache_cutoff,
                     )
                     .order_by(CredentialTest.test_date.desc())
@@ -95,7 +88,6 @@ class CredentialCache:
     def cache_test_result(
         self,
         username: str,
-        password: str,
         test_result: bool,
         error_message: Optional[str] = None,
         response_time_ms: Optional[int] = None,
@@ -104,13 +96,12 @@ class CredentialCache:
     ):
         """Cache test result for credentials"""
         try:
-            username_key, password_hash = self._get_cache_key(username, password)
+            username_key = self._get_cache_key(username)
 
             with self.db_manager.get_session() as session:
                 # Create new test record
                 test_record = CredentialTest(
                     username=username_key,
-                    password_hash=password_hash,
                     test_result=test_result,
                     test_date=datetime.utcnow(),
                     error_message=error_message,

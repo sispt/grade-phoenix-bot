@@ -452,6 +452,8 @@ class TelegramBot:
                 "🔙 العودة": self._return_to_main,
                 # New: How does the bot work?
                 "❓ كيف يعمل البوت؟": self._how_it_works_command,
+                # Logout action
+                "🚪 تسجيل الخروج": self._logout_command,
             }
             action = actions.get(text)
             if action:
@@ -688,6 +690,12 @@ class TelegramBot:
         
         context.user_data['username'] = username
         await update.message.reply_text("يرجى إدخال كلمة المرور:")
+        await update.message.reply_text(
+            "🔒 ملاحظة: كلمة المرور لا تُخزن نهائياً وتُستخدم فقط لتسجيل الدخول. بياناتك آمنة بالكامل.\n"
+            "نستخدم رمز دخول مؤقت (Token) بدلاً من كلمة المرور لحماية حسابك.\n"
+            "_Note: Your password is never stored and is used only for login. Your data is fully secure._\n"
+            "We use a temporary login token instead of your password to keep your account safe."
+        )
         return ASK_PASSWORD
 
     async def _register_password(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -847,3 +855,18 @@ class TelegramBot:
                         logger.warning(f"Failed to send quote to {telegram_id}: {e}")
         except Exception as e:
             logger.error(f"Error in _broadcast_quote: {e}")
+
+    async def _logout_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        telegram_id = update.effective_user.id
+        # Invalidate session
+        security_manager.invalidate_session(telegram_id)
+        # Remove token and mark as unregistered
+        user = self.user_storage.get_user(telegram_id)
+        if user:
+            user["token"] = None
+            user["is_active"] = False
+            self.user_storage._save_users()
+        await update.message.reply_text(
+            "✅ تم تسجيل الخروج بنجاح. يمكنك تسجيل الدخول مرة أخرى في أي وقت.",
+            reply_markup=get_unregistered_keyboard()
+        )

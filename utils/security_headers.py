@@ -8,6 +8,7 @@ import logging
 from typing import Dict, Any
 from datetime import datetime, timedelta
 import secrets
+from config import CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +178,7 @@ class SecurityPolicy:
     def get_security_report(self) -> Dict[str, Any]:
         """Get security policy report"""
         return {
-            "policy_version": "2.5.7",
+            "policy_version": CONFIG.get("BOT_VERSION", "1.0.0-dev"),
             "allowed_domains": self.allowed_domains,
             "blocked_patterns_count": len(self.blocked_patterns),
             "security_level": "HIGH",

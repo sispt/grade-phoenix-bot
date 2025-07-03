@@ -7,7 +7,6 @@ Implements rate limiting, audit logging, session management, and input validatio
 import logging
 import json
 import validators
-import bcrypt
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Any
 from collections import defaultdict
@@ -344,43 +343,6 @@ class SecurityManager:
                 [e for e in recent_events if e.risk_level in ["HIGH", "CRITICAL"]]
             ),
         }
-
-
-# Password security functions
-def hash_password(password: str) -> str:
-    """Hash a password using bcrypt with salt"""
-    try:
-        password_bytes = password.encode("utf-8")
-        salt = bcrypt.gensalt()
-        hashed = bcrypt.hashpw(password_bytes, salt)
-        return hashed.decode("utf-8")
-    except Exception as e:
-        logger.error(f"Error hashing password: {e}")
-        raise
-
-
-def verify_password(password: str, hashed_password: str) -> bool:
-    """Verify a password against its hash"""
-    try:
-        password_bytes = password.encode("utf-8")
-        hashed_bytes = hashed_password.encode("utf-8")
-        return bcrypt.checkpw(password_bytes, hashed_bytes)
-    except Exception as e:
-        logger.error(f"Error verifying password: {e}")
-        return False
-
-
-def is_password_hashed(password: str) -> bool:
-    """Check if a password is already hashed"""
-    return password.startswith("$2b$") and len(password) == 60
-
-
-def migrate_plain_password(password: str) -> str:
-    """Migrate a plain text password to hashed format"""
-    if is_password_hashed(password):
-        return password
-    else:
-        return hash_password(password)
 
 
 # Input validation functions

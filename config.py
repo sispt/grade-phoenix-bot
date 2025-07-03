@@ -3,6 +3,23 @@ Configuration for the Telegram University Bot.
 """
 
 import os
+import re
+import logging
+
+# SemVer BNF regex
+SEMVER_REGEX = r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$'
+
+# Configure logging for config validation
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("config")
+
+# Get version from env
+raw_version = os.getenv("BOT_VERSION", "1.0.0-dev")
+if re.match(SEMVER_REGEX, raw_version):
+    validated_version = raw_version
+else:
+    logger.error(f"Invalid BOT_VERSION '{raw_version}' (must be valid SemVer). Using '0.0.0-invalid'.")
+    validated_version = "0.0.0-invalid"
 
 # Bot Configuration
 CONFIG = {
@@ -23,7 +40,7 @@ CONFIG = {
     "UNIVERSITY_NAME": "جامعة الشام",
     # Bot Settings
     "BOT_NAME": "grade-phoenix-bot",
-    "BOT_VERSION": os.getenv("BOT_VERSION", "dev"),
+    "BOT_VERSION": validated_version,
     "BOT_DESCRIPTION": "بوت متقدم لإشعارات الدرجات مع لوحة تحكم إدارية شاملة - grade-phoenix-bot",
     # Check Interval (in minutes)
     "GRADE_CHECK_INTERVAL": int(
@@ -273,7 +290,7 @@ ERROR_MESSAGES = {
     "NETWORK_ERROR": "🌐 تحقق من الاتصال وحاول مرة أخرى.",
     "API_ERROR": "🔧 جاري إصلاح النظام، حاول بعد قليل.",
     "TOKEN_EXPIRED": "⏰ انتهت الجلسة، سجل دخولك مرة أخرى.",
-    "NO_GRADES": "📚 لا توجد درجات حالياً، سنخبرك فور توفرها.",
+    "NO_GRADES": "�� لا توجد درجات حالياً، سنخبرك فور توفرها.",
     "GENERAL_ERROR": "🤝 حدث شيء غير متوقع، نحن هنا لمساعدتك.",
 }
 

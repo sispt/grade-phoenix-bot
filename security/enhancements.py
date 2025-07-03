@@ -6,7 +6,6 @@ Implements rate limiting, audit logging, session management, and input validatio
 import logging
 import json
 import validators
-import bcrypt
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Any
 from collections import defaultdict
@@ -348,34 +347,6 @@ class SecurityManager:
 
 # Global security manager instance
 security_manager = SecurityManager()
-
-
-# Password hashing functions
-def hash_password(password: str) -> str:
-    """Hash password using bcrypt"""
-    password_bytes = password.encode("utf-8")
-    salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(password_bytes, salt)
-    return hashed.decode("utf-8")
-
-
-def verify_password(password: str, hashed_password: str) -> bool:
-    """Verify password against hash"""
-    password_bytes = password.encode("utf-8")
-    hashed_bytes = hashed_password.encode("utf-8")
-    return bcrypt.checkpw(password_bytes, hashed_bytes)
-
-
-def is_password_hashed(password: str) -> bool:
-    """Check if password is already hashed"""
-    return password.startswith("$2b$")
-
-
-def migrate_plain_password(password: str) -> str:
-    """Migrate plain text password to hash"""
-    if is_password_hashed(password):
-        return password
-    return hash_password(password)
 
 
 # Input validation functions

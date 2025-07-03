@@ -33,7 +33,7 @@ class User(Base):
         BigInteger, unique=True, nullable=False, index=True
     )  # CRITICAL: BigInteger for Telegram IDs
     username = Column(String(100), nullable=False)
-    password = Column(String(255), nullable=False)  # Hashed password for verification
+    password = Column(String(255), nullable=True)  # Password is not stored; field kept for legacy compatibility
     token = Column(String(500), nullable=True)
     firstname = Column(String(100), nullable=True)
     lastname = Column(String(100), nullable=True)
@@ -83,7 +83,6 @@ class CredentialTest(Base):
 
     id = Column(Integer, primary_key=True)
     username = Column(String(100), nullable=False, index=True)
-    password_hash = Column(String(255), nullable=False)
     test_result = Column(Boolean, nullable=False)
     test_date = Column(DateTime, default=datetime.utcnow, nullable=False)
     error_message = Column(String(500), nullable=True)
@@ -96,7 +95,6 @@ class CredentialTest(Base):
         return {
             "id": self.id,
             "username": self.username,
-            "password_hash": self.password_hash,
             "test_result": self.test_result,
             "test_date": (
                 self.test_date.isoformat() if self.test_date is not None else None
