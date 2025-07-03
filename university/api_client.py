@@ -103,7 +103,7 @@ class UniversityAPI:
         """Get old grades using the old term ID, auto-detect if needed"""
         try:
             logger.info("🔍 Fetching old grades with term ID 8530...")
-            old_grades = await self._get_term_grades(token, "8530")
+            old_grades = await self._get_term_grades(token, "8530", user_id=0)
             if old_grades:
                 logger.info(f"✅ Found {len(old_grades)} old grades for term 8530")
                 return old_grades
@@ -113,7 +113,7 @@ class UniversityAPI:
             fallback_terms = ["10458", "10457", "10456"]
             for term_id in fallback_terms:
                 logger.info(f"🔍 Trying fallback term ID: {term_id}")
-                old_grades = await self._get_term_grades(token, term_id)
+                old_grades = await self._get_term_grades(token, term_id, user_id=0)
                 if old_grades:
                     logger.info(f"✅ Found {len(old_grades)} old grades for term {term_id}")
                     return old_grades
@@ -129,16 +129,35 @@ class UniversityAPI:
         known_term_ids = ["10459"]  # 2nd term 2024-2025 (current)
         for term_id in known_term_ids:
             logger.info(f"📊 Fetching grades for term ID: {term_id}")
-            term_grades = await self._get_term_grades(token, term_id)
+            term_grades = await self._get_term_grades(token, term_id, user_id=0)
             if term_grades:
                 logger.info(f"✅ Found {len(term_grades)} grades for term ID {term_id}")
                 all_grades.extend(term_grades)
         logger.info(f"🎉 Total grades retrieved: {len(all_grades)}")
         return all_grades
 
-    async def _get_term_grades(
-        self, token: str, t_grade_id: str
-    ) -> List[Dict[str, Any]]:
+    async def fetch_and_parse_grades(self, token: str, user_id: int) -> list:
+        """
+        Fetch grades for a user, log all steps, and handle errors robustly.
+        Returns a list of parsed grades or an empty list on error.
+        """
+        try:
+            logger.info(f"[Grade Fetch] Starting grade fetch for user {user_id}")
+            all_grades = []
+            known_term_ids = ["10459"]  # Example: current term
+            for term_id in known_term_ids:
+                logger.info(f"[Grade Fetch] User {user_id} - Fetching grades for term ID: {term_id}")
+                term_grades = await self._get_term_grades(token, term_id, user_id)
+                if term_grades:
+                    logger.info(f"[Grade Fetch] User {user_id} - Found {len(term_grades)} grades for term ID {term_id}")
+                    all_grades.extend(term_grades)
+            logger.info(f"[Grade Fetch] User {user_id} - Total grades retrieved: {len(all_grades)}")
+            return all_grades
+        except Exception as e:
+            logger.error(f"[Grade Fetch] Error fetching grades for user {user_id}: {e}", exc_info=True)
+            return []
+
+    async def _get_term_grades(self, token: str, t_grade_id: str, user_id: int) -> list:
         try:
             headers = {**self.api_headers, "Authorization": f"Bearer {token}"}
             payload = {
@@ -155,76 +174,65 @@ class UniversityAPI:
                 ) as response:
                     if response.status == 200:
                         data = await response.json()
+                        logger.debug(f"[Grade Fetch] User {user_id} - Raw API response: {data}")
                         if data.get("data", {}).get("getPage"):
                             grades = self._parse_grades_from_graphql(
-                                data["data"]["getPage"]
+                                data["data"]["getPage"], user_id
                             )
-                            logger.debug(f"[Grade Fetch] raw grades: {grades}")
+                            logger.debug(f"[Grade Parse] User {user_id} - Parsed grades: {grades}")
                             return grades
                         else:
-                            logger.warning(f"No 'getPage' in API response for term {t_grade_id}: {data}")
+                            logger.warning(f"[Grade Fetch] User {user_id} - No 'getPage' in API response for term {t_grade_id}: {data}")
                             return []
                     else:
-                        logger.error(f"API returned status {response.status} for term {t_grade_id}")
+                        logger.error(f"[Grade Fetch] User {user_id} - API returned status {response.status} for term {t_grade_id}")
                         return []
         except Exception as e:
-            logger.error(f"Error getting term grades for {t_grade_id}: {e}", exc_info=True)
+            logger.error(f"[Grade Fetch] Error getting term grades for user {user_id}, term {t_grade_id}: {e}", exc_info=True)
             return []
 
-    def _parse_grades_from_graphql(
-        self, page_data: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
+    def _parse_grades_from_graphql(self, page_data: dict, user_id: int) -> list:
         all_grades = []
         if not page_data or "panels" not in page_data:
+            logger.warning(f"[Grade Parse] User {user_id} - No panels in page data.")
             return []
         for panel in page_data.get("panels", []):
             for block in panel.get("blocks", []):
                 html_content = block.get("body", "")
                 if html_content and self._contains_course_data(html_content):
                     grades = self._parse_grades_table_html(html_content)
-                    logger.debug(f"[Grade Parse] parsed grades: {grades}")
+                    logger.debug(f"[Grade Parse] User {user_id} - Parsed grades from HTML: {grades}")
                     all_grades.extend(grades)
         return all_grades
 
     def _parse_grades_table_html(self, html_content: str) -> List[Dict[str, Any]]:
+        """
+        Improved parser: Extracts all courses (code, name, coursework, final_exam, total) from the HTML using BeautifulSoup, matching the robust script logic.
+        """
         try:
-            grades, soup = [], BeautifulSoup(html_content, "html.parser")
+            grades = []
+            soup = BeautifulSoup(html_content, "html.parser")
             tables = soup.find_all("table")
-            if not tables:
-                return []
-            HEADER_MAPPING = {
-                "المقرر": "name",
-                "كود المادة": "code",
-                "رصيد ECTS": "ects",
-                "درجة الأعمال": "coursework",
-                "درجة النظري": "final_exam",
-                "الدرجة": "total",
-            }
             for table in tables:
-                header_row = table.find("thead") or table.find("tr")
-                if not header_row:
-                    continue
-                headers, column_map = header_row.find_all(["th", "td"]), {}
-                for index, th in enumerate(headers):
-                    header_text = th.get_text(strip=True).lower()
-                    for map_key, standard_key in HEADER_MAPPING.items():
-                        if map_key in header_text:
-                            column_map[standard_key] = index
-                            break
-                if "name" not in column_map:
-                    continue
-                data_rows = (table.find("tbody") or table).find_all("tr")[1:]
-                for row in data_rows:
-                    cells = row.find_all("td")
-                    if len(cells) < len(column_map):
-                        continue
-                    grade_entry = {
-                        key: cells[index].get_text(strip=True)
-                        for key, index in column_map.items()
-                        if index < len(cells)
-                    }
-                    if grade_entry.get("name"):
-                        grades.append(grade_entry)
+                headers = [th.get_text(strip=True) for th in table.find_all("th")]
+                # Look for course table by header
+                if any("المقرر" in h or "Course" in h for h in headers):
+                    rows = table.find_all("tr")[1:]  # skip header
+                    for row in rows:
+                        cells = row.find_all("td")
+                        if len(cells) < 2:
+                            continue
+                        course = {
+                            "name": cells[0].get_text(strip=True),
+                            "code": cells[1].get_text(strip=True) if len(cells) > 1 else "",
+                            "ects": cells[2].get_text(strip=True) if len(cells) > 2 else "",
+                            "coursework": cells[3].get_text(strip=True) if len(cells) > 3 else "",
+                            "final_exam": cells[4].get_text(strip=True) if len(cells) > 4 else "",
+                            "total": cells[5].get_text(strip=True) if len(cells) > 5 else "",
+                        }
+                        grades.append(course)
+            if not grades:
+                logger.warning("No courses found in HTML table.")
             return grades
         except Exception as e:
             logger.error(f"Error during HTML table parsing: {e}", exc_info=True)
