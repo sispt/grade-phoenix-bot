@@ -86,7 +86,24 @@ class TelegramBot:
         await self.app.initialize()
         await self.app.start()
         port = int(os.environ.get("PORT", 8443))
-        webhook_url = os.getenv("WEBHOOK_URL", f"https://{os.getenv('RAILWAY_STATIC_URL', 'your-app-name.up.railway.app')}/{CONFIG['TELEGRAM_TOKEN']}")
+        
+        # Get Railway URL - try multiple environment variables
+        railway_app_name = os.getenv("RAILWAY_APP_NAME")
+        railway_url = (
+            os.getenv("WEBHOOK_URL") or 
+            os.getenv("RAILWAY_STATIC_URL") or 
+            os.getenv("RAILWAY_PUBLIC_DOMAIN") or
+            os.getenv("RAILWAY_DOMAIN") or
+            (f"{railway_app_name}.up.railway.app" if railway_app_name else None) or
+            "your-app-name.up.railway.app"  # fallback
+        )
+        
+        # Construct webhook URL
+        webhook_url = f"https://{railway_url}/{CONFIG['TELEGRAM_TOKEN']}"
+        
+        logger.info(f"🌐 Webhook URL: {webhook_url}")
+        logger.info(f"🔧 Railway URL source: {railway_url}")
+        
         await self.app.updater.start_webhook(listen="0.0.0.0", port=port, url_path=CONFIG["TELEGRAM_TOKEN"], webhook_url=webhook_url)
         logger.info(f"✅ Bot started on webhook: {webhook_url}")
 
