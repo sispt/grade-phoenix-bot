@@ -89,17 +89,26 @@ class TelegramBot:
         
         # Get Railway URL - try multiple environment variables
         railway_app_name = os.getenv("RAILWAY_APP_NAME")
-        railway_url = (
-            os.getenv("WEBHOOK_URL") or 
-            os.getenv("RAILWAY_STATIC_URL") or 
-            os.getenv("RAILWAY_PUBLIC_DOMAIN") or
-            os.getenv("RAILWAY_DOMAIN") or
-            (f"{railway_app_name}.up.railway.app" if railway_app_name else None) or
-            "your-app-name.up.railway.app"  # fallback
-        )
         
-        # Construct webhook URL
-        webhook_url = f"https://{railway_url}/{CONFIG['TELEGRAM_TOKEN']}"
+        # Check if WEBHOOK_URL is already a complete URL
+        webhook_url_env = os.getenv("WEBHOOK_URL")
+        if webhook_url_env and webhook_url_env.startswith("https://"):
+            # WEBHOOK_URL is already complete, use it directly
+            webhook_url = webhook_url_env
+            railway_url = webhook_url_env.replace(f"/{CONFIG['TELEGRAM_TOKEN']}", "")
+        else:
+            # Construct from Railway domain
+            railway_url = (
+                webhook_url_env or 
+                os.getenv("RAILWAY_STATIC_URL") or 
+                os.getenv("RAILWAY_PUBLIC_DOMAIN") or
+                os.getenv("RAILWAY_DOMAIN") or
+                (f"{railway_app_name}.up.railway.app" if railway_app_name else None) or
+                "your-app-name.up.railway.app"  # fallback
+            )
+            
+            # Construct webhook URL
+            webhook_url = f"https://{railway_url}/{CONFIG['TELEGRAM_TOKEN']}"
         
         logger.info(f"🌐 Webhook URL: {webhook_url}")
         logger.info(f"🔧 Railway URL source: {railway_url}")
