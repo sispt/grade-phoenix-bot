@@ -139,6 +139,11 @@ backups/
 *.swo
 *~
 
+# Cursor IDE
+.cursor/
+.cursorrules
+.cursorignore
+
 # OS
 .DS_Store
 .DS_Store?
@@ -154,6 +159,8 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+*.bak
+*.backup
 
 # Bot data
 bot_data.json 
