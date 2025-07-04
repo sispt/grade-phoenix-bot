@@ -155,7 +155,7 @@ def run_migration():
         # Check if password columns still exist
         password_columns = [col for col in final_columns if 'password' in col.lower()]
         if password_columns:
-            logger.error(f"❌ Password columns still exist: {password_columns}")
+            logger.error(f"❌ Password columns still exist")
         else:
             logger.info("✅ All password columns successfully removed")
         
