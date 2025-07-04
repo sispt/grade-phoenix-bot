@@ -6,14 +6,14 @@ import os
 import re
 import logging
 
-# SemVer BNF regex
+# Regex for semantic versioning
 SEMVER_REGEX = r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$'
 
-# Configure logging for config validation
+# Logging for config validation
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("config")
 
-# Get version from env
+# Get version from environment
 raw_version = os.getenv("BOT_VERSION", "1.0.0-dev")
 if re.match(SEMVER_REGEX, raw_version):
     validated_version = raw_version
@@ -21,49 +21,49 @@ else:
     logger.error(f"Invalid BOT_VERSION '{raw_version}' (must be valid SemVer). Using '0.0.0-invalid'.")
     validated_version = "0.0.0-invalid"
 
-# Bot Configuration
+# Bot configuration
 CONFIG = {
-    # Telegram Bot Token
+    # Telegram bot token
     "TELEGRAM_TOKEN": os.getenv("TELEGRAM_TOKEN", "your_bot_token_here"),
-    # Admin Configuration
-    "ADMIN_ID": int(os.getenv("ADMIN_ID", "123456789")),  # Admin Telegram ID
+    # Admin configuration
+    "ADMIN_ID": int(os.getenv("ADMIN_ID", "123456789")),  # Telegram ID for admin
     "ADMIN_USERNAME": os.getenv("ADMIN_USERNAME", "@admin_username"),
     "ADMIN_EMAIL": os.getenv("ADMIN_EMAIL", "admin@example.com"),
     "ADMIN_NAME": os.getenv("ADMIN_NAME", "Admin User"),
-    # Database Configuration
+    # Database configuration
     "DATABASE_URL": os.getenv("DATABASE_URL", "sqlite:///./data/bot.db"),
     "USE_POSTGRESQL": bool(os.getenv("DATABASE_URL", "").startswith("postgresql")),
-    # University API Configuration
-    "UNIVERSITY_LOGIN_URL": "https://api.staging.sis.shamuniversity.com/portal",  # Use /portal for login
-    "UNIVERSITY_API_URL": "https://api.staging.sis.shamuniversity.com/graphql",  # Use /graphql for everything else
+    # University API configuration
+    "UNIVERSITY_LOGIN_URL": "https://api.staging.sis.shamuniversity.com/portal",  # /portal for login
+    "UNIVERSITY_API_URL": "https://api.staging.sis.shamuniversity.com/graphql",  # /graphql for API
     "UNIVERSITY_WEBSITE": "https://staging.sis.shamuniversity.com",
     "UNIVERSITY_NAME": "جامعة الشام",
-    # Bot Settings
+    # Bot settings
     "BOT_NAME": "grade-phoenix-bot",
     "BOT_VERSION": validated_version,
     "BOT_DESCRIPTION": "بوت متقدم لإشعارات الدرجات مع لوحة تحكم إدارية شاملة - grade-phoenix-bot",
-    # Check Interval (in minutes)
+    # Grade check interval (minutes)
     "GRADE_CHECK_INTERVAL": int(
         os.getenv("GRADE_CHECK_INTERVAL", "15")
-    ),  # fallback to 15 minutes if not set
-    # Notification Settings (removed: ENABLE_NOTIFICATIONS, MAX_RETRY_ATTEMPTS)
-    # User Experience Settings
+    ),  # fallback if not set
+    # Notification settings
+    # User experience settings
     "SHOW_LOADING_MESSAGES": True,
     "ENABLE_TYPING_INDICATOR": True,
     "MESSAGE_TIMEOUT_SECONDS": 30,
     "MAX_MESSAGE_LENGTH": 4096,
-    # Storage Settings
+    # Storage settings
     "DATA_DIR": "data",
     "BACKUP_ENABLED": True,
     "BACKUP_INTERVAL_HOURS": 24,
     "MAX_BACKUP_FILES": 10,
     "BACKUP_DIR": "backups",
     "LOGS_DIR": "logs",
-    # Security Settings
+    # Security settings
     "ENCRYPT_PASSWORDS": True,
     "LOG_ADMIN_ACTIONS": True,
     "SESSION_TIMEOUT_HOURS": 24,
-    # API Headers - Updated to match BeeHouse v2.1 exact structure
+    # API headers (BeeHouse v2.1)
     "API_HEADERS": {
         "Accept": "*/*",
         "Accept-Encoding": "gzip, deflate, br, zstd",
@@ -95,21 +95,21 @@ CONFIG = {
     "ENABLE_METRICS": True,
 }
 
-# Admin Features Configuration
+# Admin features
 ADMIN_CONFIG = {
-    # Dashboard Settings
-    "DASHBOARD_REFRESH_INTERVAL": 60,  # seconds
+    # Dashboard settings
+    "DASHBOARD_REFRESH_INTERVAL": 60,  # refresh interval in seconds
     "SHOW_DETAILED_STATS": True,
     "SHOW_USER_ACTIVITY": True,
-    # User Management
+    # User management
     "MAX_USERS_PER_PAGE": 10,
     "ENABLE_USER_SEARCH": True,
     "ENABLE_USER_EXPORT": True,
     "ENABLE_USER_DELETION": True,
-    # Grade Checking
+    # Grade checking
     "BATCH_CHECK_ENABLED": True,
     "BATCH_CHECK_SIZE": 50,
-    "BATCH_CHECK_DELAY": 2,  # seconds between batches
+    "BATCH_CHECK_DELAY": 2,  # delay between batches (seconds)
     # Notifications
     "BROADCAST_ENABLED": True,
     "BROADCAST_MAX_LENGTH": 4096,
@@ -124,11 +124,11 @@ ADMIN_CONFIG = {
     "PERFORMANCE_MONITORING": True,
     # Security
     "ADMIN_ACTION_LOGGING": True,
-    "ADMIN_SESSION_TIMEOUT": 3600,  # seconds
+    "ADMIN_SESSION_TIMEOUT": 3600,  # admin session timeout (seconds)
     "REQUIRE_ADMIN_CONFIRMATION": True,
 }
 
-# University API Queries
+# University API queries
 UNIVERSITY_QUERIES = {
     "LOGIN": """
     mutation signinUser($username: String!, $password: String!) {
@@ -237,7 +237,7 @@ UNIVERSITY_QUERIES = {
     """,
 }
 
-# Message Templates
+# Message templates
 MESSAGE_TEMPLATES = {
     "WELCOME": """
 🎓 مرحباً {name}!
@@ -248,7 +248,7 @@ MESSAGE_TEMPLATES = {
 • 🔔 إشعارات فورية عند تحديث الدرجات
 • 📊 عرض الدرجات الحالية
 • 🔄 فحص دوري تلقائي
-• 📱 واجهة سهلة الاستخدام
+• �� واجهة سهلة الاستخدام
 
 🎯 **للبدء:**
 اضغط على "🚀 تسجيل الدخول" لإدخال بياناتك الجامعية
@@ -284,17 +284,17 @@ MESSAGE_TEMPLATES = {
     """,
 }
 
-# Error Messages
+# Error messages
 ERROR_MESSAGES = {
     "LOGIN_FAILED": "🔐 تأكد من بياناتك وحاول مرة أخرى.",
     "NETWORK_ERROR": "🌐 تحقق من الاتصال وحاول مرة أخرى.",
     "API_ERROR": "🔧 جاري إصلاح النظام، حاول بعد قليل.",
     "TOKEN_EXPIRED": "⏰ انتهت الجلسة، سجل دخولك مرة أخرى.",
-    "NO_GRADES": "�� لا توجد درجات حالياً، سنخبرك فور توفرها.",
+    "NO_GRADES": "لا توجد درجات حالياً، سنخبرك فور توفرها.",
     "GENERAL_ERROR": "🤝 حدث شيء غير متوقع، نحن هنا لمساعدتك.",
 }
 
-# Success Messages
+# Success messages
 SUCCESS_MESSAGES = {
     "LOGIN_SUCCESS": "✅ تم تسجيل الدخول بنجاح!",
     "GRADES_UPDATED": "📊 تم تحديث الدرجات بنجاح!",
@@ -303,7 +303,7 @@ SUCCESS_MESSAGES = {
     "BACKUP_CREATED": "💾 تم إنشاء النسخة الاحتياطية بنجاح!",
 }
 
-# Info Messages
+# Info messages
 INFO_MESSAGES = {
     "NOT_REGISTERED": "❌ لم يتم تسجيلك بعد. اضغط على '🚀 تسجيل الدخول' أولاً.",
     "NO_PERMISSION": "🚫 ليس لديك صلاحية لهذه العملية.",
@@ -311,7 +311,7 @@ INFO_MESSAGES = {
     "COMING_SOON": "🚧 هذه الميزة ستكون متاحة قريباً.",
 }
 
-# Validation Rules
+# Validation rules
 VALIDATION_RULES = {
     "USERNAME_MIN_LENGTH": 3,
     "USERNAME_MAX_LENGTH": 20,
@@ -321,7 +321,7 @@ VALIDATION_RULES = {
     "BROADCAST_MAX_LENGTH": 4096,
 }
 
-# File Paths
+# File paths
 FILE_PATHS = {
     "DATA_DIR": "data",
     "LOGS_DIR": "logs",
@@ -333,10 +333,10 @@ FILE_PATHS = {
     "GRADES_FILE_PREFIX": "data/grades_",
 }
 
-# Debug flag: Set to True to enable raw HTML debug output for development
+# Debug flag: set True to enable raw HTML debug output
 PRINT_HTML_DEBUG = False
 
-# Export configuration
+# Export config
 __all__ = [
     "CONFIG",
     "ADMIN_CONFIG",

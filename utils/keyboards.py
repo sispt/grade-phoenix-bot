@@ -13,11 +13,11 @@ from config import CONFIG
 
 
 def get_main_keyboard() -> ReplyKeyboardMarkup:
-    """Returns the main keyboard layout for REGISTERED users with enhanced UX."""
+    """Main keyboard for registered users."""
     keyboard = [
         ["📊 درجات الفصل الحالي", "📚 درجات الفصل السابق"],
         ["👤 معلوماتي الشخصية", "⚙️ الإعدادات والتخصيص"],
-        ["🔄 إعادة تسجيل الدخول", "📞 الدعم الفني"],
+        ["📞 الدعم الفني"],
         ["❓ المساعدة والدليل", "🎛️ لوحة التحكم الإدارية"],
         ["🚪 تسجيل الخروج"],
     ]
@@ -25,7 +25,7 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
 
 
 def get_unregistered_keyboard() -> ReplyKeyboardMarkup:
-    """Returns the keyboard for UNREGISTERED users with clear call-to-action."""
+    """Keyboard for unregistered users."""
     keyboard = [
         ["🚀 تسجيل الدخول للجامعة", "❓ كيف يعمل البوت؟"],
         ["📞 الدعم الفني", "🔐 معلومات الأمان"],
@@ -34,36 +34,25 @@ def get_unregistered_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
 
-def get_main_keyboard_with_relogin() -> ReplyKeyboardMarkup:
-    """Returns the keyboard for REGISTERED users whose token expired."""
-    keyboard = [
-        ["🔄 إعادة تسجيل الدخول", "📊 درجات الفصل الحالي"],
-        ["👤 معلوماتي الشخصية", "⚙️ الإعدادات والتخصيص"],
-        ["📚 درجات الفصل السابق", "📞 الدعم الفني"],
-        ["❓ المساعدة والدليل", "🎛️ لوحة التحكم الإدارية"],
-    ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
-
-
 def get_admin_keyboard() -> ReplyKeyboardMarkup:
-    """Returns the admin keyboard layout - simplified and clear."""
+    """Admin keyboard layout."""
     keyboard = [["🎛️ لوحة التحكم الإدارية"], ["🔙 العودة للوحة الرئيسية"]]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
 
 def get_cancel_keyboard() -> ReplyKeyboardMarkup:
-    """Returns a simple keyboard with a cancel button for conversations."""
+    """Keyboard with a cancel button."""
     keyboard = [["❌ إلغاء العملية"]]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
 
 
 def remove_keyboard() -> ReplyKeyboardRemove:
-    """Returns a keyboard removal markup to hide the current keyboard."""
+    """Remove the current keyboard."""
     return ReplyKeyboardRemove(selective=False)
 
 
 def get_error_recovery_keyboard() -> ReplyKeyboardMarkup:
-    """Returns a keyboard for error recovery scenarios with clear options."""
+    """Keyboard for error recovery options."""
     keyboard = [
         ["🔄 إعادة المحاولة", "🏠 العودة للرئيسية"],
         ["📞 الدعم الفني", "❓ المساعدة والدليل"],
@@ -72,20 +61,19 @@ def get_error_recovery_keyboard() -> ReplyKeyboardMarkup:
 
 
 def get_registration_keyboard() -> ReplyKeyboardMarkup:
-    """Returns a keyboard specifically for registration process."""
+    """Keyboard for registration process."""
     keyboard = [["❌ إلغاء التسجيل"], ["🔙 العودة للرئيسية"]]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
 
 
 def get_enhanced_admin_dashboard_keyboard() -> InlineKeyboardMarkup:
-    """Returns an enhanced admin dashboard inline keyboard with better organization."""
+    """Admin dashboard inline keyboard."""
     buttons = [
-        # Main actions row
+        # Button groups for admin dashboard
         [
             InlineKeyboardButton("👥 إدارة المستخدمين", callback_data="users_overview"),
             InlineKeyboardButton("📊 التحليل والإحصائيات", callback_data="analysis"),
         ],
-        # Communication row
         [
             InlineKeyboardButton("📢 بث رسالة للجميع", callback_data="broadcast"),
             InlineKeyboardButton(
@@ -93,31 +81,27 @@ def get_enhanced_admin_dashboard_keyboard() -> InlineKeyboardMarkup:
             ),
             InlineKeyboardButton("📋 تقرير حالة النظام", callback_data="system_report"),
         ],
-        # User management actions
         [
             InlineKeyboardButton("🔍 بحث عن مستخدم", callback_data="user_search"),
             InlineKeyboardButton("🗑️ حذف مستخدم", callback_data="delete_user"),
         ],
-        # Troubleshooting utilities row
         [
             InlineKeyboardButton("🛠️ فحص درجات مستخدم", callback_data="force_grade_check"),
         ],
-        # System actions
         [
             InlineKeyboardButton("🔄 تحديث البيانات", callback_data="refresh_data"),
             InlineKeyboardButton("💾 إنشاء نسخة احتياطية", callback_data="backup_data"),
         ],
-        # Close button
         [InlineKeyboardButton("❌ إغلاق لوحة التحكم", callback_data="close_dashboard")],
     ]
     return InlineKeyboardMarkup(buttons)
 
 
 def get_user_management_keyboard(page=1, total_pages=1) -> InlineKeyboardMarkup:
-    """Returns a keyboard for user management with pagination."""
+    """Keyboard for user management with pagination."""
     buttons = []
 
-    # Navigation row
+    # Pagination controls
     nav_buttons = []
     if page > 1:
         nav_buttons.append(
@@ -133,7 +117,7 @@ def get_user_management_keyboard(page=1, total_pages=1) -> InlineKeyboardMarkup:
     if nav_buttons:
         buttons.append(nav_buttons)
 
-    # Action buttons
+    # User management actions
     buttons.extend(
         [
             [InlineKeyboardButton("🔍 بحث عن مستخدم", callback_data="user_search")],
@@ -155,7 +139,7 @@ def get_user_management_keyboard(page=1, total_pages=1) -> InlineKeyboardMarkup:
 
 
 def get_broadcast_confirmation_keyboard() -> InlineKeyboardMarkup:
-    """Returns a keyboard for broadcast confirmation."""
+    """Keyboard for broadcast confirmation."""
     buttons = [
         [
             InlineKeyboardButton(
@@ -173,7 +157,7 @@ def get_broadcast_confirmation_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_system_actions_keyboard() -> InlineKeyboardMarkup:
-    """Returns a keyboard for system maintenance actions."""
+    """Keyboard for system maintenance."""
     buttons = [
         [
             InlineKeyboardButton(
@@ -197,7 +181,7 @@ def get_system_actions_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_settings_main_keyboard() -> InlineKeyboardMarkup:
-    """Returns the main settings keyboard with categories."""
+    """Main settings keyboard."""
     buttons = [
         [
             InlineKeyboardButton(
@@ -233,7 +217,7 @@ def get_settings_main_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_notification_settings_keyboard() -> InlineKeyboardMarkup:
-    """Returns keyboard for notification settings."""
+    """Notification settings keyboard."""
     buttons = [
         [
             InlineKeyboardButton(
@@ -260,7 +244,7 @@ def get_notification_settings_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_privacy_settings_keyboard() -> InlineKeyboardMarkup:
-    """Returns keyboard for privacy settings."""
+    """Privacy settings keyboard."""
     buttons = [
         [
             InlineKeyboardButton(
@@ -280,7 +264,7 @@ def get_privacy_settings_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_language_settings_keyboard() -> InlineKeyboardMarkup:
-    """Returns keyboard for language settings."""
+    """Language settings keyboard."""
     buttons = [
         [
             InlineKeyboardButton("🇸🇦 العربية", callback_data="set_language_ar"),
@@ -298,7 +282,7 @@ def get_language_settings_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_ui_settings_keyboard() -> InlineKeyboardMarkup:
-    """Returns keyboard for UI settings."""
+    """UI settings keyboard."""
     buttons = [
         [
             InlineKeyboardButton("🎨 المظهر", callback_data="ui_theme"),
@@ -318,7 +302,7 @@ def get_ui_settings_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_system_settings_keyboard() -> InlineKeyboardMarkup:
-    """Returns keyboard for system settings."""
+    """System settings keyboard."""
     buttons = [
         [
             InlineKeyboardButton(
@@ -344,7 +328,7 @@ def get_system_settings_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_grade_display_settings_keyboard() -> InlineKeyboardMarkup:
-    """Returns keyboard for grade display settings."""
+    """Grade display settings keyboard."""
     buttons = [
         [
             InlineKeyboardButton(
@@ -383,7 +367,7 @@ def get_grade_display_settings_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_contact_support_inline_keyboard():
-    """Returns an inline keyboard with a Contact Support button."""
+    """Inline keyboard with a Contact Support button."""
     admin_username = CONFIG.get("ADMIN_USERNAME", "@admin")
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("📞 تواصل مع الدعم الفني", url=f"https://t.me/{admin_username.lstrip('@')}")]

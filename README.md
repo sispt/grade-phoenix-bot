@@ -1,12 +1,20 @@
-![Project Logo](logo.png)
+<!-- Banner: full width, responsive, with dark background for fade blending -->
+<div style="background: #001012; padding: 0; margin: 0; width: 100%; display: flex; justify-content: center;">
+  <img src="banner.png" alt="Banner" style="width:100%;max-width:1600px;min-width:300px;display:block;" />
+</div>
 
-# Notification Phoenix Bot
-
-**Version:** 1.0.0-dev | **Security Rating: A+** | **Status: Production Ready**
+<!-- Logo: centered, smaller -->
+<p align="center">
+  <img src="logo.png" alt="Project Logo" width="180" />
+</p>
 
 [![Tests](https://img.shields.io/badge/Tests-20%2F20%20Passing-brightgreen)](run_tests.py)
 [![Python](https://img.shields.io/badge/Python-3.12-blue)](requirements.txt)
 [![Security](https://img.shields.io/badge/Security-A--Level-brightgreen)](docs/security/SECURITY_AUDIT.md)
+
+# Notification Phoenix Bot
+
+**Version:** 1.0.0-dev | **Security Rating: A+** | **Status: Production Ready**
 
 A secure, user-friendly Telegram bot for university students to receive grade notifications and academic updates with comprehensive security features and transparent credential handling.
 

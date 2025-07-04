@@ -30,7 +30,7 @@ class CredentialCache:
             username_key = self._get_cache_key(username)
 
             with self.db_manager.get_session() as session:
-                # Check for recent test within cache duration
+                # Check for recent credential test
                 cache_cutoff = datetime.utcnow() - timedelta(
                     hours=self.cache_duration_hours
                 )
@@ -61,7 +61,7 @@ class CredentialCache:
             username_key = self._get_cache_key(username)
 
             with self.db_manager.get_session() as session:
-                # Get most recent test result
+                # Get latest test result
                 cache_cutoff = datetime.utcnow() - timedelta(
                     hours=self.cache_duration_hours
                 )
@@ -180,7 +180,9 @@ class CredentialCache:
         """Clear expired cache entries"""
         try:
             if hours is None:
-                hours = self.cache_duration_hours
+                hours = float(self.cache_duration_hours)
+            else:
+                hours = float(hours)
 
             cutoff_date = datetime.utcnow() - timedelta(hours=hours)
 

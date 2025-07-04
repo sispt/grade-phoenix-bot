@@ -21,7 +21,7 @@ from admin.dashboard import AdminDashboard
 from admin.broadcast import BroadcastSystem
 from utils.keyboards import (
     get_main_keyboard, get_admin_keyboard, get_cancel_keyboard, 
-    get_main_keyboard_with_relogin, get_unregistered_keyboard,
+    get_unregistered_keyboard,
     remove_keyboard, get_error_recovery_keyboard
 )
 from utils.messages import get_welcome_message, get_help_message, get_simple_welcome_message, get_security_welcome_message, get_credentials_security_info_message
@@ -41,9 +41,9 @@ class TelegramBot:
     def __init__(self):
         self.app, self.db_manager, self.user_storage, self.grade_storage = None, None, None, None
         self.university_api = UniversityAPI()
-        # --- CRITICAL FIX: Initialize storage FIRST ---
+        # Initialize storage before other components
         self._initialize_storage() 
-        # --- THEN initialize classes that depend on storage ---
+        # Initialize components that depend on storage
         self.grade_analytics = GradeAnalytics(self.user_storage)
         self.admin_dashboard = AdminDashboard(self)
         self.broadcast_system = BroadcastSystem(self)
@@ -87,27 +87,27 @@ class TelegramBot:
         await self.app.start()
         port = int(os.environ.get("PORT", 8443))
         
-        # Get Railway URL - try multiple environment variables
+        # Try to get Railway URL from environment
         railway_app_name = os.getenv("RAILWAY_APP_NAME")
         
-        # Check if WEBHOOK_URL is already a complete URL
+        # Use WEBHOOK_URL if it's a full URL
         webhook_url_env = os.getenv("WEBHOOK_URL")
         if webhook_url_env and webhook_url_env.startswith("https://"):
-            # WEBHOOK_URL is already complete, use it directly
+            # Use the provided webhook URL
             webhook_url = webhook_url_env
             railway_url = webhook_url_env.replace(f"/{CONFIG['TELEGRAM_TOKEN']}", "")
         else:
-            # Construct from Railway domain
+            # Build webhook URL from Railway domain
             railway_url = (
                 webhook_url_env or 
                 os.getenv("RAILWAY_STATIC_URL") or 
                 os.getenv("RAILWAY_PUBLIC_DOMAIN") or
                 os.getenv("RAILWAY_DOMAIN") or
                 (f"{railway_app_name}.up.railway.app" if railway_app_name else None) or
-                "your-app-name.up.railway.app"  # fallback
+                "your-app-name.up.railway.app"  # fallback if nothing else is set
             )
             
-            # Construct webhook URL
+            # Final webhook URL
             webhook_url = f"https://{railway_url}/{CONFIG['TELEGRAM_TOKEN']}"
         
         logger.info(f"🌐 Webhook URL: {webhook_url}")
@@ -118,7 +118,7 @@ class TelegramBot:
 
     async def _update_bot_info(self):
         try:
-            # Only set name/description if needed (avoid rate limit)
+            # Only update bot name/description if needed
             current_name = await self.app.bot.get_my_name()
             if current_name.name != CONFIG["BOT_NAME"]:
                 try:
@@ -144,7 +144,7 @@ class TelegramBot:
         logger.info("🛑 Bot stopped.")
 
     def _add_handlers(self):
-        # This function from your last version is correct and complete
+        # Register all bot handlers
         registration_handler = ConversationHandler(
             entry_points=[
                 CommandHandler("register", self._register_start),
@@ -162,13 +162,13 @@ class TelegramBot:
         self.app.add_handler(CommandHandler("profile", self._profile_command))
         self.app.add_handler(CommandHandler("settings", self._settings_command))
         self.app.add_handler(CommandHandler("support", self._support_command))
-        # Security transparency commands
+        # Security-related commands
         self.app.add_handler(CommandHandler("security_info", self._security_info_command))
         self.app.add_handler(CommandHandler("security_audit", self._security_audit_command))
         self.app.add_handler(CommandHandler("privacy_policy", self._privacy_policy_command))
         self.app.add_handler(CommandHandler("security_stats", self._security_stats_command))
         self.app.add_handler(CommandHandler("security_headers", self._security_headers_command))
-        # Use a different command for the admin panel entry to avoid confusion with the keyboard
+        # Admin panel command
         self.app.add_handler(CommandHandler("admin", self._admin_command))
         self.app.add_handler(CommandHandler("notify_grades", self._admin_notify_grades))
         self.app.add_handler(CallbackQueryHandler(self._handle_callback))
@@ -179,7 +179,6 @@ class TelegramBot:
             "main": get_main_keyboard, 
             "admin": get_admin_keyboard, 
             "cancel": get_cancel_keyboard, 
-            "relogin": get_main_keyboard_with_relogin, 
             "unregistered": get_unregistered_keyboard,
             "error_recovery": get_error_recovery_keyboard
         }
@@ -234,7 +233,7 @@ class TelegramBot:
             help_text += "\nأوامر المدير:\n/security_stats - إحصائيات الأمان\n/admin - لوحة التحكم\n"
         help_text += f"\n👨‍💻 المطور: {CONFIG.get('ADMIN_USERNAME', '@admin')}"
         try:
-            # Send as plain text to avoid Markdown issues
+            # Send help as plain text
             await update.message.reply_text(help_text)
         except Exception as e:
             logger.error(f"Error sending help message: {e}")
@@ -284,14 +283,14 @@ class TelegramBot:
                 return
             stats = security_manager.get_security_stats()
             
-            # Handle different stats structure from different security manager implementations
+            # Support both old and new stats structures
             total_events = stats.get('total_events_24h', 0)
             failed_logins = stats.get('failed_logins', 0)
             blocked_attempts = stats.get('blocked_attempts', 0)
             active_sessions = stats.get('active_sessions', 0)
             high_risk_events = stats.get('high_risk_events', 0)
             
-            # If using the newer structure, extract from nested objects
+            # Extract nested stats if present
             if 'rate_limiter' in stats:
                 blocked_attempts = stats.get('rate_limiter', {}).get('blocked_users', 0)
             if 'session_manager' in stats:
@@ -342,7 +341,7 @@ class TelegramBot:
             if not grades:
                 await update.message.reply_text("لا يوجد درجات متاحة بعد.")
                 return
-            # Use the new method to include the quote
+            # Format grades with quote
             message = await self.grade_analytics.format_current_grades_with_quote(telegram_id, grades)
             await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
         except Exception as e:
@@ -370,9 +369,9 @@ class TelegramBot:
                 await update.message.reply_text("📚 لا توجد درجات سابقة متاحة للفصل الدراسي السابق.")
                 return
             formatted_message = await self.grade_analytics.format_old_grades_with_analysis(telegram_id, old_grades)
-            # Telegram message length check
+            # Split long messages if needed
             if len(formatted_message) > 4096:
-                # Split and send in chunks
+                # Send message in chunks if too long
                 for i in range(0, len(formatted_message), 4096):
                     await update.message.reply_text(formatted_message[i:i+4096])
             else:
@@ -403,7 +402,7 @@ class TelegramBot:
             logger.error(f"Error in _profile_command: {e}", exc_info=True)
 
     async def _settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        # Patch: reply with 'قيد التطوير' for now
+        # Feature not implemented yet
         await update.message.reply_text("هذه الميزة قيد التطوير. سيتم توفيرها قريباً.")
 
     def _get_contact_support_keyboard(self):
@@ -425,7 +424,7 @@ class TelegramBot:
             logger.error(f"Error in _support_command: {e}", exc_info=True)
 
     async def _admin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        # The admin command should send the *inline* keyboard via the dashboard.
+        # Show admin dashboard for admin users
         if update.effective_user.id == CONFIG["ADMIN_ID"]:
             await self.admin_dashboard.show_dashboard(update, context)
         else:
@@ -435,51 +434,50 @@ class TelegramBot:
         text = update.message.text
         user_id = update.effective_user.id
         try:
-            # Admin user search mode
+            # Admin: user search
             if user_id == CONFIG["ADMIN_ID"] and context.user_data.get('awaiting_user_search'):
                 handled = await self.admin_dashboard.handle_user_search_message(update, context)
                 if handled:
                     context.user_data.pop('awaiting_user_search', None)
                     return
-            # Admin user delete mode
+            # Admin: user delete
             if user_id == CONFIG["ADMIN_ID"] and context.user_data.get('awaiting_user_delete'):
                 handled = await self.admin_dashboard.handle_user_delete_message(update, context)
                 if handled:
                     context.user_data.pop('awaiting_user_delete', None)
                     return
-            # Admin user broadcast mode
+            # Admin: broadcast
             if user_id == CONFIG["ADMIN_ID"] and context.user_data.get('awaiting_broadcast'):
                 handled = await self.admin_dashboard.handle_dashboard_message(update, context)
                 if handled:
                     context.user_data.pop('awaiting_broadcast', None)
                     return
-            # Admin troubleshooting: force grade check utility
+            # Admin: force grade check
             if context.user_data.get("awaiting_force_grade_check"):
                 handled = await self.admin_dashboard.handle_force_grade_check_message(update, context)
                 if handled:
                     return
-            # Error recovery actions
+            # Handle error recovery buttons
             if text in ["🔄 إعادة المحاولة", "🏠 العودة للرئيسية"]:
                 await self._handle_error_recovery(update, context)
                 return
-            # Enhanced action mapping with new button labels
+            # Map button text to actions
             actions = {
-                # Main grade actions
+                # Grade actions
                 "📊 درجات الفصل الحالي": self._grades_command,
                 "📚 درجات الفصل السابق": self._old_grades_command,
                 # User actions
                 "👤 معلوماتي الشخصية": self._profile_command,
                 "⚙️ الإعدادات والتخصيص": self._settings_command,
-                # Support and help
+                # Support/help
                 "📞 الدعم الفني": self._support_command,
                 "❓ المساعدة والدليل": self._help_command,
-                # Registration actions
+                # Registration
                 "🚀 تسجيل الدخول للجامعة": self._register_start,
-                "🔄 إعادة تسجيل الدخول": self._register_start,
-                # Admin actions
+                # Admin
                 "🎛️ لوحة التحكم الإدارية": self._admin_command,
                 "🔙 العودة للوحة الرئيسية": self._return_to_main,
-                # Legacy button support (for backward compatibility)
+                # Legacy button support
                 "📊 التحقق من درجات الفصل الحالي": self._grades_command,
                 "📚 التحقق من درجات الفصل السابق": self._old_grades_command,
                 "👤 معلوماتي": self._profile_command,
@@ -489,11 +487,11 @@ class TelegramBot:
                 "🚀 تسجيل الدخول": self._register_start,
                 "🎛️ لوحة التحكم": self._admin_command,
                 "🔙 العودة": self._return_to_main,
-                # New: How does the bot work?
+                # Info about bot
                 "❓ كيف يعمل البوت؟": self._how_it_works_command,
-                # Logout action
+                # Logout
                 "🚪 تسجيل الخروج": self._logout_command,
-                # Keyboard refresh for registered users
+                # Refresh keyboard
                 "🔄 تحديث الأزرار": self._refresh_keyboard,
             }
             action = actions.get(text)
@@ -516,7 +514,7 @@ class TelegramBot:
         user_id = update.effective_user.id
         
         if text == "🔄 إعادة المحاولة":
-            # Try to restore the last action context
+            # Retry last action if possible
             last_action = context.user_data.get('last_action')
             if last_action:
                 try:
@@ -552,7 +550,7 @@ class TelegramBot:
         if update.effective_user.id != CONFIG["ADMIN_ID"]: return
         query = update.callback_query
         await query.answer()
-        # This correctly delegates all admin button clicks to the dashboard handler
+        # Delegate admin button clicks
         await self.admin_dashboard.handle_callback(update, context)
 
     async def _admin_notify_grades(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -564,14 +562,14 @@ class TelegramBot:
         await update.message.reply_text(f"✅ تم فحص الدرجات وإشعار {count} مستخدم (إذا كان هناك تغيير).")
 
     async def _grade_checking_loop(self):
-        await asyncio.sleep(10)  # Give the bot a moment to start
+        await asyncio.sleep(10)  # Wait a bit before starting grade check
         while self.running:
             try:
                 logger.info("🔔 Running scheduled grade check for all users...")
                 await self._notify_all_users_grades()
             except Exception as e:
                 logger.error(f"❌ Error in scheduled grade check: {e}", exc_info=True)
-            interval = CONFIG.get('GRADE_CHECK_INTERVAL', 10) * 60  # minutes to seconds
+            interval = CONFIG.get('GRADE_CHECK_INTERVAL', 10) * 60
             await asyncio.sleep(interval)
 
     async def _notify_all_users_grades(self):
@@ -610,24 +608,24 @@ class TelegramBot:
                 if not notified:
                     await self.app.bot.send_message(
                         chat_id=telegram_id,
-                        text="⏰ انتهت صلاحية الجلسة\n\nيرجى إعادة تسجيل الدخول بالضغط على '🔄 إعادة تسجيل الدخول' ثم إدخال بياناتك من جديد. هذا طبيعي ويحدث كل فترة.\n\nYour session has expired. Please re-login by pressing '🔄 إعادة تسجيل الدخول' and entering your credentials again. This is normal and happens periodically.",
-                        reply_markup=get_main_keyboard_with_relogin()
+                        text="⏰ انتهت صلاحية الجلسة\n\nيرجى تسجيل الدخول مرة أخرى من خلال زر '🚀 تسجيل الدخول للجامعة' ثم إدخال بياناتك من جديد. هذا طبيعي ويحدث كل فترة.",
+                        reply_markup=get_unregistered_keyboard()
                     )
                     # Mark as notified
                     if is_pg:
                         self.user_storage.update_token_expired_notified(telegram_id, True)
                     else:
-                        # File storage - update the user object and save
+                        # Update file storage
                         user["token_expired_notified"] = True
                         if hasattr(self.user_storage, '_save_users'):
                             self.user_storage._save_users()
                 return False
-            # If token is valid and user was previously notified, reset the flag
+            # Reset notification flag if token is valid
             if notified:
                 if is_pg:
                     self.user_storage.update_token_expired_notified(telegram_id, False)
                 else:
-                    # File storage - update the user object and save
+                    # Update file storage
                     user["token_expired_notified"] = False
                     if hasattr(self.user_storage, '_save_users'):
                         self.user_storage._save_users()
@@ -700,7 +698,7 @@ class TelegramBot:
     async def _register_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
         
-        # Check rate limiting
+        # Rate limiting
         if not security_manager.check_login_attempt(user_id):
             await update.message.reply_text(
                 "🚫 تم حظر محاولات تسجيل الدخول مؤقتاً بسبب كثرة المحاولات الفاشلة.\n"
@@ -709,27 +707,27 @@ class TelegramBot:
             )
             return ConversationHandler.END
         
-        # Clear existing user data and session for relogin
+        # Clear previous session and user data
         existing_user = self.user_storage.get_user(user_id)
         if existing_user:
             logger.info(f"User {user_id} is relogging in. Clearing existing session.")
-            # Invalidate existing session
+            # Invalidate session
             if hasattr(security_manager, 'session_manager'):
                 security_manager.session_manager.invalidate_session(user_id)
             # Clear user data from context
             context.user_data.clear()
-            # Clear the user's token to force a fresh login
+            # Remove user token
             if hasattr(self.user_storage, 'clear_user_token'):
-                # PostgreSQL storage
+                # For PostgreSQL storage
                 self.user_storage.clear_user_token(user_id)
             else:
-                # File storage
+                # For file storage
                 existing_user["token"] = None
                 existing_user["token_expired_notified"] = False
                 if hasattr(self.user_storage, '_save_users'):
                     self.user_storage._save_users()
         
-        # Show security info message before asking for credentials
+        # Show security info before asking for credentials
         await update.message.reply_text(get_credentials_security_info_message())
         
         await update.message.reply_text(
@@ -740,7 +738,7 @@ class TelegramBot:
     async def _register_username(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         username = update.message.text.strip()
         
-        # Enhanced validation using validators package
+        # Validate username length
         if not is_valid_length(username, min_len=7, max_len=20):
             await update.message.reply_text(
                 "❌ الكود الجامعي يجب أن يكون بين 7 و 20 حرف.\n\n"
@@ -748,7 +746,7 @@ class TelegramBot:
             )
             return ASK_USERNAME
         
-        # University code format validation: 3+ letters followed by 4+ digits (e.g., ENG2425041)
+        # Validate university code format
         if not re.fullmatch(r"[A-Za-z]{3,}[0-9]{4,}", username):
             await update.message.reply_text(
                 "❌ الكود الجامعي يجب أن يكون على الشكل: 3 أحرف أو أكثر ثم 4 أرقام أو أكثر (مثال: ENG2425041).\n\n"
@@ -771,7 +769,7 @@ class TelegramBot:
         password = update.message.text.strip()
         telegram_id = update.effective_user.id
         
-        # Validate username exists
+        # Make sure username is set
         if not username:
             await update.message.reply_text(
                 "❌ حدث خطأ في البيانات. يرجى المحاولة مرة أخرى.",
@@ -779,7 +777,7 @@ class TelegramBot:
             )
             return ConversationHandler.END
         
-        # Basic password validation to prevent injection attacks
+        # Validate password
         if not is_valid_length(password, min_len=1, max_len=100):
             await update.message.reply_text(
                 "❌ كلمة المرور غير صحيحة.\n\n"
@@ -787,7 +785,7 @@ class TelegramBot:
             )
             return ASK_PASSWORD
         
-        # Check for potential injection patterns
+        # Check for invalid password characters
         if any(char in password for char in ['<', '>', '"', "'", '&', ';', '|', '`', '$', '(', ')', '{', '}']):
             await update.message.reply_text(
                 "❌ كلمة المرور تحتوي على رموز غير مسموحة.\n\n"
@@ -795,11 +793,11 @@ class TelegramBot:
             )
             return ASK_PASSWORD
         
-        # Verify credentials with University API
+        # Try to log in with university API
         await update.message.reply_text("🔄 جاري التحقق من بياناتك...\nChecking your credentials...")
         token = await self.university_api.login(username, password)
         
-        # Log login attempt
+        # Record login attempt
         success = token is not None
         security_manager.record_login_attempt(telegram_id, success, username)
         
@@ -812,7 +810,7 @@ class TelegramBot:
             # Restart registration from username
             return await self._register_start(update, context)
         
-        # Fetch user info for welcome message
+        # Get user info for welcome message
         user_info = await self.university_api._get_user_info(token)
         if user_info:
             fullname = user_info.get('fullname', username)
@@ -820,7 +818,7 @@ class TelegramBot:
             lastname = user_info.get('lastname', '')
             email = user_info.get('email', '-')
             
-            # Handle fullname splitting if firstname/lastname are not provided
+            # Split fullname if needed
             if not firstname and not lastname and fullname and ' ' in fullname:
                 name_parts = fullname.split()
                 firstname = name_parts[0]
@@ -842,13 +840,13 @@ class TelegramBot:
         }
         self.user_storage.save_user(telegram_id, username, password, token=token, user_data=user_data)
         
-        # Create secure session
+        # Create session
         security_manager.create_user_session(telegram_id, token, user_data)
         
-        # Show user-friendly welcome message with registered user keyboard
+        # Show welcome message with keyboard
         welcome_message = get_welcome_message(fullname)
         try:
-            # Send welcome message with registered user keyboard
+            # Try to send welcome message with keyboard
             await update.message.reply_text(welcome_message, reply_markup=get_main_keyboard())
         except Exception as e:
             logger.error(f"Error sending welcome message: {e}")
@@ -880,11 +878,11 @@ class TelegramBot:
         return sent
 
     async def scheduled_daily_quote_broadcast(self):
-        """Background task: send a daily quote to all users at the time specified by QUOTE_SCHEDULE (UTC+3, format HH:MM)."""
+        """Send daily quote to all users at scheduled time"""
         import pytz
         from datetime import datetime, time, timedelta
-        tz = pytz.timezone('Asia/Riyadh')  # UTC+3
-        # Read schedule from env var
+        tz = pytz.timezone('Asia/Riyadh')
+        # Get schedule from environment
         def get_scheduled_time():
             time_str = os.getenv("QUOTE_SCHEDULE", "14:00")
             try:
@@ -893,7 +891,7 @@ class TelegramBot:
                     return hour, minute
             except Exception:
                 pass
-            return 14, 0  # fallback
+            return 14, 0  # default time
         target_hour, target_minute = get_scheduled_time()
         logger.info(f"🕑 Daily quote scheduler started (UTC+3) at {target_hour:02d}:{target_minute:02d}")
         while self.running:
@@ -931,7 +929,7 @@ class TelegramBot:
             if not quote:
                 logger.warning("No quote available for broadcast.")
                 return
-            # Format as dual-language (English then Arabic, author at end)
+            # Format quote in two languages
             quote_text = await self.grade_analytics.format_quote_dual_language(quote)
             for user in self.user_storage.get_all_users():
                 telegram_id = user.get("telegram_id")
@@ -959,17 +957,17 @@ class TelegramBot:
 
     async def _logout_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         telegram_id = update.effective_user.id
-        # Invalidate session
+        # End user session
         if hasattr(security_manager, 'session_manager'):
             security_manager.session_manager.invalidate_session(telegram_id)
-        # Remove token and mark as unregistered
+        # Remove user token and mark as inactive
         user = self.user_storage.get_user(telegram_id)
         if user:
             if hasattr(self.user_storage, 'clear_user_token'):
-                # PostgreSQL storage
+                # For PostgreSQL storage
                 self.user_storage.clear_user_token(telegram_id)
             else:
-                # File storage
+                # For file storage
                 user["token"] = None
                 user["is_active"] = False
                 if hasattr(self.user_storage, '_save_users'):

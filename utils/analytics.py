@@ -51,7 +51,7 @@ class GradeAnalytics:
         # Always fetch English quotes
         try:
             async with aiohttp.ClientSession() as session:
-                # Example: ZenQuotes API (always returns English)
+                # ZenQuotes API (English)
                 url = f"https://zenquotes.io/api/random"
                 async with session.get(url) as resp:
                     if resp.status == 200:
@@ -60,9 +60,9 @@ class GradeAnalytics:
                             q = data[0].get("q", "")
                             a = data[0].get("a", "")
                             return {"text": q, "author": a, "philosophy": keyword}
-                # Fallback: API Ninjas (with keyword)
+                # API Ninjas fallback
                 url2 = f"https://api.api-ninjas.com/v1/quotes?category={keyword}"
-                headers = {"X-Api-Key": "YOUR_API_KEY"}  # Replace with your API key
+                headers = {"X-Api-Key": "YOUR_API_KEY"}  # Set your API key
                 async with session.get(url2, headers=headers) as resp2:
                     if resp2.status == 200:
                         data2 = await resp2.json()
@@ -72,7 +72,7 @@ class GradeAnalytics:
                             return {"text": q, "author": a, "philosophy": keyword}
         except Exception as e:
             logger.warning(f"Quote API failed: {e}")
-        # Fallback: local English quote
+        # Use local fallback quote
         fallback_quotes = [
             {"text": "The only way to do great work is to love what you do.", "author": "Steve Jobs", "philosophy": "motivation"},
             {"text": "Knowledge is power.", "author": "Francis Bacon", "philosophy": "knowledge"},
@@ -93,7 +93,7 @@ class GradeAnalytics:
                 author = ''
             if not text:
                 return ''
-            # Only translate if the text is English (basic check: contains a-z or A-Z)
+            # Only translate if text is English
             if any('a' <= c.lower() <= 'z' for c in text):
                 translated = await translate_text(text, target_lang='ar')
                 if translated.strip() and translated.strip() != text.strip():
@@ -101,7 +101,7 @@ class GradeAnalytics:
                 else:
                     quote_block = f'"{text}"' + (f'\n{author}' if author else '')
             else:
-                # Not English, just show the text and author, quoted
+                # If not English, just show as is
                 quote_block = f'"{text}"' + (f'\n{author}' if author else '')
             disclaimer = "\n_اقتباس آلي من الإنترنت_"
             return f"{quote_block}{disclaimer}"
@@ -124,7 +124,7 @@ class GradeAnalytics:
         """Format old grades with analysis and dual-language quote"""
         try:
             quote = await self.get_daily_quote()
-            # Calculate statistics
+            # Calculate stats
             total_courses = len(old_grades)
             completed_courses = sum(1 for grade in old_grades if grade.get("total"))
             avg_grade = self._calculate_average_grade(old_grades)
@@ -135,7 +135,7 @@ class GradeAnalytics:
             avg_grade_str = (
                 f"{avg_grade:.2f}%" if has_numeric and avg_grade > 0 else "لا يوجد درجات رقمية لحساب المتوسط"
             )
-            # Format the message
+            # Build message
             message = (
                 f"📚 **درجات الفصل الدراسي الأول 2024/2025**\n\n"
                 f"**إحصائيات عامة:**\n"
@@ -151,7 +151,7 @@ class GradeAnalytics:
                 final_exam = grade.get("final_exam", "لم يتم النشر")
                 total = grade.get("total", "لم يتم النشر")
                 message += f"📖 **{name}** ({code})\n   الأعمال: {coursework} | النظري: {final_exam} | النهائي: {total}\n\n"
-            # Add dual-language quote if available, only once
+            # Add quote if available, only once
             if quote:
                 quote_text = await self.format_quote_dual_language(quote)
                 if quote_text.strip() not in message:
