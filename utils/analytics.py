@@ -83,7 +83,7 @@ class GradeAnalytics:
         return random.choice(fallback_quotes)
 
     async def format_quote_dual_language(self, quote) -> str:
-        """Format quote: "[EN]"\n"[AR]"\n[AUTHOR]. Only translate from English to Arabic. Always wrap quotes in double quotation marks. Adds a disclaimer below the quote."""
+        """Format quote: "[EN]"\n"[AR]"\n[AUTHOR]. Only translate from English to Arabic. Always wrap quotes in double quotation marks. Adds a short disclaimer below the quote."""
         try:
             if isinstance(quote, dict):
                 text = quote.get('text', '')
@@ -103,7 +103,7 @@ class GradeAnalytics:
             else:
                 # Not English, just show the text and author, quoted
                 quote_block = f'"{text}"' + (f'\n{author}' if author else '')
-            disclaimer = "\n\n\n_ملاحظة: يتم جلب الاقتباسات آلياً من الإنترنت. المطور لا يختار أو يوافق على أي اقتباس._"
+            disclaimer = "\n_اقتباس آلي من الإنترنت_"
             return f"{quote_block}{disclaimer}"
         except Exception as e:
             logger.warning(f"Quote translation failed: {e}")
@@ -111,11 +111,11 @@ class GradeAnalytics:
                 text = quote.get('text', '')
                 author = quote.get('author', '')
                 quote_block = f'"{text}"' + (f'\n{author}' if author else '')
-                disclaimer = "\n\n\n_ملاحظة: يتم جلب الاقتباسات آلياً من الإنترنت. المطور لا يختار أو يوافق على أي اقتباس._"
+                disclaimer = "\n_اقتباس آلي من الإنترنت_"
                 return f"{quote_block}{disclaimer}"
             else:
                 quote_block = f'"{quote}"'
-                disclaimer = "\n\n\n_ملاحظة: يتم جلب الاقتباسات آلياً من الإنترنت. المطور لا يختار أو يوافق على أي اقتباس._"
+                disclaimer = "\n_اقتباس آلي من الإنترنت_"
                 return f"{quote_block}{disclaimer}"
 
     async def format_old_grades_with_analysis(
