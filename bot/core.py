@@ -173,7 +173,7 @@ class TelegramBot:
         self.app.add_handler(CommandHandler("notify_grades", self._admin_notify_grades))
         self.app.add_handler(CallbackQueryHandler(self._handle_callback))
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message))
-        self.app.add_handler(CallbackQueryHandler(self._settings_callback_handler, pattern="^(download_my_data|back_to_main|cancel_action)$"))
+        self.app.add_handler(CallbackQueryHandler(self._settings_callback_handler, pattern="^(back_to_main|cancel_action)$"))
 
     async def _send_message_with_keyboard(self, update, message, keyboard_type="main"):
         keyboards = {
@@ -411,8 +411,7 @@ class TelegramBot:
             "⚙️ إعدادات الحساب\n\n"
             "يمكنك التحكم في بياناتك والوصول إلى خيارات الخصوصية.\n"
             "كل شيء في هذا البوت شفاف ويمكنك دائماً معرفة كيف يتم التعامل مع بياناتك.\n\n"
-            "- يمكنك تحميل بياناتك أو زيارة الكود البرمجي على GitHub.",
-            reply_markup=get_settings_main_keyboard()
+            "- يمكنك زيارة الكود البرمجي على GitHub."
         )
 
     def _get_contact_support_keyboard(self):
@@ -1005,14 +1004,7 @@ class TelegramBot:
     async def _settings_callback_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
-        if query.data == "download_my_data":
-            await query.edit_message_text(
-                "📥 قريباً ستتمكن من تحميل جميع بياناتك مباشرة من هنا.\n\n"
-                "نحن نؤمن أن الشفافية مهمة جداً، ولهذا يمكنك دائماً معرفة كيف يتم التعامل مع بياناتك.\n"
-                "إذا احتجت بياناتك الآن، تواصل مع المطور.\n\n"
-                "شكراً لثقتك بنا! 🙏"
-            )
-        elif query.data == "back_to_main":
+        if query.data == "back_to_main":
             await query.edit_message_text(
                 "تمت العودة إلى القائمة الرئيسية.\n\n"
                 "نحن نقدر ثقتك ونسعى دائماً للشفافية في كل ما يتعلق ببياناتك."

@@ -360,7 +360,7 @@ For support and questions:
 - **Syrian State Visual Identity:** The project now uses the Syrian State Visual Identity for its branding and UI.
 - **Sticky User Flow Fixes:** Users can always cancel, recover from errors, and never get stuck in any flow.
 - **Context-Aware Motivational Quotes:** Quotes are now relevant to the user's grade situation, not random.
-- **Transparency Improvements:** All messages and README clarify that passwords are never stored, and the GitHub repo is public for full transparency.
+- **Transparency Improvements:** All messages and README clarify that passwords are never stored, and the GitHub repo is public for full transparency ([GitHub](https://github.com/sispt/grade-phoenix-bot?refresh)).
 - **Settings Menu Overhaul:** Settings are now functional, with a GitHub button and improved navigation.
 - **Logout Button Restored:** The logout button is back in the main keyboard for easy access.
 - **Robust Error/Cancel Handling:** Cancel and error recovery are available everywhere, always returning the user to a safe state.

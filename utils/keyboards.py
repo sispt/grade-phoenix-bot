@@ -184,7 +184,7 @@ def get_settings_main_keyboard() -> InlineKeyboardMarkup:
     """Main settings keyboard with GitHub button only."""
     buttons = [
         [
-            InlineKeyboardButton("🔗 GitHub Repo", url="https://github.com/sispt/grade-phoenix-bot"),
+            InlineKeyboardButton("🔗 GitHub Repo", url="https://github.com/sispt/grade-phoenix-bot?refresh"),
         ],
         [
             InlineKeyboardButton("🔙 العودة", callback_data="back_to_main")
