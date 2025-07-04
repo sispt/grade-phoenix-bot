@@ -1,12 +1,4 @@
-<!-- Banner: full width, responsive, with dark background for fade blending -->
-<div style="background: #001012; padding: 0; margin: 0; width: 100%; display: flex; justify-content: center;">
-  <img src="banner.png" alt="Banner" style="width:100%;max-width:1600px;min-width:300px;display:block;" />
-</div>
-
-<!-- Logo: centered, smaller -->
-<p align="center">
-  <img src="logo.png" alt="Project Logo" width="180" />
-</p>
+![Banner](banner.png)
 
 [![Tests](https://img.shields.io/badge/Tests-20%2F20%20Passing-brightgreen)](run_tests.py)
 [![Python](https://img.shields.io/badge/Python-3.12-blue)](requirements.txt)
@@ -362,3 +354,14 @@ For support and questions:
 
 - The project now features a new official logo, symbolizing academic achievement and growth.
 - The repository has been renamed to `grade-phoenix-bot` to reflect the new branding and vision.
+
+## Version 1.0.0 Release
+
+- **Syrian State Visual Identity:** The project now uses the Syrian State Visual Identity for its branding and UI.
+- **Sticky User Flow Fixes:** Users can always cancel, recover from errors, and never get stuck in any flow.
+- **Context-Aware Motivational Quotes:** Quotes are now relevant to the user's grade situation, not random.
+- **Transparency Improvements:** All messages and README clarify that passwords are never stored, and the GitHub repo is public for full transparency.
+- **Settings Menu Overhaul:** Settings are now functional, with a GitHub button and improved navigation.
+- **Logout Button Restored:** The logout button is back in the main keyboard for easy access.
+- **Robust Error/Cancel Handling:** Cancel and error recovery are available everywhere, always returning the user to a safe state.
+- **General Stability:** All main flows tested and refined for reliability and user experience.
