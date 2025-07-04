@@ -18,7 +18,8 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
         ["📊 درجات الفصل الحالي", "📚 درجات الفصل السابق"],
         ["👤 معلوماتي الشخصية", "⚙️ الإعدادات والتخصيص"],
         ["📞 الدعم الفني", "❓ المساعدة والدليل"],
-        ["❌ إلغاء"]
+        ["❌ إلغاء"],
+        ["🚪 تسجيل الخروج"]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
@@ -180,11 +181,10 @@ def get_system_actions_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_settings_main_keyboard() -> InlineKeyboardMarkup:
-    """Main settings keyboard with GitHub and Download Data buttons."""
+    """Main settings keyboard with GitHub button only."""
     buttons = [
         [
             InlineKeyboardButton("🔗 GitHub Repo", url="https://github.com/sispt/grade-phoenix-bot"),
-            InlineKeyboardButton("📥 Download My Data", callback_data="download_my_data"),
         ],
         [
             InlineKeyboardButton("🔙 العودة", callback_data="back_to_main")
