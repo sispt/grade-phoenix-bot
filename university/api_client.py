@@ -6,7 +6,7 @@ import asyncio
 import logging
 import aiohttp
 import json
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from bs4 import BeautifulSoup
 import os
 
@@ -99,6 +99,123 @@ class UniversityAPI:
             logger.error(f"Error getting user info: {e}", exc_info=True)
             return None
 
+    async def get_homepage_data(self, token: str) -> Optional[Dict[str, Any]]:
+        """Get homepage data to extract available terms and their IDs"""
+        try:
+            headers = {**self.api_headers, "Authorization": f"Bearer {token}"}
+            payload = {
+                "operationName": "getPage",
+                "variables": {
+                    "name": "homepage",
+                    "params": []
+                },
+                "query": UNIVERSITY_QUERIES["GET_HOMEPAGE"]
+            }
+            async with aiohttp.ClientSession(timeout=self.timeout) as session:
+                async with session.post(
+                    self.api_url, headers=headers, json=payload
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        logger.debug(f"Homepage API response: {data}")
+                        if data.get("data", {}).get("getPage"):
+                            return data["data"]["getPage"]
+                        else:
+                            logger.error(f"No 'getPage' in response: {data}")
+                    logger.error(f"Failed to get homepage data: {response.status}")
+                    return None
+        except Exception as e:
+            logger.error(f"Error getting homepage data: {e}", exc_info=True)
+            return None
+
+    def extract_terms_from_homepage(self, homepage_data: Dict[str, Any]) -> List[Tuple[str, str | None]]:
+        """Extract term names and grade IDs from homepage data. If grade_id is missing, return None and print a warning."""
+        terms = []
+        
+        try:
+            panels = homepage_data.get("panels", [])
+            
+            for panel in panels:
+                blocks = panel.get("blocks", [])
+                
+                for block in blocks:
+                    if block.get("type") == "tabs":
+                        config = block.get("config", [])
+                        
+                        for config_item in config:
+                            if config_item.get("name") == "tabs":
+                                tabs_array = config_item.get("array", [])
+                                
+                                # Loop through all tab items at the same level
+                                for tab_item in tabs_array:
+                                    child_array = tab_item.get("array", [])
+                                    
+                                    term_name = None
+                                    grade_id = None
+                                    
+                                    # Extract from child array
+                                    for child_item in child_array:
+                                        if child_item.get("name") == "label":
+                                            term_name = child_item.get("value")
+                                        elif child_item.get("name") == "page_params":
+                                            # Defensive: page_params may be null or missing array
+                                            page_params = child_item.get("array")
+                                            if page_params and isinstance(page_params, list):
+                                                for param in page_params:
+                                                    if param.get("name") == "t_grade_id":
+                                                        grade_id = param.get("value")
+                                                        break
+                                            else:
+                                                # page_params is null or not a list
+                                                grade_id = None
+                                    
+                                    if term_name:
+                                        if grade_id is None:
+                                            print(f"⚠️  Warning: No t_grade_id found for term '{term_name}'")
+                                        terms.append((term_name, grade_id))
+                                
+                                # Also check for nested childs in the same block
+                                childs = block.get("childs", [])
+                                for child in childs:
+                                    if child.get("type") == "tabs":
+                                        child_config = child.get("config", [])
+                                        for child_config_item in child_config:
+                                            if child_config_item.get("name") == "tabs":
+                                                child_tabs_array = child_config_item.get("array", [])
+                                                
+                                                # Loop through all child tab items
+                                                for child_tab_item in child_tabs_array:
+                                                    child_tab_array = child_tab_item.get("array", [])
+                                                    
+                                                    term_name = None
+                                                    grade_id = None
+                                                    
+                                                    # Extract from child tab array
+                                                    for child_tab_child_item in child_tab_array:
+                                                        if child_tab_child_item.get("name") == "label":
+                                                            term_name = child_tab_child_item.get("value")
+                                                        elif child_tab_child_item.get("name") == "page_params":
+                                                            page_params = child_tab_child_item.get("array")
+                                                            if page_params and isinstance(page_params, list):
+                                                                for param in page_params:
+                                                                    if param.get("name") == "t_grade_id":
+                                                                        grade_id = param.get("value")
+                                                                        break
+                                                            else:
+                                                                grade_id = None
+                                                    
+                                                    if term_name:
+                                                        if grade_id is None:
+                                                            print(f"⚠️  Warning: No t_grade_id found for nested term '{term_name}'")
+                                                        terms.append((term_name, grade_id))
+                                break
+                        break
+        
+        except Exception as e:
+            print(f"Error extracting terms from homepage: {e}")
+        
+        return terms
+
     async def get_old_grades(self, token: str) -> Optional[List[Dict[str, Any]]]:
         """Get old grades using the old term ID, auto-detect if needed"""
         try:
@@ -124,35 +241,92 @@ class UniversityAPI:
             return None
 
     async def _get_grades(self, token: str) -> List[Dict[str, Any]]:
-        logger.info("🔍 Starting direct grade fetch with known term IDs...")
-        all_grades = []
-        known_term_ids = ["10459"]  # 2nd term 2024-2025 (current)
-        for term_id in known_term_ids:
-            logger.info(f"📊 Fetching grades for term ID: {term_id}")
-            term_grades = await self._get_term_grades(token, term_id, user_id=0)
-            if term_grades:
-                logger.info(f"✅ Found {len(term_grades)} grades for term ID {term_id}")
-                all_grades.extend(term_grades)
-        logger.info(f"🎉 Total grades retrieved: {len(all_grades)}")
-        return all_grades
+        """Get grades using dynamic term IDs from homepage extraction"""
+        logger.info("🔍 Starting dynamic grade fetch with term extraction...")
+        
+        try:
+            # First, get homepage data to extract available terms
+            homepage_data = await self.get_homepage_data(token)
+            if not homepage_data:
+                logger.error("Failed to get homepage data for term extraction")
+                return []
+            
+            # Extract terms and their grade IDs
+            terms = self.extract_terms_from_homepage(homepage_data)
+            if not terms:
+                logger.error("No terms found in homepage data")
+                return []
+            
+            logger.info(f"Found {len(terms)} terms: {[term[0] for term in terms]}")
+            
+            all_grades = []
+            for term_name, grade_id in terms:
+                if grade_id is None:
+                    logger.warning(f"Skipping term '{term_name}' (no grade ID)")
+                    continue
+                
+                logger.info(f"📊 Fetching grades for term '{term_name}' (ID: {grade_id})")
+                term_grades = await self._get_term_grades(token, grade_id, user_id=0)
+                if term_grades:
+                    logger.info(f"✅ Found {len(term_grades)} grades for term '{term_name}'")
+                    # Add term information to each grade
+                    for grade in term_grades:
+                        grade['term_name'] = term_name
+                        grade['term_id'] = grade_id
+                    all_grades.extend(term_grades)
+                else:
+                    logger.warning(f"No grades found for term '{term_name}'")
+            
+            logger.info(f"🎉 Total grades retrieved: {len(all_grades)}")
+            return all_grades
+            
+        except Exception as e:
+            logger.error(f"Error getting grades: {e}", exc_info=True)
+            return []
 
     async def fetch_and_parse_grades(self, token: str, user_id: int) -> list:
         """
-        Fetch grades for a user, log all steps, and handle errors robustly.
+        Fetch grades for a user using dynamic term IDs from homepage extraction.
         Returns a list of parsed grades or an empty list on error.
         """
         try:
             logger.info(f"[Grade Fetch] Starting grade fetch for user {user_id}")
+            
+            # First, get homepage data to extract available terms
+            homepage_data = await self.get_homepage_data(token)
+            if not homepage_data:
+                logger.error(f"[Grade Fetch] User {user_id} - Failed to get homepage data")
+                return []
+            
+            # Extract terms and their grade IDs
+            terms = self.extract_terms_from_homepage(homepage_data)
+            if not terms:
+                logger.error(f"[Grade Fetch] User {user_id} - No terms found in homepage data")
+                return []
+            
+            logger.info(f"[Grade Fetch] User {user_id} - Found {len(terms)} terms: {[term[0] for term in terms]}")
+            
             all_grades = []
-            known_term_ids = ["10459"]  # Example: current term
-            for term_id in known_term_ids:
-                logger.info(f"[Grade Fetch] User {user_id} - Fetching grades for term ID: {term_id}")
-                term_grades = await self._get_term_grades(token, term_id, user_id)
+            for term_name, grade_id in terms:
+                if grade_id is None:
+                    logger.warning(f"[Grade Fetch] User {user_id} - Skipping term '{term_name}' (no grade ID)")
+                    continue
+                
+                logger.info(f"[Grade Fetch] User {user_id} - Fetching grades for term '{term_name}' (ID: {grade_id})")
+                term_grades = await self._get_term_grades(token, grade_id, user_id)
                 if term_grades:
-                    logger.info(f"[Grade Fetch] User {user_id} - Found {len(term_grades)} grades for term ID {term_id}")
+                    logger.info(f"[Grade Fetch] User {user_id} - Found {len(term_grades)} grades for term '{term_name}'")
+                    # Add term information to each grade
+                    for grade in term_grades:
+                        grade['term_name'] = term_name
+                        grade['term_id'] = grade_id
                     all_grades.extend(term_grades)
+                else:
+                    logger.warning(f"[Grade Fetch] User {user_id} - No grades found for term '{term_name}'")
+            
             logger.info(f"[Grade Fetch] User {user_id} - Total grades retrieved: {len(all_grades)}")
             return all_grades
+            
         except Exception as e:
             logger.error(f"[Grade Fetch] Error fetching grades for user {user_id}: {e}", exc_info=True)
             return []
@@ -192,60 +366,135 @@ class UniversityAPI:
             return []
 
     def _parse_grades_from_graphql(self, page_data: dict, user_id: int) -> list:
+        """Parse grades using the order-based method - processes blocks in order"""
         all_grades = []
         if not page_data or "panels" not in page_data:
             logger.warning(f"[Grade Parse] User {user_id} - No panels in page data.")
             return []
-        for panel in page_data.get("panels", []):
-            for block in panel.get("blocks", []):
+        
+        try:
+            # Get the blocks in order from the first panel
+            panels = page_data.get("panels", [])
+            if not panels:
+                logger.warning(f"[Grade Parse] User {user_id} - No panels found.")
+                return []
+            
+            blocks = panels[0].get("blocks", [])
+            logger.info(f"[Grade Parse] User {user_id} - Processing {len(blocks)} blocks in order")
+            
+            for block_idx, block in enumerate(blocks):
                 html_content = block.get("body", "")
-                if html_content and self._contains_course_data(html_content):
-                    if PRINT_HTML_DEBUG:
-                        logger.debug(f"[Grade Parse] User {user_id} - Raw HTML content:\n{html_content}")
-                    grades = self._parse_grades_table_html(html_content)
-                    if PRINT_HTML_DEBUG:
-                        logger.debug(f"[Grade Parse] User {user_id} - Parsed grades from HTML: {grades}")
-                    all_grades.extend(grades)
-        return all_grades
+                if not html_content:
+                    continue
+                
+                logger.debug(f"[Grade Parse] User {user_id} - Processing block {block_idx + 1}: {block.get('title', 'No Title')}")
+                
+                # Parse grades from this block using the order-based method
+                block_grades = self._parse_grades_from_block_html(html_content, block_idx + 1, user_id)
+                all_grades.extend(block_grades)
+                
+                logger.info(f"[Grade Parse] User {user_id} - Block {block_idx + 1}: Found {len(block_grades)} courses")
+            
+            logger.info(f"[Grade Parse] User {user_id} - Total courses found: {len(all_grades)}")
+            return all_grades
+            
+        except Exception as e:
+            logger.error(f"[Grade Parse] User {user_id} - Error parsing grades: {e}", exc_info=True)
+            return []
 
-    def _parse_grades_table_html(self, html_content: str) -> List[Dict[str, Any]]:
-        """
-        Improved parser: Extracts all real courses (code, name, coursework, final_exam, total) from the HTML using BeautifulSoup.
-        Excludes summary/term rows (e.g., '2nd Term 2024-2025') and rows with no course code.
-        """
+    def _parse_grades_from_block_html(self, html_content: str, block_num: int, user_id: int) -> List[Dict[str, Any]]:
+        """Parse grades from a single block's HTML using the order-based method"""
         try:
             grades = []
             soup = BeautifulSoup(html_content, "html.parser")
             tables = soup.find_all("table")
-            for table in tables:
+            
+            if not tables:
+                return []
+            
+            for table_idx, table in enumerate(tables):
+                logger.debug(f"[Grade Parse] User {user_id} - Block {block_num}, Table {table_idx + 1}")
+                
+                # Extract headers
                 headers = [th.get_text(strip=True) for th in table.find_all("th")]
-                # Look for course table by header
-                if any("المقرر" in h or "Course" in h for h in headers):
-                    rows = table.find_all("tr")[1:]  # skip header
-                    for row in rows:
-                        cells = row.find_all("td")
-                        if len(cells) < 2:
-                            continue
-                        name = cells[0].get_text(strip=True)
-                        code = cells[1].get_text(strip=True) if len(cells) > 1 else ""
-                        # Exclude summary/term rows and rows with no code
-                        if not code or any(term in name for term in ["term", "الفصل", "الدورة", "semester", "quarter", "2nd Term", "1st Term", "الفصل الدراسي"]):
-                            continue
-                        course = {
-                            "name": name,
-                            "code": code,
-                            "ects": cells[2].get_text(strip=True) if len(cells) > 2 else "",
-                            "coursework": cells[3].get_text(strip=True) if len(cells) > 3 else "",
-                            "final_exam": cells[4].get_text(strip=True) if len(cells) > 4 else "",
-                            "total": cells[5].get_text(strip=True) if len(cells) > 5 else "",
+                
+                # Extract ALL rows (no limit)
+                rows = table.find_all("tr")[1:]  # Skip header row
+                
+                if not rows:
+                    continue
+                
+                # Process each row as a course - NO LIMIT on number of courses
+                for row_idx, row in enumerate(rows):
+                    cells = [td.get_text(strip=True) for td in row.find_all("td")]
+                    
+                    # Filter: Only process rows with a non-empty course code (usually column 2)
+                    if len(cells) < 2 or not cells[1].strip():
+                        continue
+                    
+                    # Skip summary/statistics rows (numeric code + term name)
+                    code = cells[1].strip()
+                    name = cells[0].strip()
+                    if code.isdigit() and "term" in name.lower():
+                        continue
+                    
+                    # Process ANY number of cells - don't assume 6 columns
+                    if len(cells) > 0:
+                        course_data = {
+                            'block': block_num,
+                            'table': table_idx + 1,
+                            'row': row_idx + 1,
+                            'raw_cells': cells,  # Keep all raw data
+                            'num_columns': len(cells)
                         }
-                        grades.append(course)
-            if not grades:
-                logger.warning("No real courses found in HTML table.")
+                        
+                        # Map cells to known fields if available
+                        if len(cells) >= 1:
+                            course_data['name'] = cells[0]
+                        if len(cells) >= 2:
+                            course_data['code'] = cells[1]
+                        if len(cells) >= 3:
+                            course_data['ects'] = cells[2]
+                        if len(cells) >= 4:
+                            course_data['coursework'] = cells[3]
+                        if len(cells) >= 5:
+                            course_data['final_exam'] = cells[4]
+                        if len(cells) >= 6:
+                            course_data['total'] = cells[5]
+                        else:
+                            course_data['total'] = ""
+                        
+                        # Add grade status
+                        course_data['grade_status'] = self._get_grade_status(course_data.get('total', ''))
+                        
+                        grades.append(course_data)
+                        
+                        logger.debug(f"[Grade Parse] User {user_id} - Course: {course_data.get('code', 'N/A')} - {course_data.get('name', 'N/A')}")
+            
             return grades
+            
         except Exception as e:
-            logger.error(f"Error during HTML table parsing: {e}", exc_info=True)
+            logger.error(f"[Grade Parse] User {user_id} - Error parsing block {block_num}: {e}", exc_info=True)
             return []
+
+    def _get_grade_status(self, grade_text: str) -> str:
+        """Determine grade status"""
+        if not grade_text or grade_text.strip() == '':
+            return "Not Published"
+        if 'لم يتم النشر' in grade_text:
+            return "Not Published"
+        if '%' in grade_text:
+            return "Published"
+        return "Unknown"
+
+    def _extract_numeric_grade(self, grade_text: str) -> int | None:
+        """Extract numeric grade from text like '87 %' or 'لم يتم النشر'"""
+        import re
+        if not grade_text or grade_text.strip() == '' or 'لم يتم النشر' in grade_text:
+            return None
+        # Extract numbers from text like "87 %"
+        numbers = re.findall(r'\d+', grade_text)
+        return int(numbers[0]) if numbers else None
 
     def _normalize_grade(self, grade: dict) -> dict:
         """
