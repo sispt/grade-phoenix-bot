@@ -17,9 +17,8 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
     keyboard = [
         ["📊 درجات الفصل الحالي", "📚 درجات الفصل السابق"],
         ["👤 معلوماتي الشخصية", "⚙️ الإعدادات والتخصيص"],
-        ["📞 الدعم الفني"],
-        ["❓ المساعدة والدليل", "🎛️ لوحة التحكم الإدارية"],
-        ["🚪 تسجيل الخروج"],
+        ["📞 الدعم الفني", "❓ المساعدة والدليل"],
+        ["❌ إلغاء"]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
@@ -27,9 +26,9 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
 def get_unregistered_keyboard() -> ReplyKeyboardMarkup:
     """Keyboard for unregistered users."""
     keyboard = [
-        ["🚀 تسجيل الدخول للجامعة", "❓ كيف يعمل البوت؟"],
-        ["📞 الدعم الفني", "🔐 معلومات الأمان"],
-        ["🔄 تحديث الأزرار"],
+        ["🚀 تسجيل الدخول للجامعة"],
+        ["❓ المساعدة", "📞 الدعم الفني"],
+        ["❌ إلغاء"]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
@@ -42,7 +41,7 @@ def get_admin_keyboard() -> ReplyKeyboardMarkup:
 
 def get_cancel_keyboard() -> ReplyKeyboardMarkup:
     """Keyboard with a cancel button."""
-    keyboard = [["❌ إلغاء العملية"]]
+    keyboard = [["❌ إلغاء"]]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
 
 
@@ -181,37 +180,18 @@ def get_system_actions_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_settings_main_keyboard() -> InlineKeyboardMarkup:
-    """Main settings keyboard."""
+    """Main settings keyboard with GitHub and Download Data buttons."""
     buttons = [
         [
-            InlineKeyboardButton(
-                "🔔 إعدادات الإشعارات", callback_data="settings_notifications"
-            ),
-            InlineKeyboardButton(
-                "🔒 إعدادات الخصوصية", callback_data="settings_privacy"
-            ),
+            InlineKeyboardButton("🔗 GitHub Repo", url="https://github.com/sispt/grade-phoenix-bot"),
+            InlineKeyboardButton("📥 Download My Data", callback_data="download_my_data"),
         ],
         [
-            InlineKeyboardButton("🌐 إعدادات اللغة", callback_data="settings_language"),
-            InlineKeyboardButton(
-                "📊 إعدادات عرض الدرجات", callback_data="settings_grade_display"
-            ),
+            InlineKeyboardButton("🔙 العودة", callback_data="back_to_main")
         ],
         [
-            InlineKeyboardButton("🎨 إعدادات الواجهة", callback_data="settings_ui"),
-            InlineKeyboardButton("⚙️ إعدادات النظام", callback_data="settings_system"),
-        ],
-        [
-            InlineKeyboardButton("📋 ملخص الإعدادات", callback_data="settings_summary"),
-            InlineKeyboardButton(
-                "🔄 إعادة تعيين الإعدادات", callback_data="settings_reset"
-            ),
-        ],
-        [
-            InlineKeyboardButton(
-                "🔙 العودة للقائمة الرئيسية", callback_data="back_to_main"
-            )
-        ],
+            InlineKeyboardButton("❌ إلغاء", callback_data="cancel_action")
+        ]
     ]
     return InlineKeyboardMarkup(buttons)
 

@@ -12,6 +12,10 @@
 [![Python](https://img.shields.io/badge/Python-3.12-blue)](requirements.txt)
 [![Security](https://img.shields.io/badge/Security-A--Level-brightgreen)](docs/security/SECURITY_AUDIT.md)
 
+<!-- Transparency note -->
+
+> ℹ️ **This repository and all code are public for full transparency, privacy, and user trust. You can always see how your data is handled.**
+
 # Notification Phoenix Bot
 
 **Version:** 1.0.0-dev | **Security Rating: A+** | **Status: Production Ready**

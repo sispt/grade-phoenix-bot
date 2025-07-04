@@ -42,36 +42,102 @@ class GradeAnalytics:
                 with open(file_path, "w", encoding="utf-8") as f:
                     json.dump({}, f, ensure_ascii=False, indent=2)
 
-    async def get_daily_quote(self) -> dict:
-        """Fetch a daily quote in English from APIs, using a broad set of intellectual keywords."""
-        keywords = [
-            "wisdom", "motivation", "perseverance", "philosophy", "science", "creativity", "knowledge", "learning", "curiosity", "logic", "reason", "ethics", "innovation", "inspiration", "education", "critical thinking", "progress", "leadership", "vision", "purpose", "meaning", "happiness", "success", "failure", "resilience", "growth", "change", "future", "potential", "discovery", "truth", "justice", "freedom", "responsibility", "empathy", "compassion", "humanity", "society", "culture", "art", "beauty", "excellence", "virtue", "integrity", "honesty", "courage", "patience", "humility", "gratitude", "mindfulness", "self-discipline", "self-awareness", "self-improvement"
+    def get_quote_category_for_grades(self, grades: List[Dict[str, Any]]) -> str:
+        """Determine the most relevant quote category based on grades (numeric, single-letter, or double-letter)."""
+        if not grades:
+            return "beginning"
+        numeric_totals = []
+        letter_grades = []
+        for grade in grades:
+            total = grade.get("total")
+            if total is None or total == "" or total == "لم يتم النشر":
+                continue
+            # Try numeric
+            try:
+                numeric_totals.append(float(total))
+                continue
+            except Exception:
+                pass
+            # Check for single- and double-letter grades
+            t = str(total).strip().upper()
+            # Single-letter
+            if t in ["A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "F"]:
+                letter_grades.append(t)
+                continue
+            # Double-letter (Turkish/European system)
+            if t in ["AA", "BA", "BB", "CB", "CC", "DC", "DD", "FF"]:
+                letter_grades.append(t)
+                continue
+        # Numeric logic
+        if numeric_totals:
+            avg = sum(numeric_totals) / len(numeric_totals)
+            if avg >= 90:
+                return "excellence"
+            elif avg >= 75:
+                return "achievement"
+            elif avg >= 60:
+                return "growth"
+            else:
+                return "perseverance"
+        # Letter grade logic
+        if letter_grades:
+            # Map letter grades to performance
+            grade_order = [
+                "A+", "A", "A-", "BA", "BB", "CB", "CC", "DC", "DD", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-", "AA", "FF", "F"
+            ]
+            best = min(letter_grades, key=lambda g: grade_order.index(g) if g in grade_order else 100)
+            if best in ["A+", "A", "A-", "AA", "BA"]:
+                return "excellence"
+            elif best in ["B+", "B", "B-", "BB", "CB"]:
+                return "achievement"
+            elif best in ["C+", "C", "C-", "CC", "DC"]:
+                return "growth"
+            elif best in ["D+", "D", "D-", "DD", "FF", "F"]:
+                return "perseverance"
+            else:
+                return "learning"
+        return "learning"
+
+    async def get_daily_quote(self, categories: list = None) -> dict:
+        """Fetch a daily quote, trying all preferred and general keywords in order."""
+        general_keywords = [
+            "philosophy", "wisdom", "motivation", "learning", "education", "progress", "growth", "Psychology", "Anthropology"
         ]
-        keyword = random.choice(keywords)
-        # Always fetch English quotes
-        try:
-            async with aiohttp.ClientSession() as session:
-                # ZenQuotes API (English)
-                url = f"https://zenquotes.io/api/random"
-                async with session.get(url) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        if data and isinstance(data, list):
-                            q = data[0].get("q", "")
-                            a = data[0].get("a", "")
-                            return {"text": q, "author": a, "philosophy": keyword}
-                # API Ninjas fallback
-                url2 = f"https://api.api-ninjas.com/v1/quotes?category={keyword}"
-                headers = {"X-Api-Key": "YOUR_API_KEY"}  # Set your API key
-                async with session.get(url2, headers=headers) as resp2:
-                    if resp2.status == 200:
-                        data2 = await resp2.json()
-                        if data2 and isinstance(data2, list):
-                            q = data2[0].get("quote", "")
-                            a = data2[0].get("author", "")
-                            return {"text": q, "author": a, "philosophy": keyword}
-        except Exception as e:
-            logger.warning(f"Quote API failed: {e}")
+        # If categories is a string, convert to list
+        if categories is None:
+            categories = []
+        elif isinstance(categories, str):
+            categories = [categories]
+        # Remove duplicates, preserve order
+        seen = set()
+        all_keywords = [k for k in categories if not (k in seen or seen.add(k))] + [k for k in general_keywords if k not in categories]
+        # Try each keyword in order
+        for keyword in all_keywords:
+            try:
+                async with aiohttp.ClientSession() as session:
+                    # ZenQuotes API (English)
+                    url = f"https://zenquotes.io/api/random"
+                    async with session.get(url) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            if data and isinstance(data, list):
+                                q = data[0].get("q", "")
+                                a = data[0].get("a", "")
+                                if q:
+                                    return {"text": q, "author": a, "philosophy": keyword}
+                    # API Ninjas fallback
+                    url2 = f"https://api.api-ninjas.com/v1/quotes?category={keyword}"
+                    headers = {"X-Api-Key": "YOUR_API_KEY"}  # Set your API key
+                    async with session.get(url2, headers=headers) as resp2:
+                        if resp2.status == 200:
+                            data2 = await resp2.json()
+                            if data2 and isinstance(data2, list):
+                                q = data2[0].get("quote", "")
+                                a = data2[0].get("author", "")
+                                if q:
+                                    return {"text": q, "author": a, "philosophy": keyword}
+            except Exception as e:
+                logger.warning(f"Quote API failed for keyword '{keyword}': {e}")
         # Use local fallback quote
         fallback_quotes = [
             {"text": "The only way to do great work is to love what you do.", "author": "Steve Jobs", "philosophy": "motivation"},
@@ -81,6 +147,21 @@ class GradeAnalytics:
             {"text": "Success is not final, failure is not fatal: It is the courage to continue that counts.", "author": "Winston Churchill", "philosophy": "resilience"},
         ]
         return random.choice(fallback_quotes)
+
+    async def get_quote_for_grade(self, grade_value: str) -> dict:
+        """Get a quote related to a specific grade value (for update notifications), always including general keywords."""
+        t = str(grade_value).strip().upper()
+        if t in ["A+", "A", "A-", "AA", "BA"]:
+            categories = ["excellence", "achievement"]
+        elif t in ["B+", "B", "B-", "BB", "CB"]:
+            categories = ["achievement", "growth"]
+        elif t in ["C+", "C", "C-", "CC", "DC"]:
+            categories = ["growth", "perseverance"]
+        elif t in ["D+", "D", "D-", "DD", "FF", "F"]:
+            categories = ["perseverance"]
+        else:
+            categories = ["learning"]
+        return await self.get_daily_quote(categories)
 
     async def format_quote_dual_language(self, quote) -> str:
         """Format quote: "[EN]"\n"[AR]"\n[AUTHOR]. Only translate from English to Arabic. Always wrap quotes in double quotation marks. Adds a short disclaimer below the quote."""
@@ -121,9 +202,10 @@ class GradeAnalytics:
     async def format_old_grades_with_analysis(
         self, telegram_id: int, old_grades: List[Dict[str, Any]]
     ) -> str:
-        """Format old grades with analysis and dual-language quote"""
+        """Format old grades with analysis and dual-language quote, using a relevant category."""
         try:
-            quote = await self.get_daily_quote()
+            category = self.get_quote_category_for_grades(old_grades)
+            quote = await self.get_daily_quote(category)
             # Calculate stats
             total_courses = len(old_grades)
             completed_courses = sum(1 for grade in old_grades if grade.get("total"))
@@ -185,9 +267,10 @@ class GradeAnalytics:
     async def format_current_grades_with_quote(
         self, telegram_id: int, grades: List[Dict[str, Any]]
     ) -> str:
-        """Format current term grades and append a dual-language quote."""
+        """Format current term grades and append a dual-language quote, using a relevant category."""
         try:
-            quote = await self.get_daily_quote()
+            category = self.get_quote_category_for_grades(grades)
+            quote = await self.get_daily_quote(category)
             total_courses = len(grades)
             completed_courses = sum(1 for grade in grades if grade.get("total"))
             avg_grade = self._calculate_average_grade(grades)
