@@ -283,13 +283,27 @@ class TelegramBot:
                 await update.message.reply_text("🚫 هذا الأمر متاح للمدير فقط.")
                 return
             stats = security_manager.get_security_stats()
+            
+            # Handle different stats structure from different security manager implementations
+            total_events = stats.get('total_events_24h', 0)
+            failed_logins = stats.get('failed_logins', 0)
+            blocked_attempts = stats.get('blocked_attempts', 0)
+            active_sessions = stats.get('active_sessions', 0)
+            high_risk_events = stats.get('high_risk_events', 0)
+            
+            # If using the newer structure, extract from nested objects
+            if 'rate_limiter' in stats:
+                blocked_attempts = stats.get('rate_limiter', {}).get('blocked_users', 0)
+            if 'session_manager' in stats:
+                active_sessions = stats.get('session_manager', {}).get('active_sessions', 0)
+            
             stats_message = (
                 "🔐 إحصائيات الأمان (24 ساعة)\n\n"
-                f"📊 إجمالي الأحداث: {stats['total_events_24h']}\n"
-                f"❌ محاولات تسجيل فاشلة: {stats['failed_logins']}\n"
-                f"🚫 محاولات محظورة: {stats['blocked_attempts']}\n"
-                f"👥 الجلسات النشطة: {stats['active_sessions']}\n"
-                f"⚠️ أحداث عالية الخطورة: {stats['high_risk_events']}\n\n"
+                f"📊 إجمالي الأحداث: {total_events}\n"
+                f"❌ محاولات تسجيل فاشلة: {failed_logins}\n"
+                f"🚫 محاولات محظورة: {blocked_attempts}\n"
+                f"👥 الجلسات النشطة: {active_sessions}\n"
+                f"⚠️ أحداث عالية الخطورة: {high_risk_events}\n\n"
                 "💡 هذه الإحصائيات تساعد في مراقبة الأمان"
             )
             await update.message.reply_text(stats_message)
@@ -603,16 +617,20 @@ class TelegramBot:
                     if is_pg:
                         self.user_storage.update_token_expired_notified(telegram_id, True)
                     else:
+                        # File storage - update the user object and save
                         user["token_expired_notified"] = True
-                        self.user_storage._save_users()
+                        if hasattr(self.user_storage, '_save_users'):
+                            self.user_storage._save_users()
                 return False
             # If token is valid and user was previously notified, reset the flag
             if notified:
                 if is_pg:
                     self.user_storage.update_token_expired_notified(telegram_id, False)
                 else:
+                    # File storage - update the user object and save
                     user["token_expired_notified"] = False
-                    self.user_storage._save_users()
+                    if hasattr(self.user_storage, '_save_users'):
+                        self.user_storage._save_users()
             user_data = await self.university_api.get_user_data(token)
             if not user_data or "grades" not in user_data:
                 logger.info(f"No grade data available for {username} in this check.")
@@ -696,7 +714,8 @@ class TelegramBot:
         if existing_user:
             logger.info(f"User {user_id} is relogging in. Clearing existing session.")
             # Invalidate existing session
-            security_manager.invalidate_session(user_id)
+            if hasattr(security_manager, 'session_manager'):
+                security_manager.session_manager.invalidate_session(user_id)
             # Clear user data from context
             context.user_data.clear()
             # Clear the user's token to force a fresh login
@@ -707,7 +726,8 @@ class TelegramBot:
                 # File storage
                 existing_user["token"] = None
                 existing_user["token_expired_notified"] = False
-                self.user_storage._save_users()
+                if hasattr(self.user_storage, '_save_users'):
+                    self.user_storage._save_users()
         
         # Show security info message before asking for credentials
         await update.message.reply_text(get_credentials_security_info_message())
@@ -751,6 +771,14 @@ class TelegramBot:
         password = update.message.text.strip()
         telegram_id = update.effective_user.id
         
+        # Validate username exists
+        if not username:
+            await update.message.reply_text(
+                "❌ حدث خطأ في البيانات. يرجى المحاولة مرة أخرى.",
+                reply_markup=get_unregistered_keyboard()
+            )
+            return ConversationHandler.END
+        
         # Basic password validation to prevent injection attacks
         if not is_valid_length(password, min_len=1, max_len=100):
             await update.message.reply_text(
@@ -783,13 +811,22 @@ class TelegramBot:
             )
             # Restart registration from username
             return await self._register_start(update, context)
+        
         # Fetch user info for welcome message
         user_info = await self.university_api._get_user_info(token)
         if user_info:
             fullname = user_info.get('fullname', username)
-            firstname = user_info.get('firstname', fullname.split()[0] if ' ' in fullname else fullname)
-            lastname = user_info.get('lastname', fullname.split()[1] if ' ' in fullname else '')
+            firstname = user_info.get('firstname', '')
+            lastname = user_info.get('lastname', '')
             email = user_info.get('email', '-')
+            
+            # Handle fullname splitting if firstname/lastname are not provided
+            if not firstname and not lastname and fullname and ' ' in fullname:
+                name_parts = fullname.split()
+                firstname = name_parts[0]
+                lastname = ' '.join(name_parts[1:]) if len(name_parts) > 1 else ''
+            elif not firstname:
+                firstname = fullname
         else:
             fullname = username
             firstname = username
@@ -923,13 +960,20 @@ class TelegramBot:
     async def _logout_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         telegram_id = update.effective_user.id
         # Invalidate session
-        security_manager.invalidate_session(telegram_id)
+        if hasattr(security_manager, 'session_manager'):
+            security_manager.session_manager.invalidate_session(telegram_id)
         # Remove token and mark as unregistered
         user = self.user_storage.get_user(telegram_id)
         if user:
-            user["token"] = None
-            user["is_active"] = False
-            self.user_storage._save_users()
+            if hasattr(self.user_storage, 'clear_user_token'):
+                # PostgreSQL storage
+                self.user_storage.clear_user_token(telegram_id)
+            else:
+                # File storage
+                user["token"] = None
+                user["is_active"] = False
+                if hasattr(self.user_storage, '_save_users'):
+                    self.user_storage._save_users()
         await update.message.reply_text(
             "✅ تم تسجيل الخروج بنجاح. يمكنك تسجيل الدخول مرة أخرى في أي وقت.",
             reply_markup=get_unregistered_keyboard()
