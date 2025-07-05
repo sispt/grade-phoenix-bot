@@ -233,4 +233,26 @@ class UserStorageV2:
             return False
         except Exception as e:
             logger.error(f"❌ Error clearing token for user {telegram_id}: {e}")
-            return False 
+            return False
+    
+    def update_token_expired_notified(self, telegram_id: int, notified: bool) -> bool:
+        """Update token expired notification status"""
+        try:
+            with self.db_manager.get_session() as session:
+                user = session.query(User).filter_by(telegram_id=telegram_id).first()
+                if user:
+                    user.token_expired_notified = notified
+                    logger.info(f"✅ Updated token expired notification for user {telegram_id}: {notified}")
+                    return True
+                return False
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Database error updating token expired notification for user {telegram_id}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"❌ Error updating token expired notification for user {telegram_id}: {e}")
+            return False
+    
+    def _save_users(self):
+        """Compatibility method - no-op for PostgreSQL storage"""
+        # This method is not needed for PostgreSQL storage as it's handled automatically
+        pass 
