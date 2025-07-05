@@ -282,9 +282,9 @@ class PostgreSQLUserStorage:
                 user = session.query(User).filter_by(telegram_id=telegram_id).first()
                 if user:
                     # Delete associated grades first (cascade)
-                    from storage.grade_storage import PostgreSQLGradeStorage
+                    from storage.grade_storage_v2 import GradeStorageV2
 
-                    grade_storage = PostgreSQLGradeStorage(self.db_manager)
+                    grade_storage = GradeStorageV2(self.db_manager.database_url)
                     grade_storage.delete_grades(telegram_id)
 
                     # Delete user
