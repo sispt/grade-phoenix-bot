@@ -883,10 +883,21 @@ class TelegramBot:
             "lastname": lastname,
             "email": email
         }
-        self.user_storage.save_user(telegram_id, username, token, user_data)
+        logger.info(f"🔍 About to save user: telegram_id={telegram_id}, username={username}, token_length={len(token) if token else 0}, user_data={user_data}")
+        try:
+            self.user_storage.save_user(telegram_id, username, token, user_data)
+            logger.info(f"✅ User saved successfully")
+        except Exception as e:
+            logger.error(f"❌ Error saving user: {e}", exc_info=True)
+            raise
         
         # Create session
-        security_manager.create_user_session(telegram_id, token, user_data)
+        try:
+            security_manager.create_user_session(telegram_id, token, user_data)
+            logger.info(f"✅ User session created successfully")
+        except Exception as e:
+            logger.error(f"❌ Error creating user session: {e}", exc_info=True)
+            # Don't raise here, continue with registration
         
         # Show welcome message with keyboard
         welcome_message = get_welcome_message(fullname)
