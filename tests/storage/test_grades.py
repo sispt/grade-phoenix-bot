@@ -5,13 +5,13 @@ import pytest
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from storage.grade_storage import GradeStorage
+from storage.grade_storage_v2 import GradeStorageV2
 
 
 @pytest.fixture
 def grade_storage(tmp_path, monkeypatch):
     monkeypatch.setattr("storage.grade_storage.CONFIG", {"DATA_DIR": str(tmp_path)})
-    return GradeStorage()
+    return GradeStorageV2("sqlite:///test.db")
 
 
 def test_save_and_get_grades(grade_storage):

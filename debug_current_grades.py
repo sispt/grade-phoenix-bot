@@ -6,7 +6,7 @@ Debug script to test current grades functionality
 import asyncio
 import logging
 from university.api_client import UniversityAPI
-from storage.user_storage import PostgreSQLUserStorage
+from storage.user_storage_v2 import UserStorageV2
 from storage.models import DatabaseManager
 from config import CONFIG
 
@@ -22,7 +22,7 @@ async def test_current_grades():
         
         # Initialize PostgreSQL storage
         db_manager = DatabaseManager(CONFIG["DATABASE_URL"])
-        user_storage = PostgreSQLUserStorage(db_manager)
+        user_storage = UserStorageV2(CONFIG["DATABASE_URL"])
         
         # Get a test user (you'll need to replace with a real user ID)
         test_user_id = 6850052552  # From the logs

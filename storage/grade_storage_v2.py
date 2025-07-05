@@ -298,4 +298,8 @@ class GradeStorageV2:
             return False
         except Exception as e:
             logger.error(f"❌ Error deleting grades for user {telegram_id}: {e}")
-            return False 
+            return False
+    
+    def get_grades(self, telegram_id: int) -> List[Dict[str, Any]]:
+        """Compatibility method - alias for get_user_grades"""
+        return self.get_user_grades(telegram_id) 
