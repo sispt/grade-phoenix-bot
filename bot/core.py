@@ -327,26 +327,37 @@ class TelegramBot:
 
     async def _grades_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
+            logger.info(f"🔍 _grades_command called for user {update.effective_user.id}")
             context.user_data['last_action'] = 'grades'
             telegram_id = update.effective_user.id
             user = self.user_storage.get_user(telegram_id)
+            logger.info(f"📊 User lookup result: {user is not None}")
             if not user:
+                logger.warning(f"❌ User {telegram_id} not found in storage")
                 await update.message.reply_text("❗️ يجب التسجيل أولاً.", reply_markup=get_unregistered_keyboard())
                 return
             token = user.get("token")
+            logger.info(f"🔑 Token found: {token is not None}")
             if not token:
+                logger.warning(f"❌ No token for user {telegram_id}")
                 await update.message.reply_text("❗️ يجب إعادة تسجيل الدخول.", reply_markup=get_unregistered_keyboard())
                 return
+            logger.info(f"🌐 Calling get_user_data for user {telegram_id}")
             user_data = await self.university_api.get_user_data(token)
+            logger.info(f"📊 User data result: {user_data is not None}")
             grades = user_data.get("grades", []) if user_data else []
+            logger.info(f"📈 Grades count: {len(grades) if grades else 0}")
             if not grades:
+                logger.warning(f"⚠️ No grades found for user {telegram_id}")
                 await update.message.reply_text("لا يوجد درجات متاحة بعد.", reply_markup=get_main_keyboard())
                 return
             # Format grades with quote
+            logger.info(f"📝 Formatting grades for user {telegram_id}")
             message = await self.grade_analytics.format_current_grades_with_quote(telegram_id, grades)
+            logger.info(f"✅ Sending formatted message to user {telegram_id}")
             await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN, reply_markup=get_main_keyboard())
         except Exception as e:
-            logger.error(f"Error in _grades_command: {e}")
+            logger.error(f"❌ Error in _grades_command: {e}", exc_info=True)
             is_registered = self.user_storage.is_user_registered(update.effective_user.id)
             keyboard = get_main_keyboard() if is_registered else get_unregistered_keyboard()
             await update.message.reply_text("❌ حدث خطأ أثناء جلب الدرجات.", reply_markup=keyboard)
