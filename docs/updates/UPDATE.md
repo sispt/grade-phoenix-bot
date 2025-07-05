@@ -19,6 +19,16 @@
 - Transparent credential handling and privacy policy.
 - Automated daily quote broadcast to all users.
 
+## [2.0.0] - 2025-07-05
+
+### Added
+- New GraphQL API system with robust error handling
+- Full PostgreSQL storage and migration
+- Enhanced admin dashboard and broadcast
+- Improved grade notification and quote system
+- Security and privacy improvements
+- Compatibility and bug fixes
+
 ---
 
 _This changelog summarizes major features and improvements for each release. For detailed commit history, see the repository's commit log._
