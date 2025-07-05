@@ -20,7 +20,7 @@ from storage.grade_storage_v2 import GradeStorageV2
 from admin.dashboard import AdminDashboard
 from admin.broadcast import BroadcastSystem
 from utils.keyboards import (
-    get_main_keyboard, get_admin_keyboard, get_cancel_keyboard, 
+    get_main_keyboard, get_main_keyboard_with_admin, get_admin_keyboard, get_cancel_keyboard, 
     get_unregistered_keyboard,
     remove_keyboard, get_error_recovery_keyboard, get_settings_main_keyboard
 )
@@ -161,6 +161,15 @@ class TelegramBot:
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message))
         self.app.add_handler(CallbackQueryHandler(self._settings_callback_handler, pattern="^(back_to_main|cancel_action)$"))
 
+    def _get_appropriate_keyboard(self, user_id):
+        """Get the appropriate keyboard based on user status and admin privileges."""
+        if user_id == CONFIG["ADMIN_ID"]:
+            return get_main_keyboard_with_admin()
+        elif self.user_storage.is_user_registered(user_id):
+            return get_main_keyboard()
+        else:
+            return get_unregistered_keyboard()
+
     async def _send_message_with_keyboard(self, update, message, keyboard_type="main"):
         keyboards = {
             "main": get_main_keyboard, 
@@ -187,7 +196,8 @@ class TelegramBot:
         if user:
             # Registered user - show simple welcome with security info
             welcome_message = get_security_welcome_message()
-            await self._send_message_with_keyboard(update, welcome_message, "main")
+            keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+            await update.message.reply_text(welcome_message, reply_markup=keyboard)
         else:
             # New user - show simple explanation
             welcome_message = get_simple_welcome_message()
@@ -229,9 +239,11 @@ class TelegramBot:
         try:
             from admin.dashboard import AdminDashboard
             security_info = AdminDashboard.get_user_security_info()
-            await update.message.reply_text(security_info, reply_markup=get_main_keyboard())
+            keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+            await update.message.reply_text(security_info, reply_markup=keyboard)
         except Exception as e:
-            await update.message.reply_text("عذراً، حدث خطأ أثناء عرض معلومات الأمان.", reply_markup=get_main_keyboard())
+            keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+            await update.message.reply_text("عذراً، حدث خطأ أثناء عرض معلومات الأمان.", reply_markup=keyboard)
             logger.error(f"Error in _security_info_command: {e}", exc_info=True)
 
     async def _security_audit_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -243,9 +255,11 @@ class TelegramBot:
                 "• نستخدم أحدث معايير الأمان لحماية بياناتك.\n\n"
                 "إذا كان لديك أي سؤال عن الأمان، تواصل مع الدعم الفني."
             )
-            await update.message.reply_text(audit_message, reply_markup=get_main_keyboard())
+            keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+            await update.message.reply_text(audit_message, reply_markup=keyboard)
         except Exception as e:
-            await update.message.reply_text("عذراً، حدث خطأ أثناء عرض تقرير التدقيق.", reply_markup=get_main_keyboard())
+            keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+            await update.message.reply_text("عذراً، حدث خطأ أثناء عرض تقرير التدقيق.", reply_markup=keyboard)
             logger.error(f"Error in _security_audit_command: {e}", exc_info=True)
 
     async def _privacy_policy_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -258,15 +272,18 @@ class TelegramBot:
                 "• هدفنا هو حماية خصوصيتك وتقديم أفضل تجربة ممكنة.\n\n"
                 "لأي استفسار عن الخصوصية، تواصل مع الدعم الفني."
             )
-            await update.message.reply_text(privacy_message, reply_markup=get_main_keyboard())
+            keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+            await update.message.reply_text(privacy_message, reply_markup=keyboard)
         except Exception as e:
-            await update.message.reply_text("عذراً، حدث خطأ أثناء عرض سياسة الخصوصية.", reply_markup=get_main_keyboard())
+            keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+            await update.message.reply_text("عذراً، حدث خطأ أثناء عرض سياسة الخصوصية.", reply_markup=keyboard)
             logger.error(f"Error in _privacy_policy_command: {e}", exc_info=True)
 
     async def _security_stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             if update.effective_user.id != CONFIG["ADMIN_ID"]:
-                await update.message.reply_text("🚫 هذا الأمر متاح للمدير فقط.", reply_markup=get_main_keyboard())
+                keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+                await update.message.reply_text("🚫 هذا الأمر متاح للمدير فقط.", reply_markup=keyboard)
                 return
             stats = security_manager.get_security_stats()
             
@@ -292,9 +309,11 @@ class TelegramBot:
                 f"⚠️ أحداث عالية الخطورة: {high_risk_events}\n\n"
                 "💡 هذه الإحصائيات تساعد في مراقبة الأمان"
             )
-            await update.message.reply_text(stats_message, reply_markup=get_main_keyboard())
+            keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+            await update.message.reply_text(stats_message, reply_markup=keyboard)
         except Exception as e:
-            await update.message.reply_text("عذراً، حدث خطأ أثناء جلب إحصائيات الأمان.", reply_markup=get_main_keyboard())
+            keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+            await update.message.reply_text("عذراً، حدث خطأ أثناء جلب إحصائيات الأمان.", reply_markup=keyboard)
             logger.error(f"Error in _security_stats_command: {e}", exc_info=True)
 
     async def _security_headers_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -306,9 +325,11 @@ class TelegramBot:
                 "• لا داعي للقلق بشأن الخصوصية أو الأمان.\n\n"
                 "لأي استفسار، تواصل مع الدعم الفني."
             )
-            await update.message.reply_text(headers_message, reply_markup=get_main_keyboard())
+            keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+            await update.message.reply_text(headers_message, reply_markup=keyboard)
         except Exception as e:
-            await update.message.reply_text("عذراً، حدث خطأ أثناء جلب معلومات الأمان.", reply_markup=get_main_keyboard())
+            keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+            await update.message.reply_text("عذراً، حدث خطأ أثناء جلب معلومات الأمان.", reply_markup=keyboard)
             logger.error(f"Error in _security_headers_command: {e}", exc_info=True)
 
     async def _grades_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -335,17 +356,18 @@ class TelegramBot:
             logger.info(f"📈 Grades count: {len(grades) if grades else 0}")
             if not grades:
                 logger.warning(f"⚠️ No grades found for user {telegram_id}")
-                await update.message.reply_text("لا يوجد درجات متاحة بعد.", reply_markup=get_main_keyboard())
+                keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+                await update.message.reply_text("لا يوجد درجات متاحة بعد.", reply_markup=keyboard)
                 return
             # Format grades with quote
             logger.info(f"📝 Formatting grades for user {telegram_id}")
             message = await self.grade_analytics.format_current_grades_with_quote(telegram_id, grades)
             logger.info(f"✅ Sending formatted message to user {telegram_id}")
-            await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN, reply_markup=get_main_keyboard())
+            keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+            await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN, reply_markup=keyboard)
         except Exception as e:
             logger.error(f"❌ Error in _grades_command: {e}", exc_info=True)
-            is_registered = self.user_storage.is_user_registered(update.effective_user.id)
-            keyboard = get_main_keyboard() if is_registered else get_unregistered_keyboard()
+            keyboard = self._get_appropriate_keyboard(update.effective_user.id)
             await update.message.reply_text("❌ حدث خطأ أثناء جلب الدرجات.", reply_markup=keyboard)
 
     async def _old_grades_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -354,32 +376,37 @@ class TelegramBot:
             telegram_id = update.effective_user.id
             user = self.user_storage.get_user(telegram_id)
             if not user:
-                await update.message.reply_text("❗️ يجب التسجيل أولاً.", reply_markup=get_unregistered_keyboard())
+                keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+                await update.message.reply_text("❗️ يجب التسجيل أولاً.", reply_markup=keyboard)
                 return
             token = user.get("token")
             if not token:
-                await update.message.reply_text("❗️ يجب إعادة تسجيل الدخول.", reply_markup=get_unregistered_keyboard())
+                keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+                await update.message.reply_text("❗️ يجب إعادة تسجيل الدخول.", reply_markup=keyboard)
                 return
             old_grades = await self.university_api.get_old_grades(token)
             if old_grades is None:
-                await update.message.reply_text("❌ حدث خطأ في الاتصال أو جلب الدرجات. حاول لاحقاً أو تواصل مع الدعم.", reply_markup=get_main_keyboard())
+                keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+                await update.message.reply_text("❌ حدث خطأ في الاتصال أو جلب الدرجات. حاول لاحقاً أو تواصل مع الدعم.", reply_markup=keyboard)
                 return
             if not old_grades:
-                await update.message.reply_text("📚 لا توجد درجات سابقة متاحة للفصل الدراسي السابق.", reply_markup=get_main_keyboard())
+                keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+                await update.message.reply_text("📚 لا توجد درجات سابقة متاحة للفصل الدراسي السابق.", reply_markup=keyboard)
                 return
             formatted_message = await self.grade_analytics.format_old_grades_with_analysis(telegram_id, old_grades)
             # Split long messages if needed
             if len(formatted_message) > 4096:
                 # Send message in chunks if too long
                 for i in range(0, len(formatted_message), 4096):
-                    await update.message.reply_text(formatted_message[i:i+4096], reply_markup=get_main_keyboard())
+                    keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+                    await update.message.reply_text(formatted_message[i:i+4096], reply_markup=keyboard)
             else:
-                await update.message.reply_text(formatted_message, reply_markup=get_main_keyboard())
+                keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+                await update.message.reply_text(formatted_message, reply_markup=keyboard)
         except Exception as e:
             logger.error(f"Error in _old_grades_command: {e}", exc_info=True)
             context.user_data.pop('last_action', None)
-            is_registered = self.user_storage.is_user_registered(update.effective_user.id)
-            keyboard = get_main_keyboard() if is_registered else get_unregistered_keyboard()
+            keyboard = self._get_appropriate_keyboard(update.effective_user.id)
             await update.message.reply_text("❌ حدث خطأ غير متوقع أثناء جلب الدرجات السابقة. يرجى المحاولة لاحقاً أو التواصل مع الدعم.", reply_markup=keyboard)
 
     async def _profile_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -387,7 +414,8 @@ class TelegramBot:
             telegram_id = update.effective_user.id
             user = self.user_storage.get_user(telegram_id)
             if not user:
-                await update.message.reply_text("❗️ يجب التسجيل أولاً.", reply_markup=get_unregistered_keyboard())
+                keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+                await update.message.reply_text("❗️ يجب التسجيل أولاً.", reply_markup=keyboard)
                 return
             msg = (
                 f"👤 **معلوماتك الجامعية:**\n"
@@ -395,12 +423,15 @@ class TelegramBot:
                 f"• اسم المستخدم الجامعي: {user.get('username', '-')}\n"
             )
             try:
-                await update.message.reply_text(msg, reply_markup=get_main_keyboard())
+                keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+                await update.message.reply_text(msg, reply_markup=keyboard)
             except Exception as e:
                 logger.error(f"Error sending profile message: {e}")
-                await update.message.reply_text(msg, reply_markup=get_main_keyboard())
+                keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+                await update.message.reply_text(msg, reply_markup=keyboard)
         except Exception as e:
-            await update.message.reply_text("حدث خطأ أثناء جلب المعلومات.", reply_markup=get_unregistered_keyboard())
+            keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+            await update.message.reply_text("حدث خطأ أثناء جلب المعلومات.", reply_markup=keyboard)
             logger.error(f"Error in _profile_command: {e}", exc_info=True)
 
     async def _settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -426,7 +457,8 @@ class TelegramBot:
                 reply_markup=self._get_contact_support_keyboard()
             )
         except Exception as e:
-            await update.message.reply_text("عذراً، حدث خطأ أثناء عرض الدعم.", reply_markup=get_main_keyboard())
+            keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+            await update.message.reply_text("عذراً، حدث خطأ أثناء عرض الدعم.", reply_markup=keyboard)
             logger.error(f"Error in _support_command: {e}", exc_info=True)
 
     async def _admin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -434,19 +466,31 @@ class TelegramBot:
         if update.effective_user.id == CONFIG["ADMIN_ID"]:
             await self.admin_dashboard.show_dashboard(update, context)
         else:
-            await update.message.reply_text("🚫 ليس لديك صلاحية لهذه العملية.", reply_markup=get_main_keyboard())
+            keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+            await update.message.reply_text("🚫 ليس لديك صلاحية لهذه العملية.", reply_markup=keyboard)
 
     async def _handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text
         user_id = update.effective_user.id
         is_registered = self.user_storage.is_user_registered(user_id)
         if text == "❌ إلغاء":
-            keyboard = get_main_keyboard() if is_registered else get_unregistered_keyboard()
+            keyboard = self._get_appropriate_keyboard(user_id)
             await update.message.reply_text(
                 "✅ تم إلغاء العملية. يمكنك البدء من جديد أو اختيار إجراء آخر.",
                 reply_markup=keyboard
             )
             context.user_data.clear()
+            return
+        
+        # Admin dashboard button handler
+        if text == "🎛️ لوحة التحكم الإدارية":
+            if user_id == CONFIG["ADMIN_ID"]:
+                await self.admin_dashboard.show_dashboard(update, context)
+            else:
+                await update.message.reply_text(
+                    "🚫 ليس لديك صلاحية للوصول للوحة التحكم الإدارية.",
+                    reply_markup=self._get_appropriate_keyboard(user_id)
+                )
             return
         try:
             # Admin: user search
@@ -513,8 +557,7 @@ class TelegramBot:
             if action:
                 await action(update, context)
             else:
-                is_registered = self.user_storage.is_user_registered(user_id)
-                keyboard = get_main_keyboard() if is_registered else get_unregistered_keyboard()
+                keyboard = self._get_appropriate_keyboard(user_id)
                 await update.message.reply_text(
                     "هذه الميزة قيد التطوير. سيتم توفيرها قريباً.\n\n📞 للمساعدة: اضغط '📞 الدعم الفني' أو الزر أدناه.",
                     reply_markup=keyboard
@@ -522,8 +565,7 @@ class TelegramBot:
         except Exception as e:
             logger.error(f"Error in _handle_message: {e}", exc_info=True)
             context.user_data.clear()
-            is_registered = self.user_storage.is_user_registered(user_id)
-            keyboard = get_main_keyboard() if is_registered else get_unregistered_keyboard()
+            keyboard = self._get_appropriate_keyboard(user_id)
             await update.message.reply_text(
                 "❌ حدث خطأ غير متوقع\n\n**الحلول:**\n• جرب مرة أخرى بعد قليل\n• إذا استمرت المشكلة، تواصل مع الدعم\n• تأكد من اتصالك بالإنترنت\n\n📞 للمساعدة: اضغط '📞 الدعم الفني' أو الزر أدناه.",
                 reply_markup=keyboard
@@ -910,7 +952,8 @@ class TelegramBot:
         welcome_message = get_welcome_message(fullname)
         try:
             # Try to send welcome message with keyboard
-            await update.message.reply_text(welcome_message, reply_markup=get_main_keyboard())
+            keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+            await update.message.reply_text(welcome_message, reply_markup=keyboard)
         except Exception as e:
             logger.error(f"Error sending welcome message: {e}")
             # Fallback: send message without keyboard
@@ -919,14 +962,15 @@ class TelegramBot:
 
     async def _return_to_main(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Return to main keyboard from admin interface"""
-        keyboard_to_show = get_main_keyboard() if self.user_storage.is_user_registered(update.effective_user.id) else get_unregistered_keyboard()
+        keyboard = self._get_appropriate_keyboard(update.effective_user.id)
         await update.message.reply_text(
             "تمت العودة إلى القائمة الرئيسية.",
-            reply_markup=keyboard_to_show
+            reply_markup=keyboard
         )
 
     async def _cancel_registration(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text("تم إلغاء التسجيل.", reply_markup=get_main_keyboard())
+        keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+        await update.message.reply_text("تم إلغاء التسجيل.", reply_markup=keyboard)
         return ConversationHandler.END
 
     async def send_quote_to_all_users(self, message):
@@ -1032,17 +1076,11 @@ class TelegramBot:
 
     async def _refresh_keyboard(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Refresh keyboard based on user registration status"""
-        user = self.user_storage.get_user(update.effective_user.id)
-        if user:
-            await update.message.reply_text(
-                "✅ تم تحديث الأزرار للمستخدمين المسجلين.",
-                reply_markup=get_main_keyboard()
-            )
-        else:
-            await update.message.reply_text(
-                "❌ أنت غير مسجل. يرجى التسجيل أولاً.",
-                reply_markup=get_unregistered_keyboard()
-            )
+        keyboard = self._get_appropriate_keyboard(update.effective_user.id)
+        await update.message.reply_text(
+            "✅ تم تحديث الأزرار.",
+            reply_markup=keyboard
+        )
 
     async def _logout_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         telegram_id = update.effective_user.id
@@ -1075,8 +1113,7 @@ class TelegramBot:
                 "نحن نقدر ثقتك ونسعى دائماً للشفافية في كل ما يتعلق ببياناتك."
             )
         elif query.data == "cancel_action":
-            is_registered = self.user_storage.is_user_registered(update.effective_user.id)
-            keyboard = get_main_keyboard() if is_registered else get_unregistered_keyboard()
+            keyboard = self._get_appropriate_keyboard(update.effective_user.id)
             await query.edit_message_text(
                 "✅ تم إلغاء العملية. يمكنك البدء من جديد أو اختيار إجراء آخر.",
             )
