@@ -883,7 +883,7 @@ class TelegramBot:
             "lastname": lastname,
             "email": email
         }
-        self.user_storage.save_user(telegram_id, username, token=token, user_data=user_data)
+        self.user_storage.save_user(telegram_id, username, token, user_data)
         
         # Create session
         security_manager.create_user_session(telegram_id, token, user_data)
