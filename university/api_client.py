@@ -76,7 +76,7 @@ class UniversityAPI:
             user_info = await self._get_user_info(token)
             if not user_info:
                 return None
-            grades = await self._get_grades(token)
+            grades = await self.get_current_grades(token)
             return {**user_info, "grades": grades}
         except Exception as e:
             logger.error(f"Error getting user data: {e}", exc_info=True)
@@ -286,49 +286,22 @@ class UniversityAPI:
 
     async def fetch_and_parse_grades(self, token: str, user_id: int) -> list:
         """
-        Fetch grades for a user using dynamic term IDs from homepage extraction.
+        Fetch current grades for a user using the current grades method.
         Returns a list of parsed grades or an empty list on error.
         """
         try:
-            logger.info(f"[Grade Fetch] Starting grade fetch for user {user_id}")
+            logger.info(f"[Grade Fetch] Starting current grade fetch for user {user_id}")
             
-            # First, get homepage data to extract available terms
-            homepage_data = await self.get_homepage_data(token)
-            if not homepage_data:
-                logger.error(f"[Grade Fetch] User {user_id} - Failed to get homepage data")
+            current_grades = await self.get_current_grades(token)
+            if current_grades is None:
+                logger.error(f"[Grade Fetch] User {user_id} - Error getting current grades")
                 return []
             
-            # Extract terms and their grade IDs
-            terms = self.extract_terms_from_homepage(homepage_data)
-            if not terms:
-                logger.error(f"[Grade Fetch] User {user_id} - No terms found in homepage data")
-                return []
-            
-            logger.info(f"[Grade Fetch] User {user_id} - Found {len(terms)} terms: {[term[0] for term in terms]}")
-            
-            all_grades = []
-            for term_name, grade_id in terms:
-                if grade_id is None:
-                    logger.warning(f"[Grade Fetch] User {user_id} - Skipping term '{term_name}' (no grade ID)")
-                    continue
-                
-                logger.info(f"[Grade Fetch] User {user_id} - Fetching grades for term '{term_name}' (ID: {grade_id})")
-                term_grades = await self._get_term_grades(token, grade_id, user_id)
-                if term_grades:
-                    logger.info(f"[Grade Fetch] User {user_id} - Found {len(term_grades)} grades for term '{term_name}'")
-                    # Add term information to each grade
-                    for grade in term_grades:
-                        grade['term_name'] = term_name
-                        grade['term_id'] = grade_id
-                    all_grades.extend(term_grades)
-                else:
-                    logger.warning(f"[Grade Fetch] User {user_id} - No grades found for term '{term_name}'")
-            
-            logger.info(f"[Grade Fetch] User {user_id} - Total grades retrieved: {len(all_grades)}")
-            return all_grades
+            logger.info(f"[Grade Fetch] User {user_id} - Found {len(current_grades)} current grades")
+            return current_grades
             
         except Exception as e:
-            logger.error(f"[Grade Fetch] Error fetching grades for user {user_id}: {e}", exc_info=True)
+            logger.error(f"[Grade Fetch] Error fetching current grades for user {user_id}: {e}", exc_info=True)
             return []
 
     async def _get_term_grades(self, token: str, t_grade_id: str, user_id: int) -> list:
@@ -538,3 +511,66 @@ class UniversityAPI:
         except Exception as e:
             logger.error(f"Error checking for course data: {e}", exc_info=True)
             return False
+
+    async def get_current_grades(self, token: str) -> Optional[List[Dict[str, Any]]]:
+        """Get current grades with multiple fallback approaches"""
+        try:
+            logger.info("🔍 Fetching current grades with multiple approaches...")
+            
+            # Approach 1: Try to get homepage data and extract current term
+            homepage_data = await self.get_homepage_data(token)
+            if homepage_data:
+                terms = self.extract_terms_from_homepage(homepage_data)
+                if terms:
+                    # Try the first term (usually the current one)
+                    current_term_name, current_term_id = terms[0]
+                    logger.info(f"📊 Trying first term as current: '{current_term_name}' (ID: {current_term_id})")
+                    
+                    if current_term_id:
+                        current_grades = await self._get_term_grades(token, current_term_id, user_id=0)
+                        if current_grades:
+                            logger.info(f"✅ Found {len(current_grades)} current grades for term '{current_term_name}'")
+                            # Add term information to each grade
+                            for grade in current_grades:
+                                grade['term_name'] = current_term_name
+                                grade['term_id'] = current_term_id
+                            return current_grades
+            
+            # Approach 2: Try known current term IDs
+            logger.info("🔄 Trying known current term IDs...")
+            current_term_ids = ["10459", "10460", "10461"]  # Add more as needed
+            for term_id in current_term_ids:
+                logger.info(f"🔍 Trying current term ID: {term_id}")
+                current_grades = await self._get_term_grades(token, term_id, user_id=0)
+                if current_grades:
+                    logger.info(f"✅ Found {len(current_grades)} current grades for term ID {term_id}")
+                    # Add term information to each grade
+                    for grade in current_grades:
+                        grade['term_name'] = f"Current Term ({term_id})"
+                        grade['term_id'] = term_id
+                    return current_grades
+            
+            # Approach 3: Try the most recent term from all available terms
+            if homepage_data:
+                terms = self.extract_terms_from_homepage(homepage_data)
+                if len(terms) > 1:
+                    # Try the second term (might be more current)
+                    current_term_name, current_term_id = terms[1]
+                    logger.info(f"📊 Trying second term as current: '{current_term_name}' (ID: {current_term_id})")
+                    
+                    if current_term_id:
+                        current_grades = await self._get_term_grades(token, current_term_id, user_id=0)
+                        if current_grades:
+                            logger.info(f"✅ Found {len(current_grades)} current grades for term '{current_term_name}'")
+                            # Add term information to each grade
+                            for grade in current_grades:
+                                grade['term_name'] = current_term_name
+                                grade['term_id'] = current_term_id
+                            return current_grades
+            
+            logger.warning("No current grades found with any approach")
+            return []
+            
+        except Exception as e:
+            logger.error(f"Error getting current grades: {e}", exc_info=True)
+            return None

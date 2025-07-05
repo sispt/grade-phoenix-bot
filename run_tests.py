@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Comprehensive Test Runner for Telegram University Bot v2.5.7
+Comprehensive Test Runner for Telegram University Bot v1.0.0-dev
 Runs all tests from organized test folders
 """
 
@@ -58,6 +58,9 @@ def run_manual_tests():
     print("\n🔧 Running Manual Tests...")
     print("=" * 50)
 
+    # Add the project root to Python path
+    project_root = os.path.dirname(os.path.abspath(__file__))
+
     # Set environment variables for consistent testing
     env = os.environ.copy()
     env["BOT_VERSION"] = "2.5.7"
@@ -71,6 +74,8 @@ def run_manual_tests():
     for test_file, test_name in manual_tests:
         if os.path.exists(test_file):
             print(f"\n📋 Running {test_name}:")
+            # Set PYTHONPATH for proper module imports
+            env["PYTHONPATH"] = project_root
             result = subprocess.run(
                 [sys.executable, test_file], capture_output=True, text=True, env=env
             )
