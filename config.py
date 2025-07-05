@@ -130,6 +130,34 @@ ADMIN_CONFIG = {
 
 # University API queries
 UNIVERSITY_QUERIES = {
+    "LOGIN": '''
+mutation signinUser($username: String!, $password: String!) {
+  login(username: $username, password: $password)
+}
+''',
+    "TEST_TOKEN": '''
+query {
+  getGUI {
+    user {
+      id
+      username
+      name
+    }
+  }
+}
+''',
+    "GET_USER_INFO": '''
+query {
+  getGUI {
+    user {
+      id
+      username
+      name
+      email
+    }
+  }
+}
+''',
     "GET_HOMEPAGE": """
 query getPage($name: String!, $params: [PageParam!]) {
   getPage(name: $name, params: $params) {
