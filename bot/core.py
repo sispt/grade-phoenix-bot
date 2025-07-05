@@ -15,8 +15,8 @@ import os
 
 from config import CONFIG
 from storage.models import DatabaseManager
-from storage.user_storage import UserStorage, PostgreSQLUserStorage
-from storage.grade_storage import GradeStorage, PostgreSQLGradeStorage
+from storage.user_storage_v2 import UserStorageV2
+from storage.grade_storage_v2 import GradeStorageV2
 from admin.dashboard import AdminDashboard
 from admin.broadcast import BroadcastSystem
 from utils.keyboards import (
@@ -28,7 +28,7 @@ from utils.messages import get_welcome_message, get_help_message, get_simple_wel
 from security.enhancements import security_manager, is_valid_length
 from security.headers import security_headers, security_policy
 from utils.analytics import GradeAnalytics
-from university.api_client import UniversityAPI
+from university.api_client_v2 import UniversityAPIV2
 from utils.logger import get_bot_logger
 
 # Get bot logger
@@ -40,7 +40,7 @@ class TelegramBot:
     
     def __init__(self):
         self.app, self.db_manager, self.user_storage, self.grade_storage = None, None, None, None
-        self.university_api = UniversityAPI()
+        self.university_api = UniversityAPIV2()
         # Initialize storage before other components
         self._initialize_storage() 
         # Initialize components that depend on storage
@@ -52,29 +52,15 @@ class TelegramBot:
 
     def _initialize_storage(self):
         pg_initialized = False
+        # Initialize new clean storage systems
         try:
-            if CONFIG.get("USE_POSTGRESQL") and CONFIG.get("DATABASE_URL"):
-                logger.info("🗄️ Initializing PostgreSQL storage...")
-                self.db_manager = DatabaseManager(CONFIG["DATABASE_URL"])
-                if self.db_manager.test_connection():
-                    self.user_storage = PostgreSQLUserStorage(self.db_manager)
-                    self.grade_storage = PostgreSQLGradeStorage(self.db_manager)
-                    logger.info("✅ PostgreSQL storage initialized successfully.")
-                    pg_initialized = True
-                else:
-                    logger.error("❌ PostgreSQL connection failed during initialization.")
+            logger.info("🗄️ Initializing new clean storage systems...")
+            self.user_storage = UserStorageV2(CONFIG["DATABASE_URL"])
+            self.grade_storage = GradeStorageV2(CONFIG["DATABASE_URL"])
+            logger.info("✅ New storage systems initialized successfully.")
         except Exception as e:
-            logger.error(f"❌ Error during PostgreSQL initialization: {e}", exc_info=True)
-        
-        if not pg_initialized:
-            logger.info("📁 Initializing file-based storage as fallback.")
-            try:
-                self.user_storage = UserStorage()
-                self.grade_storage = GradeStorage()
-                logger.info("✅ File-based storage initialized.")
-            except Exception as e:
-                logger.critical(f"❌ FATAL: File storage also failed. Bot cannot run: {e}", exc_info=True)
-                raise RuntimeError("Failed to initialize any data storage.")
+            logger.critical(f"❌ FATAL: Storage initialization failed. Bot cannot run: {e}", exc_info=True)
+            raise RuntimeError("Failed to initialize storage systems.")
 
     async def start(self):
         self.running = True
@@ -884,8 +870,14 @@ class TelegramBot:
             "email": email
         }
         logger.info(f"🔍 About to save user: telegram_id={telegram_id}, username={username}, token_length={len(token) if token else 0}, user_data={user_data}")
+        logger.info(f"🔍 Storage class type: {type(self.user_storage).__name__}")
+        logger.info(f"🔍 Storage class methods: {[method for method in dir(self.user_storage) if not method.startswith('_')]}")
         try:
-            self.user_storage.save_user(telegram_id, username, token, user_data)
+            success = self.user_storage.save_user(telegram_id, username, token, user_data)
+        if not success:
+            logger.error(f"❌ Failed to save user {username}")
+            await update.message.reply_text("❌ حدث خطأ أثناء حفظ البيانات. يرجى المحاولة مرة أخرى.", reply_markup=get_unregistered_keyboard())
+            return
             logger.info(f"✅ User saved successfully")
         except Exception as e:
             logger.error(f"❌ Error saving user: {e}", exc_info=True)

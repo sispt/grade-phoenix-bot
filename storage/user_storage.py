@@ -55,7 +55,6 @@ class UserStorage:
         self,
         telegram_id: int,
         username: str,
-        password: str,
         token: str,
         user_data: Dict[str, Any],
     ):
@@ -71,7 +70,6 @@ class UserStorage:
             user_info = {
                 "telegram_id": telegram_id,
                 "username": username,
-                "password": None,  # Password is not stored
                 "token": token,
                 "firstname": user_data.get("firstname"),
                 "lastname": user_data.get("lastname"),
@@ -153,7 +151,6 @@ class PostgreSQLUserStorage:
         self,
         telegram_id: int,
         username: str,
-        password: str,
         token: str,
         user_data: Dict[str, Any],
     ):
