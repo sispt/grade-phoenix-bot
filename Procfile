@@ -1,3 +1,1 @@
-# Run migration before starting the bot automatically
-web: python migration.py && python main.py
-migrate: python migration.py
+web: python create_database.py && python migration_v2.py && python main.py

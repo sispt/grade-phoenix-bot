@@ -46,6 +46,15 @@ All notable changes to this project will be documented in this file.
 - **General Stability:** All main flows tested and refined for reliability and user experience.
 - All GitHub repository links now include '?refresh' to ensure preview is always up to date.
 
+## [2.0.0] - 2025-07-05
+### Major Release
+- New GraphQL API system with robust error handling
+- Full PostgreSQL storage and migration from old system
+- Enhanced admin dashboard and broadcast tools
+- Improved grade notification and quote system
+- Security and privacy improvements
+- Compatibility and bug fixes
+
 ---
 
 _This changelog summarizes major features and improvements for each release. For detailed commit history, see the repository's commit log._

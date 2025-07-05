@@ -15,8 +15,8 @@ import os
 
 from config import CONFIG
 from storage.models import DatabaseManager
-from storage.user_storage import UserStorage, PostgreSQLUserStorage
-from storage.grade_storage import GradeStorage, PostgreSQLGradeStorage
+from storage.user_storage_v2 import UserStorageV2
+from storage.grade_storage_v2 import GradeStorageV2
 from admin.dashboard import AdminDashboard
 from admin.broadcast import BroadcastSystem
 from utils.keyboards import (
@@ -28,7 +28,7 @@ from utils.messages import get_welcome_message, get_help_message, get_simple_wel
 from security.enhancements import security_manager, is_valid_length
 from security.headers import security_headers, security_policy
 from utils.analytics import GradeAnalytics
-from university.api_client import UniversityAPI
+from university.api_client_v2 import UniversityAPIV2
 from utils.logger import get_bot_logger
 
 # Get bot logger
@@ -40,7 +40,7 @@ class TelegramBot:
     
     def __init__(self):
         self.app, self.db_manager, self.user_storage, self.grade_storage = None, None, None, None
-        self.university_api = UniversityAPI()
+        self.university_api = UniversityAPIV2()
         # Initialize storage before other components
         self._initialize_storage() 
         # Initialize components that depend on storage
@@ -52,29 +52,15 @@ class TelegramBot:
 
     def _initialize_storage(self):
         pg_initialized = False
+        # Initialize new clean storage systems
         try:
-            if CONFIG.get("USE_POSTGRESQL") and CONFIG.get("DATABASE_URL"):
-                logger.info("🗄️ Initializing PostgreSQL storage...")
-                self.db_manager = DatabaseManager(CONFIG["DATABASE_URL"])
-                if self.db_manager.test_connection():
-                    self.user_storage = PostgreSQLUserStorage(self.db_manager)
-                    self.grade_storage = PostgreSQLGradeStorage(self.db_manager)
-                    logger.info("✅ PostgreSQL storage initialized successfully.")
-                    pg_initialized = True
-                else:
-                    logger.error("❌ PostgreSQL connection failed during initialization.")
+            logger.info("🗄️ Initializing new clean storage systems...")
+            self.user_storage = UserStorageV2(CONFIG["DATABASE_URL"])
+            self.grade_storage = GradeStorageV2(CONFIG["DATABASE_URL"])
+            logger.info("✅ New storage systems initialized successfully.")
         except Exception as e:
-            logger.error(f"❌ Error during PostgreSQL initialization: {e}", exc_info=True)
-        
-        if not pg_initialized:
-            logger.info("📁 Initializing file-based storage as fallback.")
-            try:
-                self.user_storage = UserStorage()
-                self.grade_storage = GradeStorage()
-                logger.info("✅ File-based storage initialized.")
-            except Exception as e:
-                logger.critical(f"❌ FATAL: File storage also failed. Bot cannot run: {e}", exc_info=True)
-                raise RuntimeError("Failed to initialize any data storage.")
+            logger.critical(f"❌ FATAL: Storage initialization failed. Bot cannot run: {e}", exc_info=True)
+            raise RuntimeError("Failed to initialize storage systems.")
 
     async def start(self):
         self.running = True
@@ -327,26 +313,37 @@ class TelegramBot:
 
     async def _grades_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
+            logger.info(f"🔍 _grades_command called for user {update.effective_user.id}")
             context.user_data['last_action'] = 'grades'
             telegram_id = update.effective_user.id
             user = self.user_storage.get_user(telegram_id)
+            logger.info(f"📊 User lookup result: {user is not None}")
             if not user:
+                logger.warning(f"❌ User {telegram_id} not found in storage")
                 await update.message.reply_text("❗️ يجب التسجيل أولاً.", reply_markup=get_unregistered_keyboard())
                 return
             token = user.get("token")
+            logger.info(f"🔑 Token found: {token is not None}")
             if not token:
+                logger.warning(f"❌ No token for user {telegram_id}")
                 await update.message.reply_text("❗️ يجب إعادة تسجيل الدخول.", reply_markup=get_unregistered_keyboard())
                 return
+            logger.info(f"🌐 Calling get_user_data for user {telegram_id}")
             user_data = await self.university_api.get_user_data(token)
+            logger.info(f"📊 User data result: {user_data is not None}")
             grades = user_data.get("grades", []) if user_data else []
+            logger.info(f"📈 Grades count: {len(grades) if grades else 0}")
             if not grades:
+                logger.warning(f"⚠️ No grades found for user {telegram_id}")
                 await update.message.reply_text("لا يوجد درجات متاحة بعد.", reply_markup=get_main_keyboard())
                 return
             # Format grades with quote
+            logger.info(f"📝 Formatting grades for user {telegram_id}")
             message = await self.grade_analytics.format_current_grades_with_quote(telegram_id, grades)
+            logger.info(f"✅ Sending formatted message to user {telegram_id}")
             await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN, reply_markup=get_main_keyboard())
         except Exception as e:
-            logger.error(f"Error in _grades_command: {e}")
+            logger.error(f"❌ Error in _grades_command: {e}", exc_info=True)
             is_registered = self.user_storage.is_user_registered(update.effective_user.id)
             keyboard = get_main_keyboard() if is_registered else get_unregistered_keyboard()
             await update.message.reply_text("❌ حدث خطأ أثناء جلب الدرجات.", reply_markup=keyboard)
@@ -658,7 +655,7 @@ class TelegramBot:
                 logger.info(f"No grade data available for {username} in this check.")
                 return False
             new_grades = user_data.get("grades", [])
-            old_grades = self.grade_storage.get_grades(telegram_id)
+            old_grades = self.grade_storage.get_user_grades(telegram_id)
             changed_courses = self._compare_grades(old_grades, new_grades)
             if changed_courses:
                 logger.warning(f"GRADE CHECK: Found {len(changed_courses)} grade changes for user {username}. Sending notification.")
@@ -835,24 +832,49 @@ class TelegramBot:
             return await self._register_start(update, context)
         
         # Get user info for welcome message
-        user_info = await self.university_api._get_user_info(token)
+        logger.info(f"🔍 Fetching user info for registration...")
+        user_info = await self.university_api.get_user_info(token)
+        logger.info(f"🔍 User info result: {user_info}")
+        
         if user_info:
-            fullname = user_info.get('fullname', username)
-            firstname = user_info.get('firstname', '')
-            lastname = user_info.get('lastname', '')
+            # The API returns 'fullname', 'firstname', 'lastname' fields
+            api_fullname = user_info.get('fullname', '')
+            api_firstname = user_info.get('firstname', '')
+            api_lastname = user_info.get('lastname', '')
+            api_username = user_info.get('username', username)
             email = user_info.get('email', '-')
             
-            # Split fullname if needed
-            if not firstname and not lastname and fullname and ' ' in fullname:
-                name_parts = fullname.split()
-                firstname = name_parts[0]
-                lastname = ' '.join(name_parts[1:]) if len(name_parts) > 1 else ''
-            elif not firstname:
-                firstname = fullname
+            logger.info(f"🔍 API fullname: '{api_fullname}', firstname: '{api_firstname}', lastname: '{api_lastname}', username: '{api_username}', email: '{email}'")
+            
+            # Use the API name fields if available, otherwise use a more user-friendly fallback
+            if api_fullname and api_fullname.strip():
+                fullname = api_fullname.strip()
+                logger.info(f"✅ Using API fullname: '{fullname}'")
+                # Use the individual name fields if available, otherwise split the fullname
+                if api_firstname and api_firstname.strip():
+                    firstname = api_firstname.strip()
+                    lastname = api_lastname.strip() if api_lastname else ''
+                else:
+                    # Fallback: split fullname into first and last
+                    name_parts = fullname.split()
+                    if len(name_parts) >= 2:
+                        firstname = name_parts[0]
+                        lastname = ' '.join(name_parts[1:])
+                    else:
+                        firstname = fullname
+                        lastname = ''
+            else:
+                # Fallback: use a more descriptive name instead of student ID
+                logger.warning(f"⚠️ API fullname is empty or whitespace, using fallback")
+                fullname = f"طالب جامعة الشام ({api_username})"
+                firstname = "طالب"
+                lastname = "جامعة الشام"
         else:
-            fullname = username
-            firstname = username
-            lastname = ''
+            # Fallback when API call fails
+            logger.warning(f"⚠️ User info API call failed, using fallback")
+            fullname = f"طالب جامعة الشام ({username})"
+            firstname = "طالب"
+            lastname = "جامعة الشام"
             email = '-'
         
         user_data = {
@@ -862,10 +884,27 @@ class TelegramBot:
             "lastname": lastname,
             "email": email
         }
-        self.user_storage.save_user(telegram_id, username, password, token=token, user_data=user_data)
+        logger.info(f"🔍 About to save user: telegram_id={telegram_id}, username={username}, token_length={len(token) if token else 0}, user_data={user_data}")
+        logger.info(f"🔍 Storage class type: {type(self.user_storage).__name__}")
+        logger.info(f"🔍 Storage class methods: {[method for method in dir(self.user_storage) if not method.startswith('_')]}")
+        try:
+            success = self.user_storage.save_user(telegram_id, username, token, user_data)
+            if not success:
+                logger.error(f"❌ Failed to save user {username}")
+                await update.message.reply_text("❌ حدث خطأ أثناء حفظ البيانات. يرجى المحاولة مرة أخرى.", reply_markup=get_unregistered_keyboard())
+                return
+            logger.info(f"✅ User saved successfully")
+        except Exception as e:
+            logger.error(f"❌ Error saving user: {e}", exc_info=True)
+            raise
         
         # Create session
-        security_manager.create_user_session(telegram_id, token, user_data)
+        try:
+            security_manager.create_user_session(telegram_id, token, user_data)
+            logger.info(f"✅ User session created successfully")
+        except Exception as e:
+            logger.error(f"❌ Error creating user session: {e}", exc_info=True)
+            # Don't raise here, continue with registration
         
         # Show welcome message with keyboard
         welcome_message = get_welcome_message(fullname)

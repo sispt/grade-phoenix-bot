@@ -180,8 +180,15 @@ class AdminDashboard:
                 else:
                     message = "💬 رسالة اليوم:\n\nلم تتوفر رسالة اليوم حالياً."
                 sent, failed = await self.send_quote_to_all_users(message)
+                
+                # Create detailed feedback message
+                if failed == 0:
+                    feedback = f"✅ تم إرسال رسالة اليوم إلى {sent} مستخدم بنجاح."
+                else:
+                    feedback = f"✅ تم إرسال رسالة اليوم إلى {sent} مستخدم.\n❌ فشل الإرسال إلى {failed} مستخدم.\n\n💡 الأسباب المحتملة:\n• المستخدمون حظروا البوت\n• معرفات تليجرام غير صحيحة\n• مشاكل في الاتصال"
+                
                 await query.edit_message_text(
-                    text=f"✅ تم إرسال رسالة اليوم إلى {sent} مستخدم. (فشل: {failed})",
+                    text=feedback,
                     reply_markup=get_enhanced_admin_dashboard_keyboard(),
                 )
             elif action == "force_grade_check":
@@ -190,6 +197,15 @@ class AdminDashboard:
                     text="🛠️ أدخل اسم المستخدم (username) أو معرف التليجرام (ID) لفحص الدرجات وبيانات HTML:"
                 )
                 context.user_data["awaiting_force_grade_check"] = True
+            elif action == "force_grade_check_all":
+                await query.edit_message_text(
+                    text="🔄 جاري فحص الدرجات لجميع المستخدمين..."
+                )
+                count = await self.bot._notify_all_users_grades()
+                await query.edit_message_text(
+                    text=f"✅ تم فحص الدرجات وإشعار {count} مستخدم (إذا كان هناك تغيير).",
+                    reply_markup=get_enhanced_admin_dashboard_keyboard(),
+                )
             elif action.startswith("force_grade_refresh_only:"):
                 telegram_id = action.split(":", 1)[1]
                 await self._admin_force_grade_refresh_only(query, telegram_id)
@@ -418,8 +434,15 @@ class AdminDashboard:
             message = update.message.text
             await update.message.reply_text("🚀 جاري إرسال الرسالة لجميع المستخدمين...")
             sent, failed = await self.broadcast_to_all_users(message)
+            
+            # Create detailed feedback message
+            if failed == 0:
+                feedback = f"✅ تم إرسال الرسالة إلى {sent} مستخدم بنجاح."
+            else:
+                feedback = f"✅ تم إرسال الرسالة إلى {sent} مستخدم.\n❌ فشل الإرسال إلى {failed} مستخدم.\n\n💡 الأسباب المحتملة:\n• المستخدمون حظروا البوت\n• معرفات تليجرام غير صحيحة\n• مشاكل في الاتصال"
+            
             await update.message.reply_text(
-                f"✅ تم إرسال الرسالة إلى {sent} مستخدم. (فشل: {failed})",
+                feedback,
                 reply_markup=get_enhanced_admin_dashboard_keyboard(),
             )
             context.user_data["awaiting_broadcast"] = False
@@ -430,6 +453,10 @@ class AdminDashboard:
         users = self.bot.user_storage.get_all_users()
         sent = 0
         failed = 0
+        blocked_users = 0
+        invalid_users = 0
+        other_errors = 0
+        
         for user in users:
             try:
                 await self.bot.app.bot.send_message(
@@ -438,14 +465,32 @@ class AdminDashboard:
                 sent += 1
             except Exception as e:
                 failed += 1
-                logger.error(f"Broadcast failed for {user['telegram_id']}: {e}")
+                error_msg = str(e).lower()
+                if "blocked" in error_msg or "forbidden" in error_msg:
+                    blocked_users += 1
+                    logger.warning(f"User {user['telegram_id']} ({user.get('username', 'Unknown')}) blocked the bot")
+                elif "chat not found" in error_msg or "user not found" in error_msg:
+                    invalid_users += 1
+                    logger.warning(f"Invalid user ID {user['telegram_id']} ({user.get('username', 'Unknown')})")
+                else:
+                    other_errors += 1
+                    logger.error(f"Broadcast failed for {user['telegram_id']} ({user.get('username', 'Unknown')}): {e}")
+        
+        # Log detailed summary
         logger.info(f"Broadcast summary: sent={sent}, failed={failed}, total={len(users)}")
+        if failed > 0:
+            logger.info(f"Failure breakdown: blocked={blocked_users}, invalid={invalid_users}, other={other_errors}")
+        
         return sent, failed
 
     async def send_quote_to_all_users(self, message):
         users = self.bot.user_storage.get_all_users()
         sent = 0
         failed = 0
+        blocked_users = 0
+        invalid_users = 0
+        other_errors = 0
+        
         for user in users:
             try:
                 await self.bot.app.bot.send_message(
@@ -454,8 +499,22 @@ class AdminDashboard:
                 sent += 1
             except Exception as e:
                 failed += 1
-                logger.error(f"Quote broadcast failed for {user['telegram_id']}: {e}")
+                error_msg = str(e).lower()
+                if "blocked" in error_msg or "forbidden" in error_msg:
+                    blocked_users += 1
+                    logger.warning(f"User {user['telegram_id']} ({user.get('username', 'Unknown')}) blocked the bot")
+                elif "chat not found" in error_msg or "user not found" in error_msg:
+                    invalid_users += 1
+                    logger.warning(f"Invalid user ID {user['telegram_id']} ({user.get('username', 'Unknown')})")
+                else:
+                    other_errors += 1
+                    logger.error(f"Quote broadcast failed for {user['telegram_id']} ({user.get('username', 'Unknown')}): {e}")
+        
+        # Log detailed summary
         logger.info(f"Quote broadcast summary: sent={sent}, failed={failed}, total={len(users)}")
+        if failed > 0:
+            logger.info(f"Failure breakdown: blocked={blocked_users}, invalid={invalid_users}, other={other_errors}")
+        
         return sent, failed
 
     async def handle_force_grade_check_message(self, update, context):

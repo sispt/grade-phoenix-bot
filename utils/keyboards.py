@@ -24,6 +24,19 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
 
+def get_main_keyboard_with_admin() -> ReplyKeyboardMarkup:
+    """Main keyboard for registered users with admin dashboard button."""
+    keyboard = [
+        ["📊 درجات الفصل الحالي", "📚 درجات الفصل السابق"],
+        ["👤 معلوماتي الشخصية", "⚙️ الإعدادات والتخصيص"],
+        ["📞 الدعم الفني", "❓ المساعدة والدليل"],
+        ["🎛️ لوحة التحكم الإدارية"],
+        ["❌ إلغاء"],
+        ["🚪 تسجيل الخروج"]
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
+
+
 def get_unregistered_keyboard() -> ReplyKeyboardMarkup:
     """Keyboard for unregistered users."""
     keyboard = [
@@ -87,6 +100,7 @@ def get_enhanced_admin_dashboard_keyboard() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton("🛠️ فحص درجات مستخدم", callback_data="force_grade_check"),
+            InlineKeyboardButton("🔄 فحص درجات للجميع", callback_data="force_grade_check_all"),
         ],
         [
             InlineKeyboardButton("🔄 تحديث البيانات", callback_data="refresh_data"),

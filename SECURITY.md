@@ -7,7 +7,8 @@ If you discover a security vulnerability, please report it by opening a private 
 | Version      | Supported          |
 | ------------ | ----------------- |
 | 1.0.0-dev    | ✅                |
-
+| 1.0.0        | ✅                |
+| 2.0.0        | ✅                |
 ## Security Policy
 - Passwords are never stored or saved; they are used only for login and immediately discarded.
 - A temporary login token is used for session security.

@@ -79,8 +79,8 @@ class BotRunner:
 
             # Import and run migration script
             try:
-                import migration
-                migration.run_migration()
+                import migration_v2
+                migration_v2.main()
                 logger.info("✅ Migration script executed successfully")
             except ImportError as e:
                 logger.warning(f"⚠️ Migration script not found: {e}")

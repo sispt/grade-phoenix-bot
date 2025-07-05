@@ -130,111 +130,1077 @@ ADMIN_CONFIG = {
 
 # University API queries
 UNIVERSITY_QUERIES = {
-    "LOGIN": """
-    mutation signinUser($username: String!, $password: String!) {
-        login(username: $username, password: $password)
+    "LOGIN": '''
+mutation signinUser($username: String!, $password: String!) {
+  login(username: $username, password: $password)
+}
+''',
+    "TEST_TOKEN": '''
+query {
+  getGUI {
+    user {
+      id
+      username
+      name
     }
-    """,
-    "GET_USER_INFO": """
-    query {
-      getGUI {
-        user {
-          id
-          firstname
-          lastname
-          fullname
-          email
-          username
+  }
+}
+''',
+    "GET_USER_INFO": '''
+query {
+  getGUI {
+    user {
+      id
+      username
+      fullname
+      firstname
+      lastname
+      email
+    }
+  }
+}
+''',
+    "GET_HOMEPAGE": """
+query getPage($name: String!, $params: [PageParam!]) {
+  getPage(name: $name, params: $params) {
+    side_menu
+    name
+    title
+    scope {
+      name
+      type
+      value
+      array {
+        name
+        value
+        __typename
+      }
+      pairs {
+        a
+        b
+        __typename
+      }
+      __typename
+    }
+    react_component
+    panels {
+      name
+      scope {
+        name
+        type
+        value
+        array {
+          name
+          value
+          __typename
         }
+        pairs {
+          a
+          b
+          __typename
+        }
+        __typename
+      }
+      react_component
+      blocks {
+        name
+        type
+        title
+        body
+        width
+        classes
+        react_component
+        onClickAction {
+          label
+          name
+          type
+          icon
+          variant
+          toolTip
+          block
+          disabled
+          href
+          loading
+          shape
+          size
+          target
+          action_type
+          label
+          classes
+          config {
+            name
+            value
+            type
+            array {
+              name
+              value
+              type
+              __typename
+            }
+            __typename
+          }
+          __typename
+        }
+        actions {
+          label
+          name
+          type
+          icon
+          variant
+          toolTip
+          block
+          disabled
+          href
+          loading
+          shape
+          size
+          target
+          action_type
+          label
+          classes
+          config {
+            name
+            value
+            type
+            array {
+              name
+              value
+              type
+              __typename
+            }
+            __typename
+          }
+          __typename
+        }
+        general_actions {
+          label
+          name
+          type
+          icon
+          variant
+          toolTip
+          block
+          disabled
+          href
+          loading
+          shape
+          size
+          target
+          action_type
+          label
+          classes
+          config {
+            name
+            value
+            type
+            array {
+              name
+              value
+              type
+              __typename
+            }
+            __typename
+          }
+          __typename
+        }
+        filters {
+          name
+          type
+          label
+          width
+          config {
+            name
+            value
+            type
+            array {
+              name
+              value
+              __typename
+            }
+            __typename
+          }
+          __typename
+        }
+        config {
+          name
+          type
+          value
+          array {
+            name
+            value
+            type
+            array {
+              name
+              value
+              type
+              array {
+                name
+                value
+                __typename
+              }
+              __typename
+            }
+            __typename
+          }
+          pairs {
+            a
+            b
+            __typename
+          }
+          __typename
+        }
+        childs {
+          name
+          type
+          title
+          body
+          width
+          classes
+          onClickAction {
+            label
+            name
+            type
+            icon
+            variant
+            toolTip
+            block
+            disabled
+            href
+            loading
+            shape
+            size
+            target
+            action_type
+            label
+            classes
+            config {
+              name
+              value
+              type
+              array {
+                name
+                value
+                type
+                __typename
+              }
+              __typename
+            }
+            __typename
+          }
+          actions {
+            label
+            name
+            type
+            icon
+            variant
+            toolTip
+            block
+            disabled
+            href
+            loading
+            shape
+            size
+            target
+            action_type
+            label
+            classes
+            config {
+              name
+              value
+              type
+              array {
+                name
+                value
+                type
+                __typename
+              }
+              __typename
+            }
+            __typename
+          }
+          general_actions {
+            label
+            name
+            type
+            icon
+            variant
+            toolTip
+            block
+            disabled
+            href
+            loading
+            shape
+            size
+            target
+            action_type
+            label
+            classes
+            config {
+              name
+              value
+              type
+              array {
+                name
+                value
+                type
+                __typename
+              }
+              __typename
+            }
+            __typename
+          }
+          react_component
+          config {
+            name
+            type
+            value
+            array {
+              name
+              value
+              type
+              array {
+                name
+                value
+                __typename
+              }
+              __typename
+            }
+            pairs {
+              a
+              b
+              __typename
+            }
+            __typename
+          }
+          __typename
+        }
+        __typename
+      }
+      __typename
+    }
+    kb_actions {
+      name
+      type
+      href
+      target
+      action_type
+      config {
+        name
+        type
+        value
+        array {
+          name
+          value
+          type
+          array {
+            name
+            value
+            __typename
+          }
+          __typename
+        }
+        __typename
+      }
+      __typename
+    }
+    __typename
       }
     }
     """,
-    "GET_HOMEPAGE": """
+    "GET_HOME": """
     query getPage($name: String!, $params: [PageParam!]) {
       getPage(name: $name, params: $params) {
+    side_menu
+    name
+    title
+    scope {
+      name
+      type
+      value
+      array {
+        name
+        value
+        __typename
+      }
+      pairs {
+        a
+        b
+        __typename
+      }
+      __typename
+    }
+    react_component
         panels {
+      name
+      scope {
+        name
+        type
+        value
+        array {
+          name
+          value
+          __typename
+        }
+        pairs {
+          a
+          b
+          __typename
+        }
+        __typename
+      }
+      react_component
           blocks {
+        name
+        type
+        title
+        body
+        width
+        classes
+        react_component
+        onClickAction {
+          label
+          name
+          type
+          icon
+          variant
+          toolTip
+          block
+          disabled
+          href
+          loading
+          shape
+          size
+          target
+          action_type
+          label
+          classes
+          config {
+            name
+            value
+            type
+            array {
+              name
+              value
+              type
+              __typename
+            }
+            __typename
+          }
+          __typename
+        }
+        actions {
+          label
+          name
+          type
+          icon
+          variant
+          toolTip
+          block
+          disabled
+          href
+          loading
+          shape
+          size
+          target
+          action_type
+          label
+          classes
+          config {
+            name
+            value
+            type
+            array {
+              name
+              value
+              type
+              __typename
+            }
+            __typename
+          }
+          __typename
+        }
+        general_actions {
+          label
+          name
+          type
+          icon
+          variant
+          toolTip
+          block
+          disabled
+          href
+          loading
+          shape
+          size
+          target
+          action_type
+          label
+          classes
+          config {
+            name
+            value
+            type
+            array {
+              name
+              value
+              type
+              __typename
+            }
+            __typename
+          }
+          __typename
+        }
+        filters {
+          name
+          type
+          label
+          width
+          config {
+            name
+            value
+            type
+            array {
+              name
+              value
+              __typename
+            }
+            __typename
+          }
+          __typename
+        }
+        config {
+          name
+          type
+          value
+          array {
+            name
+            value
+            type
+            array {
+              name
+              value
+              type
+              array {
+                name
+                value
+                __typename
+              }
+              __typename
+            }
+            __typename
+          }
+          pairs {
+            a
+            b
+            __typename
+          }
+          __typename
+        }
+        childs {
+          name
+          type
             title
             body
+          width
+          classes
+          onClickAction {
+            label
+            name
+            type
+            icon
+            variant
+            toolTip
+            block
+            disabled
+            href
+            loading
+            shape
+            size
+            target
+            action_type
+            label
+            classes
+            config {
+              name
+              value
+              type
+              array {
+                name
+                value
+                type
+                __typename
+              }
+              __typename
+            }
+            __typename
           }
+          actions {
+            label
+            name
+            type
+            icon
+            variant
+            toolTip
+            block
+            disabled
+            href
+            loading
+            shape
+            size
+            target
+            action_type
+            label
+            classes
+            config {
+              name
+              value
+              type
+              array {
+                name
+                value
+                type
+                __typename
+              }
+              __typename
+            }
+            __typename
+          }
+          general_actions {
+            label
+            name
+            type
+            icon
+            variant
+            toolTip
+            block
+            disabled
+            href
+            loading
+            shape
+            size
+            target
+            action_type
+            label
+            classes
+            config {
+              name
+              value
+              type
+              array {
+                name
+                value
+                type
+                __typename
+              }
+              __typename
+            }
+            __typename
+          }
+          react_component
+          config {
+            name
+            type
+            value
+            array {
+              name
+              value
+              type
+              array {
+                name
+                value
+                __typename
+              }
+              __typename
+            }
+            pairs {
+              a
+              b
+              __typename
+            }
+            __typename
+          }
+          __typename
         }
+        __typename
+      }
+      __typename
+    }
+    kb_actions {
+      name
+      type
+      href
+      target
+      action_type
+      config {
+        name
+        type
+        value
+        array {
+          name
+          value
+          type
+          array {
+            name
+            value
+            __typename
+          }
+          __typename
+        }
+        __typename
+      }
+      __typename
+    }
+    __typename
       }
     }
     """,
     "GET_GRADES": """
     query getPage($name: String!, $params: [PageParam!]) {
       getPage(name: $name, params: $params) {
+    side_menu
+    name
+    title
+    scope {
+      name
+      type
+      value
+      array {
+        name
+        value
+        __typename
+      }
+      pairs {
+        a
+        b
+        __typename
+      }
+      __typename
+    }
+    react_component
         panels {
+      name
+      scope {
+        name
+        type
+        value
+        array {
+          name
+          value
+          __typename
+        }
+        pairs {
+          a
+          b
+          __typename
+        }
+        __typename
+      }
+      react_component
           blocks {
+        name
+        type
             title
             body
-          }
-        }
-      }
-    }
-    """,
-    "GET_COURSE_GRADES": """
-    query getStudentGrades($t_grade_id: String!) {
-      getStudentGrades(t_grade_id: $t_grade_id) {
-        courses {
-          id
+        width
+        classes
+        react_component
+        onClickAction {
+          label
           name
-          code
-          ects
-          coursework
-          final_exam
-          total_grade
-          letter_grade
-          semester
-          year
-        }
-      }
-    }
-    """,
-    "GET_STUDENT_COURSES": """
-    query getStudentCourses($t_grade_id: String!) {
-      getStudentCourses(t_grade_id: $t_grade_id) {
-        courses {
-          id
-          name
-          code
-          ects
-          instructor
-          semester
-          year
-        }
-      }
-    }
-    """,
-    "GET_GRADE_DETAILS": """
-    query getGradeDetails($course_id: String!) {
-      getGradeDetails(course_id: $course_id) {
-        course {
-          id
-          name
-          code
-        }
-        grades {
-          component
-          grade
-          weight
-          max_grade
-        }
-        total_grade
-        letter_grade
-      }
-    }
-    """,
-    "TEST_TOKEN": """
-    query TestToken {
-        getGUI {
-            user {
-                id
-                username
+          type
+          icon
+          variant
+          toolTip
+          block
+          disabled
+          href
+          loading
+          shape
+          size
+          target
+          action_type
+          label
+          classes
+          config {
+            name
+            value
+            type
+            array {
+              name
+              value
+              type
+              __typename
             }
+            __typename
+          }
+          __typename
         }
+        actions {
+          label
+          name
+          type
+          icon
+          variant
+          toolTip
+          block
+          disabled
+          href
+          loading
+          shape
+          size
+          target
+          action_type
+          label
+          classes
+          config {
+            name
+            value
+            type
+            array {
+              name
+              value
+              type
+              __typename
+            }
+            __typename
+          }
+          __typename
+        }
+        general_actions {
+          label
+          name
+          type
+          icon
+          variant
+          toolTip
+          block
+          disabled
+          href
+          loading
+          shape
+          size
+          target
+          action_type
+          label
+          classes
+          config {
+            name
+            value
+            type
+            array {
+              name
+              value
+              type
+              __typename
+            }
+            __typename
+          }
+          __typename
+        }
+        filters {
+          name
+          type
+          label
+          width
+          config {
+            name
+            value
+            type
+            array {
+              name
+              value
+              __typename
+            }
+            __typename
+          }
+          __typename
+        }
+        config {
+          name
+          type
+          value
+          array {
+            name
+            value
+            type
+            array {
+              name
+              value
+              type
+              array {
+                name
+                value
+                __typename
+              }
+              __typename
+            }
+            __typename
+          }
+          pairs {
+            a
+            b
+            __typename
+          }
+          __typename
+        }
+        childs {
+          name
+          type
+          title
+          body
+          width
+          classes
+          onClickAction {
+            label
+            name
+            type
+            icon
+            variant
+            toolTip
+            block
+            disabled
+            href
+            loading
+            shape
+            size
+            target
+            action_type
+            label
+            classes
+            config {
+              name
+              value
+              type
+              array {
+                name
+                value
+                type
+                __typename
+              }
+              __typename
+            }
+            __typename
+          }
+          actions {
+            label
+            name
+            type
+            icon
+            variant
+            toolTip
+            block
+            disabled
+            href
+            loading
+            shape
+            size
+            target
+            action_type
+            label
+            classes
+            config {
+              name
+              value
+              type
+              array {
+                name
+                value
+                type
+                __typename
+              }
+              __typename
+            }
+            __typename
+          }
+          general_actions {
+            label
+            name
+            type
+            icon
+            variant
+            toolTip
+            block
+            disabled
+            href
+            loading
+            shape
+            size
+            target
+            action_type
+            label
+            classes
+            config {
+              name
+              value
+              type
+              array {
+                name
+                value
+                type
+                __typename
+              }
+              __typename
+            }
+            __typename
+          }
+          react_component
+          config {
+            name
+            type
+            value
+            array {
+              name
+              value
+              type
+              array {
+                name
+                value
+                __typename
+              }
+              __typename
+            }
+            pairs {
+              a
+              b
+              __typename
+            }
+            __typename
+          }
+          __typename
+        }
+        __typename
+      }
+      __typename
     }
-    """,
+    kb_actions {
+      name
+      type
+      href
+      target
+      action_type
+      config {
+        name
+        type
+        value
+        array {
+          name
+          value
+          type
+          array {
+            name
+            value
+            __typename
+          }
+          __typename
+        }
+        __typename
+      }
+      __typename
+    }
+    __typename
+  }
+}
+"""
 }
 
 # Message templates

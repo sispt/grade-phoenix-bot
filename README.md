@@ -10,7 +10,7 @@
 
 # Notification Phoenix Bot
 
-**Version:** 1.0.0-dev | **Security Rating: A+** | **Status: Production Ready**
+**Version:** 2.0.0 | **Security Rating: A+** | **Status: Production Ready**
 
 A secure, user-friendly Telegram bot for university students to receive grade notifications and academic updates with comprehensive security features and transparent credential handling.
 
@@ -66,7 +66,7 @@ Notification Phoenix Bot is a sophisticated Telegram bot designed specifically f
 Set the following environment variables:
 - `TELEGRAM_TOKEN`: Your Telegram bot token
 - `DATABASE_URL`: Database connection string (PostgreSQL or SQLite)
-- `BOT_VERSION`: (optional) Version string (default: 1.0.0-dev)
+- `BOT_VERSION`: (optional) Version string (default: 2.0.0)
 - `QUOTE_SCHEDULE`: (optional) Daily quote broadcast time (HH:MM, UTC+3)
 
 ## Security & Privacy
@@ -78,7 +78,7 @@ Set the following environment variables:
 
 _This means your password is used only to log in to your university and is immediately discarded. Your data and privacy are fully protected._
 
-**Current Version:** 1.0.0-dev
+**Current Version:** 2.0.0
 
 ## License
 MIT License. See [LICENSE](LICENSE) for details.
@@ -270,7 +270,7 @@ python -m pytest tests/storage/
 | `TELEGRAM_TOKEN` | Telegram bot token | ✅ | - |
 | `ADMIN_ID` | Admin Telegram ID | ✅ | - |
 | `DATABASE_URL` | PostgreSQL connection | ❌ | SQLite |
-| `BOT_VERSION` | Bot version | ✅ | Set via env var (default: 1.0.0-dev) |
+| `BOT_VERSION` | Bot version | ✅ | Set via env var (default: 2.0.0) |
 | `GRADE_CHECK_INTERVAL` | Check interval (minutes) | ❌ | 15 |
 | `QUOTE_SCHEDULE` | Daily quote broadcast time | ❌ | 14:00 |
 
@@ -325,7 +325,7 @@ For support and questions:
 
 **Last Updated:** December 2024  
 **Security Rating:** A+ (Enterprise-grade)  
-**Version:** Set via BOT_VERSION env var (default: 1.0.0-dev)
+**Version:** Set via BOT_VERSION env var (default: 2.0.0)
 
 ## Quote and Translation System (Updated)
 
@@ -355,7 +355,7 @@ For support and questions:
 - The project now features a new official logo, symbolizing academic achievement and growth.
 - The repository has been renamed to `grade-phoenix-bot` to reflect the new branding and vision.
 
-## Version 1.0.0 Release
+## Version 2.0.0 Release
 
 - **Syrian State Visual Identity:** The project now uses the Syrian State Visual Identity for its branding and UI.
 - **Sticky User Flow Fixes:** Users can always cancel, recover from errors, and never get stuck in any flow.
