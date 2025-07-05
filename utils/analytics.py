@@ -184,7 +184,7 @@ class GradeAnalytics:
             else:
                 # If not English, just show as is
                 quote_block = f'"{text}"' + (f'\n{author}' if author else '')
-            disclaimer = "\n_اقتباس آلي من الإنترنت (مخصص لك)_"
+            disclaimer = "\n_اقتباس آلي من الإنترنت_"
             return f"{quote_block}{disclaimer}"
         except Exception as e:
             logger.warning(f"Quote translation failed: {e}")
@@ -192,11 +192,11 @@ class GradeAnalytics:
                 text = quote.get('text', '')
                 author = quote.get('author', '')
                 quote_block = f'"{text}"' + (f'\n{author}' if author else '')
-                disclaimer = "\n_اقتباس آلي من الإنترنت (مخصص لك)_"
+                disclaimer = "\n_اقتباس آلي من الإنترنت_"
                 return f"{quote_block}{disclaimer}"
             else:
                 quote_block = f'"{quote}"'
-                disclaimer = "\n_اقتباس آلي من الإنترنت (مخصص لك)_"
+                disclaimer = "\n_اقتباس آلي من الإنترنت_"
                 return f"{quote_block}{disclaimer}"
 
     async def format_old_grades_with_analysis(
@@ -212,7 +212,7 @@ class GradeAnalytics:
             avg_grade = self._calculate_average_grade(old_grades)
             has_numeric = any(
                 (isinstance(grade.get("total"), (int, float)) and grade.get("total") is not None) or
-                (isinstance(grade.get("total"), str) and grade.get("total") is not None and re.search(r"\d+(?:\.\d+)?", grade.get("total")))
+                (isinstance(grade.get("total"), str) and grade.get("total") is not None and isinstance(grade.get("total"), str) and re.search(r"\d+(?:\.\d+)?", grade.get("total")))
                 for grade in old_grades
             )
             avg_grade_str = (
@@ -294,7 +294,7 @@ class GradeAnalytics:
             avg_grade = self._calculate_average_grade(grades)
             has_numeric = any(
                 (isinstance(grade.get("total"), (int, float)) and grade.get("total") is not None) or
-                (isinstance(grade.get("total"), str) and grade.get("total") is not None and re.search(r"\d+(?:\.\d+)?", grade.get("total")))
+                (isinstance(grade.get("total"), str) and grade.get("total") is not None and isinstance(grade.get("total"), str) and re.search(r"\d+(?:\.\d+)?", grade.get("total")))
                 for grade in grades
             )
             avg_grade_str = (
