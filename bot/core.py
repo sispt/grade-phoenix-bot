@@ -932,12 +932,33 @@ class TelegramBot:
     async def send_quote_to_all_users(self, message):
         users = self.user_storage.get_all_users()
         sent = 0
+        failed = 0
+        blocked_users = 0
+        invalid_users = 0
+        other_errors = 0
+        
         for user in users:
             try:
                 await self.app.bot.send_message(chat_id=user['telegram_id'], text=message)
                 sent += 1
-            except Exception:
-                continue
+            except Exception as e:
+                failed += 1
+                error_msg = str(e).lower()
+                if "blocked" in error_msg or "forbidden" in error_msg:
+                    blocked_users += 1
+                    logger.warning(f"User {user['telegram_id']} ({user.get('username', 'Unknown')}) blocked the bot")
+                elif "chat not found" in error_msg or "user not found" in error_msg:
+                    invalid_users += 1
+                    logger.warning(f"Invalid user ID {user['telegram_id']} ({user.get('username', 'Unknown')})")
+                else:
+                    other_errors += 1
+                    logger.error(f"Quote broadcast failed for {user['telegram_id']} ({user.get('username', 'Unknown')}): {e}")
+        
+        # Log detailed summary
+        logger.info(f"Quote broadcast summary: sent={sent}, failed={failed}, total={len(users)}")
+        if failed > 0:
+            logger.info(f"Failure breakdown: blocked={blocked_users}, invalid={invalid_users}, other={other_errors}")
+        
         return sent
 
     async def scheduled_daily_quote_broadcast(self):
@@ -974,7 +995,12 @@ class TelegramBot:
             else:
                 message = "💬 رسالة اليوم:\n\nلم تتوفر رسالة اليوم حالياً."
             count = await self.send_quote_to_all_users(message)
-            logger.info(f"✅ تم إرسال رسالة اليوم إلى {count} مستخدم.")
+            total_users = len(self.user_storage.get_all_users())
+            failed = total_users - count
+            if failed > 0:
+                logger.info(f"✅ تم إرسال رسالة اليوم إلى {count} مستخدم. (فشل: {failed} مستخدم)")
+            else:
+                logger.info(f"✅ تم إرسال رسالة اليوم إلى {count} مستخدم بنجاح.")
 
     async def _how_it_works_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
