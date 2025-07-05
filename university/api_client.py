@@ -539,9 +539,16 @@ class UniversityAPI:
             logger.info("🔍 Fetching current grades with multiple approaches...")
             
             # Approach 1: Try to get homepage data and extract current term
+            logger.info("📊 Approach 1: Getting homepage data...")
             homepage_data = await self.get_homepage_data(token)
+            logger.info(f"📊 Homepage data result: {homepage_data is not None}")
+            
             if homepage_data:
                 terms = self.extract_terms_from_homepage(homepage_data)
+                logger.info(f"📊 Extracted terms: {len(terms)} terms found")
+                for i, (term_name, term_id) in enumerate(terms):
+                    logger.info(f"  Term {i+1}: '{term_name}' (ID: {term_id})")
+                
                 if terms:
                     # Try the first term (usually the current one)
                     current_term_name, current_term_id = terms[0]
@@ -549,6 +556,7 @@ class UniversityAPI:
                     
                     if current_term_id:
                         current_grades = await self._get_term_grades(token, current_term_id, user_id=0)
+                        logger.info(f"📊 First term grades result: {len(current_grades) if current_grades else 0}")
                         if current_grades:
                             logger.info(f"✅ Found {len(current_grades)} current grades for term '{current_term_name}'")
                             # Add term information to each grade
@@ -558,11 +566,12 @@ class UniversityAPI:
                             return current_grades
             
             # Approach 2: Try known current term IDs
-            logger.info("🔄 Trying known current term IDs...")
+            logger.info("🔄 Approach 2: Trying known current term IDs...")
             current_term_ids = ["10459", "10460", "10461"]  # Add more as needed
             for term_id in current_term_ids:
                 logger.info(f"🔍 Trying current term ID: {term_id}")
                 current_grades = await self._get_term_grades(token, term_id, user_id=0)
+                logger.info(f"📊 Term {term_id} grades result: {len(current_grades) if current_grades else 0}")
                 if current_grades:
                     logger.info(f"✅ Found {len(current_grades)} current grades for term ID {term_id}")
                     # Add term information to each grade
@@ -577,10 +586,11 @@ class UniversityAPI:
                 if len(terms) > 1:
                     # Try the second term (might be more current)
                     current_term_name, current_term_id = terms[1]
-                    logger.info(f"📊 Trying second term as current: '{current_term_name}' (ID: {current_term_id})")
+                    logger.info(f"📊 Approach 3: Trying second term as current: '{current_term_name}' (ID: {current_term_id})")
                     
                     if current_term_id:
                         current_grades = await self._get_term_grades(token, current_term_id, user_id=0)
+                        logger.info(f"📊 Second term grades result: {len(current_grades) if current_grades else 0}")
                         if current_grades:
                             logger.info(f"✅ Found {len(current_grades)} current grades for term '{current_term_name}'")
                             # Add term information to each grade
@@ -589,9 +599,9 @@ class UniversityAPI:
                                 grade['term_id'] = current_term_id
                             return current_grades
             
-            logger.warning("No current grades found with any approach")
+            logger.warning("❌ No current grades found with any approach")
             return []
             
         except Exception as e:
-            logger.error(f"Error getting current grades: {e}", exc_info=True)
+            logger.error(f"❌ Error getting current grades: {e}", exc_info=True)
             return None
