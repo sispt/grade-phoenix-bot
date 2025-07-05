@@ -832,7 +832,7 @@ class TelegramBot:
             return await self._register_start(update, context)
         
         # Get user info for welcome message
-        user_info = await self.university_api._get_user_info(token)
+        user_info = await self.university_api.get_user_info(token)
         if user_info:
             # The API returns 'name' field, not 'fullname'
             api_name = user_info.get('name', '')
