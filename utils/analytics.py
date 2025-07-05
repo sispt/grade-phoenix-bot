@@ -217,9 +217,15 @@ class GradeAnalytics:
             avg_grade_str = (
                 f"{avg_grade:.2f}%" if has_numeric and avg_grade > 0 else "لا يوجد درجات رقمية لحساب المتوسط"
             )
+            
+            # Get the actual term name from the first grade (all grades should have the same term)
+            term_name = "الفصل الدراسي السابق"  # fallback
+            if old_grades and old_grades[0].get('term_name'):
+                term_name = old_grades[0]['term_name']
+            
             # Build message
             message = (
-                f"📚 **درجات الفصل الدراسي الأول 2024/2025**\n\n"
+                f"📚 **درجات {term_name}**\n\n"
                 f"**إحصائيات عامة:**\n"
                 f"• عدد المقررات: {total_courses}\n"
                 f"• المقررات المكتملة: {completed_courses}\n"
@@ -281,8 +287,14 @@ class GradeAnalytics:
             avg_grade_str = (
                 f"{avg_grade:.2f}%" if has_numeric and avg_grade > 0 else "لا يوجد درجات رقمية لحساب المتوسط"
             )
+            
+            # Get the actual term name from the first grade (all grades should have the same term)
+            term_name = "الفصل الدراسي الحالي"  # fallback
+            if grades and grades[0].get('term_name'):
+                term_name = grades[0]['term_name']
+            
             message = (
-                f"📚 **درجات الفصل الدراسي الثاني 2024/2025**\n\n"
+                f"📚 **درجات {term_name}**\n\n"
                 f"**إحصائيات عامة:**\n"
                 f"• عدد المقررات: {total_courses}\n"
                 f"• المقررات المكتملة: {completed_courses}\n"

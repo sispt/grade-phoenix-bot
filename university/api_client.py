@@ -217,25 +217,46 @@ class UniversityAPI:
         return terms
 
     async def get_old_grades(self, token: str) -> Optional[List[Dict[str, Any]]]:
-        """Get old grades using the old term ID, auto-detect if needed"""
+        """Get old grades using the second term from homepage (previous term)"""
         try:
-            logger.info("🔍 Fetching old grades with term ID 8530...")
-            old_grades = await self._get_term_grades(token, "8530", user_id=0)
-            if old_grades:
-                logger.info(f"✅ Found {len(old_grades)} old grades for term 8530")
-                return old_grades
-            # If empty, try to auto-detect previous term
-            logger.warning("No old grades found for term 8530, trying to auto-detect previous term...")
-            # Try known fallback term IDs (add more as needed)
-            fallback_terms = ["10458", "10457", "10456"]
-            for term_id in fallback_terms:
-                logger.info(f"🔍 Trying fallback term ID: {term_id}")
+            logger.info("🔍 Fetching old grades (previous term)...")
+            
+            # Get homepage data to extract available terms
+            homepage_data = await self.get_homepage_data(token)
+            if homepage_data:
+                terms = self.extract_terms_from_homepage(homepage_data)
+                if len(terms) > 1:
+                    # Use the second term as the previous term
+                    previous_term_name, previous_term_id = terms[1]
+                    logger.info(f"📊 Using second term as previous: '{previous_term_name}' (ID: {previous_term_id})")
+                    
+                    if previous_term_id:
+                        old_grades = await self._get_term_grades(token, previous_term_id, user_id=0)
+                        if old_grades:
+                            logger.info(f"✅ Found {len(old_grades)} old grades for term '{previous_term_name}'")
+                            # Add term information to each grade
+                            for grade in old_grades:
+                                grade['term_name'] = previous_term_name
+                                grade['term_id'] = previous_term_id
+                            return old_grades
+            
+            # Fallback: Try known previous term IDs
+            logger.info("🔄 Trying known previous term IDs...")
+            previous_term_ids = ["10458", "10457", "10456"]  # Known previous terms
+            for term_id in previous_term_ids:
+                logger.info(f"🔍 Trying previous term ID: {term_id}")
                 old_grades = await self._get_term_grades(token, term_id, user_id=0)
                 if old_grades:
-                    logger.info(f"✅ Found {len(old_grades)} old grades for term {term_id}")
+                    logger.info(f"✅ Found {len(old_grades)} old grades for term ID {term_id}")
+                    # Add term information to each grade
+                    for grade in old_grades:
+                        grade['term_name'] = f"Previous Term ({term_id})"
+                        grade['term_id'] = term_id
                     return old_grades
-            logger.error("No old grades found for any known term IDs.")
+            
+            logger.warning("No old grades found with any approach")
             return []
+            
         except Exception as e:
             logger.error(f"Error getting old grades: {e}", exc_info=True)
             return None
