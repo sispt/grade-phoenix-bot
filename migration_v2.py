@@ -107,15 +107,16 @@ class DataMigrationV2:
                     }
                     
                     # Save to new storage
-                    success = self.new_user_storage.save_user(
-                        telegram_id, username, token, new_user_data
-                    )
-                    
-                    if success:
-                        migrated_count += 1
-                        logger.info(f"✅ Migrated user: {username} (ID: {telegram_id})")
-                    else:
-                        logger.error(f"❌ Failed to migrate user: {username} (ID: {telegram_id})")
+                    if self.new_user_storage:
+                        success = self.new_user_storage.save_user(
+                            telegram_id, username, token, new_user_data
+                        )
+                        
+                        if success:
+                            migrated_count += 1
+                            logger.info(f"✅ Migrated user: {username} (ID: {telegram_id})")
+                        else:
+                            logger.error(f"❌ Failed to migrate user: {username} (ID: {telegram_id})")
                         
                 except Exception as e:
                     logger.error(f"❌ Error migrating user {user_data}: {e}")
@@ -133,6 +134,10 @@ class DataMigrationV2:
             logger.info("📊 Starting grade migration...")
             
             # Get all users from new storage to migrate their grades
+            if not self.new_user_storage:
+                logger.error("❌ New user storage not initialized")
+                return 0
+                
             new_users = self.new_user_storage.get_all_users()
             logger.info(f"📊 Found {len(new_users)} users to migrate grades for")
             
@@ -147,7 +152,7 @@ class DataMigrationV2:
                     # Get grades from old storage
                     old_grades = []
                     
-                    if hasattr(self.old_grade_storage, 'get_grades'):
+                    if self.old_grade_storage and hasattr(self.old_grade_storage, 'get_grades'):
                         old_grades = self.old_grade_storage.get_grades(telegram_id)
                     else:
                         # For file-based storage, try to read grades file
@@ -155,7 +160,8 @@ class DataMigrationV2:
                             grades_file = f"data/grades_{telegram_id}.json"
                             if os.path.exists(grades_file):
                                 with open(grades_file, "r", encoding="utf-8") as f:
-                                    old_grades = json.load(f)
+                                    grades_data = json.load(f)
+                                    old_grades = grades_data.get("grades", [])
                         except Exception as e:
                             logger.warning(f"⚠️ Could not read grades for user {telegram_id}: {e}")
                     
@@ -176,13 +182,14 @@ class DataMigrationV2:
                             new_grades.append(new_grade)
                         
                         # Save to new storage
-                        success = self.new_grade_storage.save_grades(telegram_id, new_grades)
-                        
-                        if success:
-                            total_migrated += len(new_grades)
-                            logger.info(f"✅ Migrated {len(new_grades)} grades for user {telegram_id}")
-                        else:
-                            logger.error(f"❌ Failed to migrate grades for user {telegram_id}")
+                        if self.new_grade_storage:
+                            success = self.new_grade_storage.save_grades(telegram_id, new_grades)
+                            
+                            if success:
+                                total_migrated += len(new_grades)
+                                logger.info(f"✅ Migrated {len(new_grades)} grades for user {telegram_id}")
+                            else:
+                                logger.error(f"❌ Failed to migrate grades for user {telegram_id}")
                     
                 except Exception as e:
                     logger.error(f"❌ Error migrating grades for user {telegram_id}: {e}")
@@ -206,7 +213,7 @@ class DataMigrationV2:
             }
             
             # Backup users
-            if hasattr(self.old_user_storage, 'get_all_users'):
+            if self.old_user_storage and hasattr(self.old_user_storage, 'get_all_users'):
                 backup_data["users"] = self.old_user_storage.get_all_users()
             else:
                 # Backup file-based users
@@ -226,13 +233,14 @@ class DataMigrationV2:
                     telegram_id = user.get("telegram_id")
                     if telegram_id:
                         try:
-                                                     if hasattr(self.old_grade_storage, 'get_grades'):
-                             grades = self.old_grade_storage.get_grades(telegram_id)
+                            if self.old_grade_storage and hasattr(self.old_grade_storage, 'get_grades'):
+                                grades = self.old_grade_storage.get_grades(telegram_id)
                             else:
                                 grades_file = f"data/grades_{telegram_id}.json"
                                 if os.path.exists(grades_file):
                                     with open(grades_file, "r", encoding="utf-8") as f:
-                                        grades = json.load(f)
+                                        grades_data = json.load(f)
+                                        grades = grades_data.get("grades", [])
                                 else:
                                     grades = []
                             
