@@ -250,19 +250,29 @@ class GradeAnalytics:
             return "❌ حدث خطأ أثناء تحليل الدرجات السابقة."
 
     def _calculate_average_grade(self, grades: List[Dict[str, Any]]) -> float:
-        """Calculate average grade from total grades."""
+        """
+        Calculate the average grade from the 'total' field of each grade.
+        - Extracts the first numeric value from each 'total' (e.g., '87 %', '94', etc.)
+        - Skips grades with 'لم يتم النشر', empty, or non-numeric values
+        - Ignores letter grades and other non-numeric formats
+        Returns the average as a float, or 0.0 if no numeric grades found.
+        """
+        import re
         try:
             total_grades = []
             for grade in grades:
                 total = grade.get("total")
-                if total and isinstance(total, (int, float)):
-                    total_grades.append(float(total))
-                elif total and isinstance(total, str):
+                if not total or not isinstance(total, str):
+                    continue
+                if total.strip() == '' or total.strip() == 'لم يتم النشر':
+                    continue
+                # Extract first number (integer or float) from the string
+                match = re.search(r"\d+(?:\.\d+)?", total)
+                if match:
                     try:
-                        total_grades.append(float(total))
-                    except ValueError:
+                        total_grades.append(float(match.group(0)))
+                    except Exception:
                         continue
-
             if total_grades:
                 return sum(total_grades) / len(total_grades)
             return 0.0
