@@ -12,7 +12,7 @@ from typing import Dict, List, Any
 from sqlalchemy.exc import SQLAlchemyError
 
 from config import CONFIG
-from storage.models import Grade, DatabaseManager
+from storage.models import Grade, DatabaseManager, User, Term
 
 logger = logging.getLogger(__name__)
 
@@ -92,20 +92,30 @@ class PostgreSQLGradeStorage:
     def save_grades(self, telegram_id: int, grades_data: List[Dict]):
         try:
             with self.db_manager.get_session() as session:
+                # Get user by telegram_id
+                user = session.query(User).filter_by(telegram_id=telegram_id).first()
+                if not user:
+                    logger.error(f"❌ No user found with telegram_id {telegram_id}")
+                    return
+                user_id = user.id
+
                 # Delete old grades for this user to ensure a clean update
-                session.query(Grade).filter_by(telegram_id=telegram_id).delete()
+                session.query(Grade).filter_by(user_id=user_id).delete()
 
                 saved_count = 0
                 skipped_count = 0
                 for grade_data_item in grades_data:
-                    # Direct mapping from API parser keys
+                    # --- Extract and normalize fields ---
                     name = grade_data_item.get("name")
                     code = grade_data_item.get("code")
                     ects = grade_data_item.get("ects")
                     coursework = grade_data_item.get("coursework")
                     final_exam = grade_data_item.get("final_exam")
                     total = grade_data_item.get("total")
+                    term_name = grade_data_item.get("term_name")
+                    term_id_str = grade_data_item.get("term_id")
 
+                    # Skip if no course name
                     if not name:
                         logger.warning(
                             f"⏭️ Skipping grade for user {telegram_id} due to missing course name. Raw data: {grade_data_item}"
@@ -113,14 +123,51 @@ class PostgreSQLGradeStorage:
                         skipped_count += 1
                         continue
 
+                    # --- Handle term ---
+                    term_obj = None
+                    if term_id_str:
+                        term_obj = session.query(Term).filter_by(term_id=term_id_str).first()
+                        if not term_obj:
+                            # Create term if not exists
+                            term_obj = Term(term_id=term_id_str, name=term_name or term_id_str)
+                            session.add(term_obj)
+                            session.flush()  # Get term_obj.id
+                    term_db_id = term_obj.id if term_obj else None
+
+                    # --- Normalize ECTS ---
+                    try:
+                        ects_val = float(ects) if ects else None
+                    except Exception:
+                        ects_val = None
+
+                    # --- Extract numeric grade ---
+                    numeric_grade = None
+                    if total:
+                        import re
+                        match = re.search(r"(\d+)", total)
+                        if match:
+                            numeric_grade = float(match.group(1))
+
+                    # --- Grade status ---
+                    if not total or "لم يتم النشر" in total:
+                        grade_status = "Not Published"
+                    elif "%" in total or (numeric_grade is not None):
+                        grade_status = "Published"
+                    else:
+                        grade_status = "Unknown"
+
+                    # --- Create Grade object ---
                     grade = Grade(
-                        telegram_id=telegram_id,
+                        user_id=user_id,
+                        term_id=term_db_id,
                         course_name=name,
                         course_code=code,
-                        ects_credits=ects,
+                        ects_credits=ects_val,
                         coursework_grade=coursework,
                         final_exam_grade=final_exam,
                         total_grade_value=total,
+                        numeric_grade=numeric_grade,
+                        grade_status=grade_status,
                     )
                     session.add(grade)
                     saved_count += 1
