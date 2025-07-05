@@ -197,6 +197,15 @@ class AdminDashboard:
                     text="🛠️ أدخل اسم المستخدم (username) أو معرف التليجرام (ID) لفحص الدرجات وبيانات HTML:"
                 )
                 context.user_data["awaiting_force_grade_check"] = True
+            elif action == "force_grade_check_all":
+                await query.edit_message_text(
+                    text="🔄 جاري فحص الدرجات لجميع المستخدمين..."
+                )
+                count = await self.bot._notify_all_users_grades()
+                await query.edit_message_text(
+                    text=f"✅ تم فحص الدرجات وإشعار {count} مستخدم (إذا كان هناك تغيير).",
+                    reply_markup=get_enhanced_admin_dashboard_keyboard(),
+                )
             elif action.startswith("force_grade_refresh_only:"):
                 telegram_id = action.split(":", 1)[1]
                 await self._admin_force_grade_refresh_only(query, telegram_id)

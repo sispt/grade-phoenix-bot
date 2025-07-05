@@ -87,6 +87,7 @@ def get_enhanced_admin_dashboard_keyboard() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton("🛠️ فحص درجات مستخدم", callback_data="force_grade_check"),
+            InlineKeyboardButton("🔄 فحص درجات للجميع", callback_data="force_grade_check_all"),
         ],
         [
             InlineKeyboardButton("🔄 تحديث البيانات", callback_data="refresh_data"),
