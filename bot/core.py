@@ -837,22 +837,32 @@ class TelegramBot:
         # Get user info for welcome message
         user_info = await self.university_api._get_user_info(token)
         if user_info:
-            fullname = user_info.get('fullname', username)
-            firstname = user_info.get('firstname', '')
-            lastname = user_info.get('lastname', '')
+            # The API returns 'name' field, not 'fullname'
+            api_name = user_info.get('name', '')
+            api_username = user_info.get('username', username)
             email = user_info.get('email', '-')
             
-            # Split fullname if needed
-            if not firstname and not lastname and fullname and ' ' in fullname:
+            # Use the API name if available, otherwise use a more user-friendly fallback
+            if api_name and api_name.strip():
+                fullname = api_name.strip()
+                # Try to split name into first and last
                 name_parts = fullname.split()
-                firstname = name_parts[0]
-                lastname = ' '.join(name_parts[1:]) if len(name_parts) > 1 else ''
-            elif not firstname:
-                firstname = fullname
+                if len(name_parts) >= 2:
+                    firstname = name_parts[0]
+                    lastname = ' '.join(name_parts[1:])
+                else:
+                    firstname = fullname
+                    lastname = ''
+            else:
+                # Fallback: use a more descriptive name instead of student ID
+                fullname = f"طالب جامعة الشام ({api_username})"
+                firstname = "طالب"
+                lastname = "جامعة الشام"
         else:
-            fullname = username
-            firstname = username
-            lastname = ''
+            # Fallback when API call fails
+            fullname = f"طالب جامعة الشام ({username})"
+            firstname = "طالب"
+            lastname = "جامعة الشام"
             email = '-'
         
         user_data = {
@@ -862,7 +872,7 @@ class TelegramBot:
             "lastname": lastname,
             "email": email
         }
-        self.user_storage.save_user(telegram_id, username, password, token=token, user_data=user_data)
+        self.user_storage.save_user(telegram_id, username, token=token, user_data=user_data)
         
         # Create session
         security_manager.create_user_session(telegram_id, token, user_data)
