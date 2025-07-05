@@ -46,18 +46,12 @@ class DataMigrationV2:
             self.new_grade_storage = GradeStorageV2(CONFIG["DATABASE_URL"])
             logger.info("✅ New V2 storage systems initialized")
             
-            # Initialize old storage systems
-            if CONFIG["DATABASE_URL"].startswith("postgresql"):
-                # Old PostgreSQL storage
-                old_db_manager = DatabaseManager(CONFIG["DATABASE_URL"])
-                self.old_user_storage = PostgreSQLUserStorage(old_db_manager)
-                self.old_grade_storage = PostgreSQLGradeStorage(old_db_manager)
-                logger.info("✅ Old PostgreSQL storage systems initialized")
-            else:
-                # Old file-based storage
-                self.old_user_storage = UserStorage()
-                self.old_grade_storage = GradeStorage()
-                logger.info("✅ Old file-based storage systems initialized")
+            # Initialize old storage systems - only use file-based storage to avoid schema conflicts
+            # Skip old PostgreSQL storage since it conflicts with new V2 schema
+            logger.info("📁 Using file-based storage for reading old data (avoiding schema conflicts)")
+            self.old_user_storage = UserStorage()
+            self.old_grade_storage = GradeStorage()
+            logger.info("✅ Old file-based storage systems initialized")
                 
         except Exception as e:
             logger.error(f"❌ Error initializing storage systems: {e}", exc_info=True)
@@ -153,18 +147,25 @@ class DataMigrationV2:
                     # Get grades from old storage
                     old_grades = []
                     
-                    if self.old_grade_storage and hasattr(self.old_grade_storage, 'get_grades'):
-                        old_grades = self.old_grade_storage.get_grades(telegram_id)
-                    else:
-                        # For file-based storage, try to read grades file
+                    # Try file-based storage first (safer)
+                    try:
+                        grades_file = f"data/grades_{telegram_id}.json"
+                        if os.path.exists(grades_file):
+                            with open(grades_file, "r", encoding="utf-8") as f:
+                                grades_data = json.load(f)
+                                old_grades = grades_data.get("grades", [])
+                                logger.info(f"📁 Found {len(old_grades)} grades in file for user {telegram_id}")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Could not read grades file for user {telegram_id}: {e}")
+                    
+                    # If no file-based grades, try old storage (but this might fail due to schema conflicts)
+                    if not old_grades and self.old_grade_storage and hasattr(self.old_grade_storage, 'get_grades'):
                         try:
-                            grades_file = f"data/grades_{telegram_id}.json"
-                            if os.path.exists(grades_file):
-                                with open(grades_file, "r", encoding="utf-8") as f:
-                                    grades_data = json.load(f)
-                                    old_grades = grades_data.get("grades", [])
+                            old_grades = self.old_grade_storage.get_grades(telegram_id)
+                            logger.info(f"📊 Found {len(old_grades)} grades in old storage for user {telegram_id}")
                         except Exception as e:
-                            logger.warning(f"⚠️ Could not read grades for user {telegram_id}: {e}")
+                            logger.warning(f"⚠️ Could not read grades from old storage for user {telegram_id}: {e}")
+                            # This is expected if old storage has schema conflicts
                     
                     if old_grades:
                         # Transform grades to new format
