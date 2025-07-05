@@ -42,10 +42,10 @@ class GradeAnalytics:
                 with open(file_path, "w", encoding="utf-8") as f:
                     json.dump({}, f, ensure_ascii=False, indent=2)
 
-    def get_quote_category_for_grades(self, grades: List[Dict[str, Any]]) -> str:
-        """Determine the most relevant quote category based on grades (numeric, single-letter, or double-letter)."""
+    def get_quote_category_for_grades(self, grades: List[Dict[str, Any]]) -> list:
+        """Determine the most relevant quote category based on grades (numeric, single-letter, or double-letter). Returns a list of categories."""
         if not grades:
-            return "beginning"
+            return ["beginning"]
         numeric_totals = []
         letter_grades = []
         for grade in grades:
@@ -72,13 +72,13 @@ class GradeAnalytics:
         if numeric_totals:
             avg = sum(numeric_totals) / len(numeric_totals)
             if avg >= 90:
-                return "excellence"
+                return ["excellence"]
             elif avg >= 75:
-                return "achievement"
+                return ["achievement"]
             elif avg >= 60:
-                return "growth"
+                return ["growth"]
             else:
-                return "perseverance"
+                return ["perseverance"]
         # Letter grade logic
         if letter_grades:
             # Map letter grades to performance
@@ -87,16 +87,16 @@ class GradeAnalytics:
             ]
             best = min(letter_grades, key=lambda g: grade_order.index(g) if g in grade_order else 100)
             if best in ["A+", "A", "A-", "AA", "BA"]:
-                return "excellence"
+                return ["excellence"]
             elif best in ["B+", "B", "B-", "BB", "CB"]:
-                return "achievement"
+                return ["achievement"]
             elif best in ["C+", "C", "C-", "CC", "DC"]:
-                return "growth"
+                return ["growth"]
             elif best in ["D+", "D", "D-", "DD", "FF", "F"]:
-                return "perseverance"
+                return ["perseverance"]
             else:
-                return "learning"
-        return "learning"
+                return ["learning"]
+        return ["learning"]
 
     async def get_daily_quote(self, categories: list = None) -> dict:
         """Fetch a daily quote, trying all preferred and general keywords in order."""
@@ -203,15 +203,16 @@ class GradeAnalytics:
         self, telegram_id: int, old_grades: List[Dict[str, Any]]
     ) -> str:
         """Format old grades with analysis and dual-language quote, using a relevant category."""
+        import re
         try:
             category = self.get_quote_category_for_grades(old_grades)
             quote = await self.get_daily_quote(category)
-            # Calculate stats
             total_courses = len(old_grades)
             completed_courses = sum(1 for grade in old_grades if grade.get("total"))
             avg_grade = self._calculate_average_grade(old_grades)
             has_numeric = any(
-                isinstance(grade.get("total"), (int, float)) or (isinstance(grade.get("total"), str) and grade.get("total", "").replace(".", "", 1).isdigit())
+                (isinstance(grade.get("total"), (int, float)) and grade.get("total") is not None) or
+                (isinstance(grade.get("total"), str) and grade.get("total") is not None and re.search(r"\d+(?:\.\d+)?", grade.get("total")))
                 for grade in old_grades
             )
             avg_grade_str = (
@@ -284,6 +285,7 @@ class GradeAnalytics:
         self, telegram_id: int, grades: List[Dict[str, Any]]
     ) -> str:
         """Format current term grades and append a dual-language quote, using a relevant category."""
+        import re
         try:
             category = self.get_quote_category_for_grades(grades)
             quote = await self.get_daily_quote(category)
@@ -291,7 +293,8 @@ class GradeAnalytics:
             completed_courses = sum(1 for grade in grades if grade.get("total"))
             avg_grade = self._calculate_average_grade(grades)
             has_numeric = any(
-                isinstance(grade.get("total"), (int, float)) or (isinstance(grade.get("total"), str) and grade.get("total", "").replace(".", "", 1).isdigit())
+                (isinstance(grade.get("total"), (int, float)) and grade.get("total") is not None) or
+                (isinstance(grade.get("total"), str) and grade.get("total") is not None and re.search(r"\d+(?:\.\d+)?", grade.get("total")))
                 for grade in grades
             )
             avg_grade_str = (
