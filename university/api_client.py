@@ -92,17 +92,31 @@ class UniversityAPI:
         try:
             headers = {**self.api_headers, "Authorization": f"Bearer {token}"}
             payload = {"query": UNIVERSITY_QUERIES["GET_USER_INFO"]}
+            logger.debug(f"🔍 Fetching user info with payload: {payload}")
+            
             async with aiohttp.ClientSession(timeout=self.timeout) as session:
                 async with session.post(
                     self.api_url, headers=headers, json=payload
                 ) as response:
+                    logger.debug(f"🔍 User info API response status: {response.status}")
+                    
                     if response.status == 200:
                         data = await response.json()
+                        logger.debug(f"🔍 User info API response data: {data}")
+                        
                         if data.get("data", {}).get("getGUI"):
-                            return data["data"]["getGUI"]["user"]
+                            user_data = data["data"]["getGUI"]["user"]
+                            logger.info(f"✅ User info retrieved successfully: {user_data}")
+                            return user_data
+                        else:
+                            logger.warning(f"❌ No 'getGUI' in user info response: {data}")
+                    else:
+                        logger.error(f"❌ User info API failed with status {response.status}")
+                        response_text = await response.text()
+                        logger.error(f"❌ User info API error response: {response_text}")
                     return None
         except Exception as e:
-            logger.error(f"Error getting user info: {e}", exc_info=True)
+            logger.error(f"❌ Error getting user info: {e}", exc_info=True)
             return None
 
     async def get_homepage_data(self, token: str) -> Optional[Dict[str, Any]]:

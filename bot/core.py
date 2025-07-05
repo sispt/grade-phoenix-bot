@@ -832,31 +832,46 @@ class TelegramBot:
             return await self._register_start(update, context)
         
         # Get user info for welcome message
+        logger.info(f"🔍 Fetching user info for registration...")
         user_info = await self.university_api.get_user_info(token)
+        logger.info(f"🔍 User info result: {user_info}")
+        
         if user_info:
-            # The API returns 'name' field, not 'fullname'
-            api_name = user_info.get('name', '')
+            # The API returns 'fullname', 'firstname', 'lastname' fields
+            api_fullname = user_info.get('fullname', '')
+            api_firstname = user_info.get('firstname', '')
+            api_lastname = user_info.get('lastname', '')
             api_username = user_info.get('username', username)
             email = user_info.get('email', '-')
             
-            # Use the API name if available, otherwise use a more user-friendly fallback
-            if api_name and api_name.strip():
-                fullname = api_name.strip()
-                # Try to split name into first and last
-                name_parts = fullname.split()
-                if len(name_parts) >= 2:
-                    firstname = name_parts[0]
-                    lastname = ' '.join(name_parts[1:])
+            logger.info(f"🔍 API fullname: '{api_fullname}', firstname: '{api_firstname}', lastname: '{api_lastname}', username: '{api_username}', email: '{email}'")
+            
+            # Use the API name fields if available, otherwise use a more user-friendly fallback
+            if api_fullname and api_fullname.strip():
+                fullname = api_fullname.strip()
+                logger.info(f"✅ Using API fullname: '{fullname}'")
+                # Use the individual name fields if available, otherwise split the fullname
+                if api_firstname and api_firstname.strip():
+                    firstname = api_firstname.strip()
+                    lastname = api_lastname.strip() if api_lastname else ''
                 else:
-                    firstname = fullname
-                    lastname = ''
+                    # Fallback: split fullname into first and last
+                    name_parts = fullname.split()
+                    if len(name_parts) >= 2:
+                        firstname = name_parts[0]
+                        lastname = ' '.join(name_parts[1:])
+                    else:
+                        firstname = fullname
+                        lastname = ''
             else:
                 # Fallback: use a more descriptive name instead of student ID
+                logger.warning(f"⚠️ API fullname is empty or whitespace, using fallback")
                 fullname = f"طالب جامعة الشام ({api_username})"
                 firstname = "طالب"
                 lastname = "جامعة الشام"
         else:
             # Fallback when API call fails
+            logger.warning(f"⚠️ User info API call failed, using fallback")
             fullname = f"طالب جامعة الشام ({username})"
             firstname = "طالب"
             lastname = "جامعة الشام"

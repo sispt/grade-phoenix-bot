@@ -152,7 +152,9 @@ query {
     user {
       id
       username
-      name
+      fullname
+      firstname
+      lastname
       email
     }
   }
