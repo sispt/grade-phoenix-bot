@@ -35,6 +35,7 @@ class User(Base):
     registration_date = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_login = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     is_active = Column(Boolean, default=True, nullable=False)
+    token_expired_notified = Column(Boolean, default=False, nullable=False)
     
     # Indexes
     __table_args__ = (
@@ -160,6 +161,7 @@ class UserStorageV2:
                         "registration_date": user.registration_date.isoformat() if user.registration_date else None,
                         "last_login": user.last_login.isoformat() if user.last_login else None,
                         "is_active": user.is_active,
+                        "token_expired_notified": user.token_expired_notified,
                     }
                 return None
         except SQLAlchemyError as e:
@@ -186,6 +188,7 @@ class UserStorageV2:
                         "registration_date": user.registration_date.isoformat() if user.registration_date else None,
                         "last_login": user.last_login.isoformat() if user.last_login else None,
                         "is_active": user.is_active,
+                        "token_expired_notified": user.token_expired_notified,
                     }
                     for user in users
                 ]

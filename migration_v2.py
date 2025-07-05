@@ -103,7 +103,8 @@ class DataMigrationV2:
                         "fullname": user_data.get("fullname", ""),
                         "firstname": user_data.get("firstname", ""),
                         "lastname": user_data.get("lastname", ""),
-                        "email": user_data.get("email", "")
+                        "email": user_data.get("email", ""),
+                        "token_expired_notified": user_data.get("token_expired_notified", False)
                     }
                     
                     # Save to new storage

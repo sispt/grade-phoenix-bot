@@ -18,7 +18,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 logger = logging.getLogger(__name__)
 
-Base = declarative_base()
+# Import User model from user_storage_v2 to use the same Base
+from storage.user_storage_v2 import Base, User
 
 
 class Term(Base):
@@ -137,7 +138,6 @@ class GradeStorageV2:
         try:
             with self.db_manager.get_session() as session:
                 # Get user ID from telegram_id
-                from storage.user_storage_v2 import User
                 user = session.query(User).filter_by(telegram_id=telegram_id).first()
                 if not user:
                     logger.error(f"❌ User not found for telegram_id: {telegram_id}")
@@ -250,7 +250,6 @@ class GradeStorageV2:
         """Get all grades for a user"""
         try:
             with self.db_manager.get_session() as session:
-                from storage.user_storage_v2 import User
                 user = session.query(User).filter_by(telegram_id=telegram_id).first()
                 if not user:
                     return []
@@ -282,7 +281,6 @@ class GradeStorageV2:
         """Delete all grades for a user"""
         try:
             with self.db_manager.get_session() as session:
-                from storage.user_storage_v2 import User
                 user = session.query(User).filter_by(telegram_id=telegram_id).first()
                 if not user:
                     return False
