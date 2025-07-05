@@ -30,8 +30,12 @@ class UniversityAPIV2:
             
             headers = {**self.api_headers}
             payload = {
-                "username": username,
-                "password": password
+                "operationName": "signinUser",
+                "variables": {
+                    "username": username,
+                    "password": password
+                },
+                "query": UNIVERSITY_QUERIES["LOGIN"]
             }
             
             async with aiohttp.ClientSession(timeout=self.timeout) as session:
@@ -40,12 +44,13 @@ class UniversityAPIV2:
                 ) as response:
                     if response.status == 200:
                         data = await response.json()
-                        if data.get("login"):
-                            token = data["login"]
+                        if data.get("data", {}).get("login"):
+                            token = data["data"]["login"]
                             logger.info(f"✅ Login successful for user: {username}")
                             return token
                         else:
                             logger.warning(f"❌ Login failed - no token in response for user: {username}")
+                            logger.debug(f"Response data: {data}")
                             return None
                     else:
                         logger.error(f"❌ Login failed with status {response.status} for user: {username}")
