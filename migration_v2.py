@@ -12,8 +12,8 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional
 
 # Import old storage systems
-from storage.user_storage import UserStorage, PostgreSQLUserStorage
-from storage.grade_storage import GradeStorage, PostgreSQLGradeStorage
+from storage.user_storage_old import UserStorage, PostgreSQLUserStorage
+from storage.grade_storage_old import GradeStorage, PostgreSQLGradeStorage
 from storage.models import DatabaseManager
 
 # Import new storage systems

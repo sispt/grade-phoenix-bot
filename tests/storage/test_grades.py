@@ -10,7 +10,7 @@ from storage.grade_storage_v2 import GradeStorageV2
 
 @pytest.fixture
 def grade_storage(tmp_path, monkeypatch):
-    monkeypatch.setattr("storage.grade_storage.CONFIG", {"DATA_DIR": str(tmp_path)})
+    # Use V2 storage with test database
     return GradeStorageV2("sqlite:///test.db")
 
 

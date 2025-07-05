@@ -655,7 +655,7 @@ class TelegramBot:
                 logger.info(f"No grade data available for {username} in this check.")
                 return False
             new_grades = user_data.get("grades", [])
-            old_grades = self.grade_storage.get_grades(telegram_id)
+            old_grades = self.grade_storage.get_user_grades(telegram_id)
             changed_courses = self._compare_grades(old_grades, new_grades)
             if changed_courses:
                 logger.warning(f"GRADE CHECK: Found {len(changed_courses)} grade changes for user {username}. Sending notification.")
@@ -874,10 +874,10 @@ class TelegramBot:
         logger.info(f"🔍 Storage class methods: {[method for method in dir(self.user_storage) if not method.startswith('_')]}")
         try:
             success = self.user_storage.save_user(telegram_id, username, token, user_data)
-        if not success:
-            logger.error(f"❌ Failed to save user {username}")
-            await update.message.reply_text("❌ حدث خطأ أثناء حفظ البيانات. يرجى المحاولة مرة أخرى.", reply_markup=get_unregistered_keyboard())
-            return
+            if not success:
+                logger.error(f"❌ Failed to save user {username}")
+                await update.message.reply_text("❌ حدث خطأ أثناء حفظ البيانات. يرجى المحاولة مرة أخرى.", reply_markup=get_unregistered_keyboard())
+                return
             logger.info(f"✅ User saved successfully")
         except Exception as e:
             logger.error(f"❌ Error saving user: {e}", exc_info=True)
