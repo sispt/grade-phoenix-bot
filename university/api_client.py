@@ -75,11 +75,17 @@ class UniversityAPI:
         try:
             user_info = await self._get_user_info(token)
             if not user_info:
+                logger.warning("❌ No user info returned")
                 return None
             grades = await self.get_current_grades(token)
+            logger.info(f"📊 get_current_grades result: {grades}")
+            # Handle case where get_current_grades returns None (error) or empty list
+            if grades is None:
+                logger.warning("❌ get_current_grades returned None (error)")
+                grades = []
             return {**user_info, "grades": grades}
         except Exception as e:
-            logger.error(f"Error getting user data: {e}", exc_info=True)
+            logger.error(f"❌ Error getting user data: {e}", exc_info=True)
             return None
 
     async def _get_user_info(self, token: str) -> Optional[Dict[str, Any]]:
