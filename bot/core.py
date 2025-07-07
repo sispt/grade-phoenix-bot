@@ -595,6 +595,12 @@ class TelegramBot:
 
     async def _notify_all_users_grades(self):
         users = self.user_storage.get_all_users()
+        logger.info(f"🔍 Force grade check: Found {len(users)} users in database")
+        
+        if not users:
+            logger.warning("⚠️ No users found in database for grade check")
+            return 0
+            
         notified_count = 0
         semaphore = asyncio.Semaphore(CONFIG.get('MAX_CONCURRENT_REQUESTS', 5))
         tasks = []
@@ -603,6 +609,7 @@ class TelegramBot:
         async def check_user(user):
             async with semaphore:
                 try:
+                    logger.debug(f"🔍 Checking grades for user: {user.get('username', 'Unknown')} (ID: {user.get('telegram_id', 'Unknown')})")
                     return await self._check_and_notify_user_grades(user)
                 except Exception as e:
                     logger.error(f"❌ Error in parallel grade check for user {user.get('username', 'Unknown')}: {e}", exc_info=True)
@@ -613,6 +620,8 @@ class TelegramBot:
         if tasks:
             results = await asyncio.gather(*tasks, return_exceptions=True)
             notified_count = sum(1 for r in results if r is True)
+        
+        logger.info(f"📊 Force grade check completed: {notified_count}/{len(users)} users notified")
         return notified_count
 
     async def _check_and_notify_user_grades(self, user):
@@ -620,12 +629,20 @@ class TelegramBot:
             telegram_id = user.get("telegram_id")
             username = user.get("username")
             token = user.get("token")
+            
+            logger.debug(f"🔍 Starting grade check for user {username} (ID: {telegram_id})")
+            
             # Notify only once if token expired
             if not token:
+                logger.debug(f"❌ No token for user {username}")
                 return False
+                
             is_pg = hasattr(self.user_storage, 'update_token_expired_notified')
             notified = user.get("token_expired_notified", False)
+            
+            logger.debug(f"🔍 Testing token for user {username}")
             if not await self.university_api.test_token(token):
+                logger.warning(f"❌ Token expired for user {username}")
                 if not notified:
                     await self.app.bot.send_message(
                         chat_id=telegram_id,
@@ -641,6 +658,9 @@ class TelegramBot:
                         if hasattr(self.user_storage, '_save_users'):
                             self.user_storage._save_users()
                 return False
+                
+            logger.debug(f"✅ Token valid for user {username}")
+            
             # Reset notification flag if token is valid
             if notified:
                 if is_pg:
@@ -650,13 +670,22 @@ class TelegramBot:
                     user["token_expired_notified"] = False
                     if hasattr(self.user_storage, '_save_users'):
                         self.user_storage._save_users()
+                        
+            logger.debug(f"🔍 Fetching user data for {username}")
             user_data = await self.university_api.get_user_data(token)
             if not user_data or "grades" not in user_data:
                 logger.info(f"No grade data available for {username} in this check.")
                 return False
+                
             new_grades = user_data.get("grades", [])
+            logger.debug(f"📊 Found {len(new_grades)} new grades for user {username}")
+            
             old_grades = self.grade_storage.get_user_grades(telegram_id)
+            logger.debug(f"📊 Found {len(old_grades) if old_grades else 0} stored grades for user {username}")
+            
             changed_courses = self._compare_grades(old_grades, new_grades)
+            logger.debug(f"🔍 Grade comparison for {username}: {len(changed_courses)} changes detected")
+            
             if changed_courses:
                 logger.warning(f"GRADE CHECK: Found {len(changed_courses)} grade changes for user {username}. Sending notification.")
                 display_name = user.get('fullname') or user.get('username', 'المستخدم')
@@ -688,6 +717,8 @@ class TelegramBot:
                 message += f"🕒 وقت التحديث: {now_utc3.strftime('%Y-%m-%d %H:%M')} (UTC+3)"
                 await self.app.bot.send_message(chat_id=telegram_id, text=message)
                 return True
+            else:
+                logger.debug(f"✅ No grade changes for user {username}")
             return False
         except Exception as e:
             logger.error(f"❌ Error in _check_and_notify_user_grades for user {user.get('username', 'Unknown')}: {e}", exc_info=True)
