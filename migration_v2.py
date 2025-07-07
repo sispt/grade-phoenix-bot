@@ -14,8 +14,7 @@ from typing import Dict, List, Any, Optional
 # Import old storage systems
 from storage.user_storage_old import UserStorage, PostgreSQLUserStorage
 from storage.grade_storage_old import GradeStorage, PostgreSQLGradeStorage
-from storage.models import DatabaseManager, Grade
-from sqlalchemy import text
+from storage.models import DatabaseManager
 
 # Import new storage systems
 from storage.user_storage_v2 import UserStorageV2
@@ -204,117 +203,6 @@ class DataMigrationV2:
             logger.error(f"❌ Error in grade migration: {e}", exc_info=True)
             return 0
     
-    def migrate_grade_field_names(self) -> int:
-        """Migrate existing grade data in new storage to use unified API field names"""
-        try:
-            logger.info("🔄 Starting grade field names migration...")
-            
-            if not self.new_grade_storage:
-                logger.error("❌ New grade storage not initialized")
-                return 0
-            
-            # Get database manager from new storage
-            db_manager = self.new_grade_storage.db_manager
-            
-            with db_manager.get_session() as session:
-                # First, check if there are any grades in the database at all
-                total_grades = session.query(Grade).count()
-                if total_grades == 0:
-                    logger.info("✅ No grades in database - nothing to migrate")
-                    return 0
-                
-                # Check if migration is needed by testing if new field names exist
-                try:
-                    # Try to access the new field names
-                    result = session.execute(text("SELECT name, code, coursework, final_exam, total FROM grades LIMIT 1"))
-                    logger.info("✅ Database already uses new field names")
-                    return 0
-                except Exception:
-                    logger.info("🔄 Database needs migration to new field names")
-                
-                # Check if old field names exist (to avoid migrating empty database)
-                try:
-                    old_field_test = session.execute(text("SELECT course_name, course_code, coursework_grade, final_exam_grade, total_grade_value FROM grades LIMIT 1"))
-                    has_old_fields = True
-                    logger.info("✅ Found grades with old field names - proceeding with migration")
-                except Exception:
-                    logger.info("✅ No grades with old field names found - nothing to migrate")
-                    return 0
-                
-                # Get all grades that have old field names and need migration
-                try:
-                    grades = session.execute(text("SELECT * FROM grades WHERE course_name IS NOT NULL OR course_code IS NOT NULL")).fetchall()
-                    logger.info(f"📊 Found {len(grades)} grades with old field names to migrate")
-                except Exception as e:
-                    logger.info(f"✅ No grades with old field names found: {e}")
-                    return 0
-                
-                if not grades:
-                    logger.info("✅ No grades to migrate")
-                    return 0
-                
-                migrated_count = 0
-                
-                for grade_row in grades:
-                    try:
-                        # Get the grade object
-                        grade = session.query(Grade).filter_by(id=grade_row.id).first()
-                        if not grade:
-                            continue
-                        
-                        # Check if this grade has old field names
-                        if not hasattr(grade, 'course_name') or not hasattr(grade, 'course_code'):
-                            continue
-                        
-                        # Create a new grade record with the new field names
-                        new_grade = Grade(
-                            user_id=grade.user_id,
-                            term_id=grade.term_id,
-                            name=getattr(grade, 'course_name', ''),
-                            code=getattr(grade, 'course_code', ''),
-                            ects_credits=getattr(grade, 'ects_credits', None),
-                            coursework=getattr(grade, 'coursework_grade', ''),
-                            final_exam=getattr(grade, 'final_exam_grade', ''),
-                            total=getattr(grade, 'total_grade_value', ''),
-                            numeric_grade=getattr(grade, 'numeric_grade', None),
-                            grade_status=getattr(grade, 'grade_status', 'Unknown'),
-                            created_at=getattr(grade, 'created_at', datetime.utcnow()),
-                            updated_at=getattr(grade, 'updated_at', datetime.utcnow())
-                        )
-                        
-                        # Delete the old grade record
-                        session.delete(grade)
-                        
-                        # Add the new grade record
-                        session.add(new_grade)
-                        migrated_count += 1
-                        
-                        if migrated_count % 100 == 0:
-                            logger.info(f"   Migrated {migrated_count}/{len(grades)} grades...")
-                            
-                    except Exception as e:
-                        logger.error(f"❌ Error migrating grade {getattr(grade_row, 'id', 'unknown')}: {e}")
-                        session.rollback()
-                        return 0
-                
-                # Commit all changes
-                session.commit()
-                logger.info(f"✅ Successfully migrated {migrated_count} grades to new field names")
-                
-                # Verify migration
-                try:
-                    result = session.execute(text("SELECT name, code, coursework, final_exam, total FROM grades LIMIT 1"))
-                    logger.info("✅ Migration verification successful")
-                except Exception as e:
-                    logger.error(f"❌ Migration verification failed: {e}")
-                    return 0
-                
-                return migrated_count
-                
-        except Exception as e:
-            logger.error(f"❌ Grade field migration failed: {e}", exc_info=True)
-            return 0
-    
     def create_backup(self):
         """Create backup of old data before migration"""
         try:
@@ -392,14 +280,10 @@ class DataMigrationV2:
             # Migrate grades
             grade_count = self.migrate_grades()
             
-            # Migrate grade field names to unified API format
-            field_migration_count = self.migrate_grade_field_names()
-            
             logger.info("🎉 Migration completed successfully!")
             logger.info(f"📊 Summary:")
             logger.info(f"   - Users migrated: {user_count}")
             logger.info(f"   - Grades migrated: {grade_count}")
-            logger.info(f"   - Grade fields unified: {field_migration_count}")
             logger.info(f"   - Backup file: {backup_file}")
             
             return True
