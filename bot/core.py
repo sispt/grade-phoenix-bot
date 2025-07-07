@@ -1099,7 +1099,7 @@ class TelegramBot:
         # Create consent keyboard
         from telegram import InlineKeyboardMarkup, InlineKeyboardButton
         consent_keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("❌ لا، جلسة آمنة بدون حفظ كلمة المرور", callback_data="temp_session")],
+            [InlineKeyboardButton("❌ لا، جلسة مؤقتة بدون حفظ كلمة المرور", callback_data="temp_session")],
             [InlineKeyboardButton("✅ نعم، احفظ كلمة المرور بشكل دائم", callback_data="store_password")]
         ])
         
