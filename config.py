@@ -14,12 +14,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger("config")
 
 # Get version from environment
-raw_version = os.getenv("BOT_VERSION", "1.0.0-dev")
+raw_version = os.getenv("BOT_VERSION", "2.0.1")
 if re.match(SEMVER_REGEX, raw_version):
     validated_version = raw_version
 else:
-    logger.error(f"Invalid BOT_VERSION '{raw_version}' (must be valid SemVer). Using '0.0.0-invalid'.")
-    validated_version = "0.0.0-invalid"
+    logger.error(f"Invalid BOT_VERSION '{raw_version}' (must be valid SemVer). Using '2.0.1'.")
+    validated_version = "2.0.1"
 
 # Bot configuration
 CONFIG = {

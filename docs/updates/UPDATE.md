@@ -29,6 +29,16 @@
 - Security and privacy improvements
 - Compatibility and bug fixes
 
+## [2.0.1] - 2025-07-07
+
+### Bug Fixes & Improvements
+- Fixed grade field name inconsistencies across the codebase
+- Enhanced debug logging for grade checking and notification systems
+- Improved token expiration notification handling
+- Added comprehensive scheduled system testing and validation
+- Updated version management and documentation
+- Enhanced error handling and user experience improvements
+
 ---
 
 _This changelog summarizes major features and improvements for each release. For detailed commit history, see the repository's commit log._
