@@ -696,27 +696,28 @@ class TelegramBot:
                 if hasattr(self.user_storage, 'get_stored_password'):
                     stored_password = self.user_storage.get_stored_password(telegram_id)
                 
-                if stored_password and user.get('password_stored', False):
+                if user.get('password_stored', False):
                     # Try automatic re-login with stored password
                     logger.info(f"🔄 Attempting automatic re-login for user {username}")
                     try:
-                        new_token = await self.university_api.login(username, stored_password)
-                        if new_token:
-                            # Update token in database
-                            if hasattr(self.user_storage, 'save_user'):
+                        stored_password = self.user_storage.get_decrypted_password(telegram_id)
+                        if stored_password:
+                            new_token = await self.university_api.login(username, stored_password)
+                            if new_token:
+                                # Update token in database
                                 self.user_storage.save_user(telegram_id, username, new_token, user, password=stored_password, store_password=True)
-                            logger.info(f"✅ Automatic re-login successful for user {username}")
-                            
-                            # Reset notification flag
-                            if is_pg:
-                                self.user_storage.update_token_expired_notified(telegram_id, False)
-                            else:
-                                user["token_expired_notified"] = False
-                                if hasattr(self.user_storage, '_save_users'):
-                                    self.user_storage._save_users()
-                            
-                            # Continue with grade check using new token
-                            token = new_token
+                                logger.info(f"✅ Automatic re-login successful for user {username}")
+                                
+                                # Reset notification flag
+                                if is_pg:
+                                    self.user_storage.update_token_expired_notified(telegram_id, False)
+                                else:
+                                    user["token_expired_notified"] = False
+                                    if hasattr(self.user_storage, '_save_users'):
+                                        self.user_storage._save_users()
+                                
+                                # Continue with grade check using new token
+                                token = new_token
                         else:
                             logger.warning(f"❌ Automatic re-login failed for user {username}")
                             if not notified:
