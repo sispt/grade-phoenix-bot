@@ -712,20 +712,20 @@ class TelegramBot:
                         return False
                 else:
                     # No stored password, notify user to login manually
-                    if not notified:
-                        await self.app.bot.send_message(
-                            chat_id=telegram_id,
-                            text="⏰ انتهت صلاحية الجلسة\n\nيرجى تسجيل الدخول مرة أخرى من خلال زر '🚀 تسجيل الدخول للجامعة' ثم إدخال بياناتك من جديد. هذا طبيعي ويحدث كل فترة.",
-                            reply_markup=get_unregistered_keyboard()
-                        )
-                        # Mark as notified
-                        if is_pg:
-                            self.user_storage.update_token_expired_notified(telegram_id, True)
-                        else:
-                            user["token_expired_notified"] = True
-                            if hasattr(self.user_storage, '_save_users'):
-                                self.user_storage._save_users()
-                    return False
+                if not notified:
+                    await self.app.bot.send_message(
+                        chat_id=telegram_id,
+                        text="⏰ انتهت صلاحية الجلسة\n\nيرجى تسجيل الدخول مرة أخرى من خلال زر '🚀 تسجيل الدخول للجامعة' ثم إدخال بياناتك من جديد. هذا طبيعي ويحدث كل فترة.",
+                        reply_markup=get_unregistered_keyboard()
+                    )
+                    # Mark as notified
+                    if is_pg:
+                        self.user_storage.update_token_expired_notified(telegram_id, True)
+                    else:
+                        user["token_expired_notified"] = True
+                        if hasattr(self.user_storage, '_save_users'):
+                            self.user_storage._save_users()
+                return False
                 
             logger.debug(f"✅ Token valid for user {username}")
             
