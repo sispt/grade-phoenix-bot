@@ -101,18 +101,18 @@ class Grade(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     term_id = Column(Integer, ForeignKey("terms.id", ondelete="CASCADE"), nullable=True, index=True)
     
-    # Course information
-    course_name = Column(String(255), nullable=False, index=True)
-    course_code = Column(String(50), nullable=True, index=True)
-    ects_credits = Column(Numeric(3, 1), nullable=True)  # e.g., 3.0
+    # Course information (using API field names for consistency)
+    name = Column(String(255), nullable=False, index=True)  # Course name from API
+    code = Column(String(50), nullable=True, index=True)    # Course code from API
+    ects_credits = Column(Numeric(3, 1), nullable=True)     # e.g., 3.0
     
-    # Grade values (stored as strings for flexibility with Arabic text)
-    coursework_grade = Column(String(20), nullable=True)
-    final_exam_grade = Column(String(20), nullable=True)
-    total_grade_value = Column(String(20), nullable=True)  # e.g., "87 %" or "لم يتم النشر"
-    
-    # Numeric grade for calculations (extracted from total_grade_value)
-    numeric_grade = Column(Numeric(5, 2), nullable=True)  # e.g., 87.00
+    # Grade values (using API field names for consistency)
+    coursework = Column(String(20), nullable=True)          # Coursework grade from API
+    final_exam = Column(String(20), nullable=True)          # Final exam grade from API
+    total = Column(String(20), nullable=True)               # Total grade from API (e.g., "87 %" or "لم يتم النشر")
+
+    # Numeric grade for calculations (extracted from total)
+    numeric_grade = Column(Numeric(5, 2), nullable=True)    # e.g., 87.00
     
     # Grade status
     grade_status = Column(String(20), default="Not Published", nullable=False)  # Published, Not Published, Unknown
@@ -129,14 +129,14 @@ class Grade(Base):
     __table_args__ = (
         Index('idx_grade_user_id', 'user_id'),
         Index('idx_grade_term_id', 'term_id'),
-        Index('idx_grade_course_code', 'course_code'),
+        Index('idx_grade_code', 'code'),
         Index('idx_grade_status', 'grade_status'),
         Index('idx_grade_numeric', 'numeric_grade'),
-        UniqueConstraint('user_id', 'course_code', 'term_id', name='unique_user_course_term'),
+        UniqueConstraint('user_id', 'code', 'term_id', name='unique_user_course_term'),
     )
 
     def __repr__(self):
-        return f"<Grade(user_id={self.user_id}, course='{self.course_name}', grade='{self.total_grade_value}')>"
+        return f"<Grade(user_id={self.user_id}, course='{self.name}', grade='{self.total}')>"
 
 
 class GradeHistory(Base):
@@ -148,8 +148,8 @@ class GradeHistory(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     grade_id = Column(Integer, ForeignKey("grades.id", ondelete="CASCADE"), nullable=False, index=True)
     
-    # Previous values
-    previous_total_grade = Column(String(20), nullable=True)
+    # Previous values (using API field names for consistency)
+    previous_total = Column(String(20), nullable=True)       # Previous total grade
     previous_numeric_grade = Column(Numeric(5, 2), nullable=True)
     previous_status = Column(String(20), nullable=True)
     
