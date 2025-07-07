@@ -8,86 +8,12 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from contextlib import contextmanager
 
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, BigInteger, Index
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 
+# Import models from the main models file
+from storage.models import Base, User, DatabaseManager
+
 logger = logging.getLogger(__name__)
-
-Base = declarative_base()
-
-
-class User(Base):
-    """User model for database storage"""
-    
-    __tablename__ = "users"
-    
-    id = Column(Integer, primary_key=True)
-    telegram_id = Column(BigInteger, unique=True, nullable=False, index=True)
-    username = Column(String(100), nullable=False, index=True)
-    token = Column(String(500), nullable=True)
-    firstname = Column(String(100), nullable=True)
-    lastname = Column(String(100), nullable=True)
-    fullname = Column(String(200), nullable=True)
-    email = Column(String(200), nullable=True)
-    registration_date = Column(DateTime, default=datetime.utcnow, nullable=False)
-    last_login = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    is_active = Column(Boolean, default=True, nullable=False)
-    token_expired_notified = Column(Boolean, default=False, nullable=False)
-    
-    # Password storage fields
-    encrypted_password = Column(String(500), nullable=True)
-    password_stored = Column(Boolean, default=False, nullable=False)
-    
-    # Indexes
-    __table_args__ = (
-        Index('idx_user_telegram_id', 'telegram_id'),
-        Index('idx_user_username', 'username'),
-        Index('idx_user_active', 'is_active'),
-    )
-
-
-class DatabaseManager:
-    """Database connection and session management"""
-    
-    def __init__(self, database_url: str):
-        self.database_url = database_url
-        self.engine = create_engine(database_url)
-        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
-    
-    def test_connection(self) -> bool:
-        """Test database connection"""
-        try:
-            with self.engine.connect() as conn:
-                conn.execute("SELECT 1")
-            return True
-        except Exception as e:
-            logger.error(f"❌ Database connection failed: {e}")
-            return False
-    
-    @contextmanager
-    def get_session(self):
-        """Get database session with automatic cleanup"""
-        session = self.SessionLocal()
-        try:
-            yield session
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
-    
-    def create_tables(self):
-        """Create all tables"""
-        try:
-            Base.metadata.create_all(bind=self.engine)
-            logger.info("✅ Database tables created successfully")
-        except Exception as e:
-            logger.error(f"❌ Error creating tables: {e}")
-            raise
 
 
 class UserStorageV2:
@@ -95,7 +21,7 @@ class UserStorageV2:
     
     def __init__(self, database_url: str):
         self.db_manager = DatabaseManager(database_url)
-        self.db_manager.create_tables()
+        self.db_manager.create_all_tables()
         logger.info("✅ UserStorageV2 initialized")
     
     def save_user(self, telegram_id: int, username: str, token: str, user_data: Dict[str, Any], password: str = None, store_password: bool = False) -> bool:

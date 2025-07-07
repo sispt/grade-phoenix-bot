@@ -10,119 +10,12 @@ from contextlib import contextmanager
 from decimal import Decimal
 import re
 
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, BigInteger, Index, ForeignKey, Numeric
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
-from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
 
+# Import models from the main models file
+from storage.models import Base, User, Term, Grade, DatabaseManager
+
 logger = logging.getLogger(__name__)
-
-# Import User model from user_storage_v2 to use the same Base
-from storage.user_storage_v2 import Base, User
-
-
-class Term(Base):
-    """Term/Semester model"""
-    
-    __tablename__ = "terms"
-    
-    id = Column(Integer, primary_key=True)
-    term_id = Column(String(50), unique=True, nullable=False, index=True)
-    name = Column(String(200), nullable=False)
-    academic_year = Column(String(20), nullable=True)
-    is_current = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    
-    # Relationships
-    grades = relationship("Grade", back_populates="term")
-    
-    # Indexes
-    __table_args__ = (
-        Index('idx_term_id', 'term_id'),
-        Index('idx_term_current', 'is_current'),
-    )
-
-
-class Grade(Base):
-    """Grade model for individual course grades"""
-    
-    __tablename__ = "grades"
-    
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    term_id = Column(Integer, ForeignKey("terms.id", ondelete="CASCADE"), nullable=True, index=True)
-    
-    # Course information (using API field names for consistency)
-    name = Column(String(255), nullable=False, index=True)  # Course name from API
-    code = Column(String(50), nullable=True, index=True)    # Course code from API
-    ects_credits = Column(Numeric(3, 1), nullable=True)
-    
-    # Grade values (using API field names for consistency)
-    coursework = Column(String(20), nullable=True)          # Coursework grade from API
-    final_exam = Column(String(20), nullable=True)          # Final exam grade from API
-    total = Column(String(20), nullable=True)               # Total grade from API
-    numeric_grade = Column(Numeric(5, 2), nullable=True)
-    
-    # Grade status
-    grade_status = Column(String(20), default="Not Published", nullable=False)
-    
-    # Metadata
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    
-    # Relationships
-    term = relationship("Term", back_populates="grades")
-    
-    # Indexes
-    __table_args__ = (
-        Index('idx_grade_user_id', 'user_id'),
-        Index('idx_grade_term_id', 'term_id'),
-        Index('idx_grade_code', 'code'),
-        Index('idx_grade_status', 'grade_status'),
-        Index('idx_grade_numeric', 'numeric_grade'),
-    )
-
-
-class DatabaseManager:
-    """Database connection and session management"""
-    
-    def __init__(self, database_url: str):
-        self.database_url = database_url
-        self.engine = create_engine(database_url)
-        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
-    
-    def test_connection(self) -> bool:
-        """Test database connection"""
-        try:
-            with self.engine.connect() as conn:
-                conn.execute("SELECT 1")
-            return True
-        except Exception as e:
-            logger.error(f"❌ Database connection failed: {e}")
-            return False
-    
-    @contextmanager
-    def get_session(self):
-        """Get database session with automatic cleanup"""
-        session = self.SessionLocal()
-        try:
-            yield session
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
-    
-    def create_tables(self):
-        """Create all tables"""
-        try:
-            Base.metadata.create_all(bind=self.engine)
-            logger.info("✅ Grade database tables created successfully")
-        except Exception as e:
-            logger.error(f"❌ Error creating grade tables: {e}")
-            raise
 
 
 class GradeStorageV2:
@@ -130,7 +23,7 @@ class GradeStorageV2:
     
     def __init__(self, database_url: str):
         self.db_manager = DatabaseManager(database_url)
-        self.db_manager.create_tables()
+        self.db_manager.create_all_tables()
         logger.info("✅ GradeStorageV2 initialized")
     
     def save_grades(self, telegram_id: int, grades_data: List[Dict[str, Any]]) -> bool:

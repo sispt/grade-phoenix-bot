@@ -311,10 +311,49 @@ class DataMigrationV2:
             logger.error(f"❌ Error creating backup: {e}", exc_info=True)
             return None
     
+    def migrate_password_columns(self):
+        """Add password storage columns to the User table if missing"""
+        from sqlalchemy import text
+        logger.info("🔒 Checking for password storage columns in users table...")
+        db_manager = DatabaseManager(CONFIG["DATABASE_URL"])
+        # Check if columns already exist
+        with db_manager.get_session() as session:
+            try:
+                session.execute(text("SELECT encrypted_password, password_stored FROM users LIMIT 1"))
+                logger.info("✅ Password columns already exist.")
+                return True
+            except Exception as e:
+                if "no such column" in str(e).lower():
+                    logger.info("📝 Password columns do not exist, adding them...")
+                else:
+                    logger.error(f"❌ Error checking columns: {e}")
+                    return False
+        # Add the columns
+        with db_manager.get_session() as session:
+            try:
+                session.execute(text("ALTER TABLE users ADD COLUMN encrypted_password VARCHAR(500)"))
+            except Exception as e:
+                if "duplicate column name" in str(e).lower() or "already exists" in str(e).lower():
+                    logger.info("encrypted_password column already exists.")
+                else:
+                    logger.error(f"❌ Error adding encrypted_password column: {e}")
+            try:
+                session.execute(text("ALTER TABLE users ADD COLUMN password_stored BOOLEAN DEFAULT FALSE NOT NULL"))
+            except Exception as e:
+                if "duplicate column name" in str(e).lower() or "already exists" in str(e).lower():
+                    logger.info("password_stored column already exists.")
+                else:
+                    logger.error(f"❌ Error adding password_stored column: {e}")
+        logger.info("✅ Password columns migration complete.")
+        return True
+
     def run_migration(self):
         """Run complete migration process"""
         try:
             logger.info("🚀 Starting V2 Migration Process...")
+            
+            # Add password columns if missing
+            self.migrate_password_columns()
             
             # Initialize storage systems
             self.initialize_storage_systems()
