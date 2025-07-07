@@ -351,9 +351,36 @@ class TelegramBot:
             # Test token validity first
             logger.info(f"🔍 Testing token validity for user {telegram_id}")
             if not await self.university_api.test_token(token):
-                logger.warning(f"❌ Invalid token for user {telegram_id}, forcing logout")
-                await self._force_logout_user(telegram_id, update)
-                return
+                logger.warning(f"❌ Invalid token for user {telegram_id}")
+                
+                # Check if user has stored password for automatic re-login
+                if user.get('password_stored', False):
+                    logger.info(f"🔄 Attempting automatic re-login for user {user.get('username', 'Unknown')}")
+                    try:
+                        stored_password = self.user_storage.get_decrypted_password(telegram_id)
+                        if stored_password:
+                            new_token = await self.university_api.login(user.get('username', ''), stored_password)
+                            if new_token:
+                                # Update token in database
+                                self.user_storage.save_user(telegram_id, user.get('username', ''), new_token, user, password=stored_password, store_password=True)
+                                logger.info(f"✅ Automatic re-login successful for user {user.get('username', 'Unknown')}")
+                                token = new_token  # Use the new token
+                            else:
+                                logger.warning(f"❌ Automatic re-login failed for user {user.get('username', 'Unknown')}")
+                                await self._force_logout_user(telegram_id, update)
+                                return
+                        else:
+                            logger.warning(f"❌ No stored password found for user {user.get('username', 'Unknown')}")
+                            await self._force_logout_user(telegram_id, update)
+                            return
+                    except Exception as e:
+                        logger.error(f"❌ Error during automatic re-login for user {user.get('username', 'Unknown')}: {e}")
+                        await self._force_logout_user(telegram_id, update)
+                        return
+                else:
+                    logger.warning(f"❌ No stored password for user {user.get('username', 'Unknown')}, forcing logout")
+                    await self._force_logout_user(telegram_id, update)
+                    return
             
             logger.info(f"🌐 Calling get_user_data for user {telegram_id}")
             user_data = await self.university_api.get_user_data(token)
@@ -400,9 +427,36 @@ class TelegramBot:
             # Test token validity first
             logger.info(f"🔍 Testing token validity for user {telegram_id} (old grades)")
             if not await self.university_api.test_token(token):
-                logger.warning(f"❌ Invalid token for user {telegram_id}, forcing logout")
-                await self._force_logout_user(telegram_id, update)
-                return
+                logger.warning(f"❌ Invalid token for user {telegram_id}")
+                
+                # Check if user has stored password for automatic re-login
+                if user.get('password_stored', False):
+                    logger.info(f"🔄 Attempting automatic re-login for user {user.get('username', 'Unknown')}")
+                    try:
+                        stored_password = self.user_storage.get_decrypted_password(telegram_id)
+                        if stored_password:
+                            new_token = await self.university_api.login(user.get('username', ''), stored_password)
+                            if new_token:
+                                # Update token in database
+                                self.user_storage.save_user(telegram_id, user.get('username', ''), new_token, user, password=stored_password, store_password=True)
+                                logger.info(f"✅ Automatic re-login successful for user {user.get('username', 'Unknown')}")
+                                token = new_token  # Use the new token
+                            else:
+                                logger.warning(f"❌ Automatic re-login failed for user {user.get('username', 'Unknown')}")
+                                await self._force_logout_user(telegram_id, update)
+                                return
+                        else:
+                            logger.warning(f"❌ No stored password found for user {user.get('username', 'Unknown')}")
+                            await self._force_logout_user(telegram_id, update)
+                            return
+                    except Exception as e:
+                        logger.error(f"❌ Error during automatic re-login for user {user.get('username', 'Unknown')}: {e}")
+                        await self._force_logout_user(telegram_id, update)
+                        return
+                else:
+                    logger.warning(f"❌ No stored password for user {user.get('username', 'Unknown')}, forcing logout")
+                    await self._force_logout_user(telegram_id, update)
+                    return
             
             old_grades = await self.university_api.get_old_grades(token)
             if old_grades is None:
