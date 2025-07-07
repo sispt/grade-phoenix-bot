@@ -188,9 +188,14 @@ This project uses **unified field names** throughout the codebase to ensure cons
 - **Developer Experience:** Clear expectations for all grade data operations
 
 ### Migration
-If you're upgrading from an older version, use the migration script:
+The main migration script (`migration_v2.py`) automatically handles:
+- User data migration
+- Grade data migration  
+- **Grade field name unification** (updates to API field names)
+
+The migration runs automatically when the bot starts (via Procfile), or you can run it manually:
 ```bash
-python migrate_grade_fields.py
+python migration_v2.py
 ```
 
 This will update your database schema and migrate existing data to use the unified field names.
