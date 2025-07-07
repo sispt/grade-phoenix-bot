@@ -202,6 +202,54 @@ class DataMigrationV2:
         except Exception as e:
             logger.error(f"❌ Error in grade migration: {e}", exc_info=True)
             return 0
+
+    def reset_token_expired_notifications(self) -> int:
+        """Reset token_expired_notified flag to False for all users"""
+        try:
+            logger.info("🔄 Starting token expiration notification reset...")
+            
+            if not self.new_user_storage:
+                logger.error("❌ New user storage not initialized")
+                return 0
+                
+            # Get all users
+            users = self.new_user_storage.get_all_users()
+            logger.info(f"📊 Found {len(users)} users to check for token notification reset")
+            
+            reset_count = 0
+            
+            for user_data in users:
+                try:
+                    telegram_id = user_data.get("telegram_id")
+                    username = user_data.get("username", "Unknown")
+                    
+                    if not telegram_id:
+                        continue
+                    
+                    # Check current flag status
+                    current_flag = user_data.get("token_expired_notified", False)
+                    
+                    if current_flag:
+                        # Reset the flag to False
+                        success = self.new_user_storage.update_token_expired_notified(telegram_id, False)
+                        
+                        if success:
+                            reset_count += 1
+                            logger.info(f"✅ Reset token_expired_notified for user {username} (ID: {telegram_id})")
+                        else:
+                            logger.error(f"❌ Failed to reset token_expired_notified for user {username} (ID: {telegram_id})")
+                    else:
+                        logger.debug(f"✅ User {username} (ID: {telegram_id}) already has token_expired_notified=False")
+                    
+                except Exception as e:
+                    logger.error(f"❌ Error resetting token notification for user {telegram_id}: {e}")
+            
+            logger.info(f"🎉 Token expiration notification reset completed: {reset_count} users reset")
+            return reset_count
+            
+        except Exception as e:
+            logger.error(f"❌ Error in token expiration notification reset: {e}", exc_info=True)
+            return 0
     
     def create_backup(self):
         """Create backup of old data before migration"""
@@ -280,10 +328,14 @@ class DataMigrationV2:
             # Migrate grades
             grade_count = self.migrate_grades()
             
+            # Reset token expiration notifications
+            reset_count = self.reset_token_expired_notifications()
+            
             logger.info("🎉 Migration completed successfully!")
             logger.info(f"📊 Summary:")
             logger.info(f"   - Users migrated: {user_count}")
             logger.info(f"   - Grades migrated: {grade_count}")
+            logger.info(f"   - Token notifications reset: {reset_count}")
             logger.info(f"   - Backup file: {backup_file}")
             
             return True
