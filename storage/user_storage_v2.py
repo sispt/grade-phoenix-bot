@@ -4,7 +4,7 @@ Handles user data storage with PostgreSQL
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, List, Optional, Any
 from contextlib import contextmanager
 
@@ -33,8 +33,8 @@ class User(Base):
     lastname = Column(String(100), nullable=True)
     fullname = Column(String(200), nullable=True)
     email = Column(String(200), nullable=True)
-    registration_date = Column(DateTime, default=datetime.utcnow, nullable=False)
-    last_login = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    registration_date = Column(DateTime, default=datetime.now(UTC), nullable=False)
+    last_login = Column(DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC))
     is_active = Column(Boolean, default=True, nullable=False)
     token_expired_notified = Column(Boolean, default=False, nullable=False)
     
@@ -120,7 +120,7 @@ class UserStorageV2:
                     user.lastname = lastname
                     user.fullname = fullname
                     user.email = email
-                    user.last_login = datetime.utcnow()
+                    user.last_login = datetime.now(UTC)
                     user.is_active = True
                     
                     # Handle password storage if requested
@@ -147,8 +147,8 @@ class UserStorageV2:
                         lastname=lastname,
                         fullname=fullname,
                         email=email,
-                        registration_date=datetime.utcnow(),
-                        last_login=datetime.utcnow(),
+                        registration_date=datetime.now(UTC),
+                        last_login=datetime.now(UTC),
                         is_active=True,
                         encrypted_password=encrypted_password,
                         password_stored=store_password and password is not None,
@@ -211,6 +211,7 @@ class UserStorageV2:
                         "last_login": user.last_login.isoformat() if user.last_login else None,
                         "is_active": user.is_active,
                         "token_expired_notified": user.token_expired_notified,
+                        "password_stored": user.password_stored,
                     }
                     for user in users
                 ]

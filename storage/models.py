@@ -4,7 +4,7 @@ Clean, well-structured database schema
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, UTC
 from contextlib import contextmanager
 from decimal import Decimal
 from typing import Optional
@@ -44,8 +44,8 @@ class User(Base):
     lastname = Column(String(100), nullable=True)
     fullname = Column(String(200), nullable=True)
     email = Column(String(200), nullable=True)
-    registration_date = Column(DateTime, default=datetime.utcnow, nullable=False)
-    last_login = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    registration_date = Column(DateTime, default=datetime.now(UTC), nullable=False)
+    last_login = Column(DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC))
     is_active = Column(Boolean, default=True, nullable=False)
     token_expired_notified = Column(Boolean, default=False, nullable=False)
     
@@ -80,7 +80,7 @@ class Term(Base):
     is_current = Column(Boolean, default=False, nullable=False)
     start_date = Column(DateTime, nullable=True)
     end_date = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=datetime.now(UTC), nullable=False)
     
     # Relationships
     grades = relationship("Grade", back_populates="term")
@@ -122,8 +122,8 @@ class Grade(Base):
     grade_status = Column(String(20), default="Not Published", nullable=False)  # Published, Not Published, Unknown
     
     # Metadata
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=datetime.now(UTC), nullable=False)
+    updated_at = Column(DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC), nullable=False)
     
     # Relationships
     user = relationship("User", back_populates="grades")
@@ -159,7 +159,7 @@ class GradeHistory(Base):
     
     # Change metadata
     change_type = Column(String(20), nullable=False)  # Created, Updated, Deleted
-    changed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    changed_at = Column(DateTime, default=datetime.now(UTC), nullable=False)
     
     # Relationships
     user = relationship("User", back_populates="grade_history")
@@ -184,7 +184,7 @@ class CredentialTest(Base):
     id = Column(Integer, primary_key=True)
     username = Column(String(100), nullable=False, index=True)
     test_result = Column(Boolean, nullable=False)
-    test_date = Column(DateTime, default=datetime.utcnow, nullable=False)
+    test_date = Column(DateTime, default=datetime.now(UTC), nullable=False)
     error_message = Column(Text, nullable=True)
     response_time_ms = Column(Integer, nullable=True)
     user_agent = Column(String(500), nullable=True)

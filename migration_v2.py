@@ -269,7 +269,7 @@ class DataMigrationV2:
                 
                 alter_queries = [
                     "ALTER TABLE users ADD COLUMN IF NOT EXISTS encrypted_password TEXT",
-                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS store_password BOOLEAN DEFAULT FALSE",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_stored BOOLEAN DEFAULT FALSE",
                     "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_consent_given BOOLEAN DEFAULT FALSE"
                 ]
                 
