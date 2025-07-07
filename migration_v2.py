@@ -8,7 +8,7 @@ import asyncio
 import logging
 import json
 import os
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, List, Any, Optional
 
 # Import old storage systems
@@ -295,7 +295,7 @@ class DataMigrationV2:
             logger.info("💾 Creating backup of old data...")
             
             backup_data = {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "users": [],
                 "grades": {}
             }
@@ -337,7 +337,7 @@ class DataMigrationV2:
                             logger.warning(f"⚠️ Could not backup grades for user {telegram_id}: {e}")
             
             # Save backup
-            backup_file = f"data/backup_v2_migration_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+            backup_file = f"data/backup_v2_migration_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.json"
             os.makedirs("data", exist_ok=True)
             with open(backup_file, "w", encoding="utf-8") as f:
                 json.dump(backup_data, f, ensure_ascii=False, indent=2)
