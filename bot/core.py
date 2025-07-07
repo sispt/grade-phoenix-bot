@@ -33,7 +33,7 @@ from utils.logger import get_bot_logger
 
 # Get bot logger
 logger = get_bot_logger()
-ASK_USERNAME, ASK_PASSWORD = range(2)
+ASK_USERNAME, ASK_PASSWORD, ASK_PASSWORD_STORAGE_CONSENT, ASK_PASSWORD_FOR_STORAGE = range(4)
 
 class TelegramBot:
     """Main Telegram Bot Class"""
@@ -136,7 +136,15 @@ class TelegramBot:
                 CommandHandler("register", self._register_start),
                 MessageHandler(filters.Regex("^🚀 تسجيل الدخول للجامعة$"), self._register_start)
             ],
-            states={ASK_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._register_username)], ASK_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._register_password)]},
+            states={
+                ASK_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._register_username)],
+                ASK_PASSWORD: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._register_password)],
+                ASK_PASSWORD_STORAGE_CONSENT: [
+                    CallbackQueryHandler(self._consent_to_password_storage, pattern="^store_password$"),
+                    CallbackQueryHandler(self._decline_password_storage, pattern="^temp_session$")
+                ],
+                ASK_PASSWORD_FOR_STORAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._store_password)],
+            },
             fallbacks=[CommandHandler("cancel", self._cancel_registration), MessageHandler(filters.Regex("^❌ إلغاء$"), self._cancel_registration)],
         )
         self.app.add_handler(registration_handler)
@@ -643,21 +651,81 @@ class TelegramBot:
             logger.debug(f"🔍 Testing token for user {username}")
             if not await self.university_api.test_token(token):
                 logger.warning(f"❌ Token expired for user {username}")
-                if not notified:
-                    await self.app.bot.send_message(
-                        chat_id=telegram_id,
-                        text="⏰ انتهت صلاحية الجلسة\n\nيرجى تسجيل الدخول مرة أخرى من خلال زر '🚀 تسجيل الدخول للجامعة' ثم إدخال بياناتك من جديد. هذا طبيعي ويحدث كل فترة.",
-                        reply_markup=get_unregistered_keyboard()
-                    )
-                    # Mark as notified
-                    if is_pg:
-                        self.user_storage.update_token_expired_notified(telegram_id, True)
-                    else:
-                        # Update file storage
-                        user["token_expired_notified"] = True
-                        if hasattr(self.user_storage, '_save_users'):
-                            self.user_storage._save_users()
-                return False
+                
+                # Check if user has stored password for automatic re-login
+                stored_password = None
+                if hasattr(self.user_storage, 'get_stored_password'):
+                    stored_password = self.user_storage.get_stored_password(telegram_id)
+                
+                if stored_password and user.get('password_stored', False):
+                    # Try automatic re-login with stored password
+                    logger.info(f"🔄 Attempting automatic re-login for user {username}")
+                    try:
+                        new_token = await self.university_api.login(username, stored_password)
+                        if new_token:
+                            # Update token in database
+                            if hasattr(self.user_storage, 'save_user'):
+                                self.user_storage.save_user(telegram_id, username, new_token, user, password=stored_password, store_password=True)
+                            logger.info(f"✅ Automatic re-login successful for user {username}")
+                            
+                            # Reset notification flag
+                            if is_pg:
+                                self.user_storage.update_token_expired_notified(telegram_id, False)
+                            else:
+                                user["token_expired_notified"] = False
+                                if hasattr(self.user_storage, '_save_users'):
+                                    self.user_storage._save_users()
+                            
+                            # Continue with grade check using new token
+                            token = new_token
+                        else:
+                            logger.warning(f"❌ Automatic re-login failed for user {username}")
+                            if not notified:
+                                await self.app.bot.send_message(
+                                    chat_id=telegram_id,
+                                    text="⏰ انتهت صلاحية الجلسة\n\nتم محاولة إعادة تسجيل الدخول تلقائياً ولكنها فشلت. يرجى تسجيل الدخول مرة أخرى من خلال زر '🚀 تسجيل الدخول للجامعة'.",
+                                    reply_markup=get_unregistered_keyboard()
+                                )
+                                # Mark as notified
+                                if is_pg:
+                                    self.user_storage.update_token_expired_notified(telegram_id, True)
+                                else:
+                                    user["token_expired_notified"] = True
+                                    if hasattr(self.user_storage, '_save_users'):
+                                        self.user_storage._save_users()
+                            return False
+                    except Exception as e:
+                        logger.error(f"❌ Error during automatic re-login for user {username}: {e}")
+                        if not notified:
+                            await self.app.bot.send_message(
+                                chat_id=telegram_id,
+                                text="⏰ انتهت صلاحية الجلسة\n\nحدث خطأ أثناء محاولة إعادة تسجيل الدخول تلقائياً. يرجى تسجيل الدخول مرة أخرى من خلال زر '🚀 تسجيل الدخول للجامعة'.",
+                                reply_markup=get_unregistered_keyboard()
+                            )
+                            # Mark as notified
+                            if is_pg:
+                                self.user_storage.update_token_expired_notified(telegram_id, True)
+                            else:
+                                user["token_expired_notified"] = True
+                                if hasattr(self.user_storage, '_save_users'):
+                                    self.user_storage._save_users()
+                        return False
+                else:
+                    # No stored password, notify user to login manually
+                    if not notified:
+                        await self.app.bot.send_message(
+                            chat_id=telegram_id,
+                            text="⏰ انتهت صلاحية الجلسة\n\nيرجى تسجيل الدخول مرة أخرى من خلال زر '🚀 تسجيل الدخول للجامعة' ثم إدخال بياناتك من جديد. هذا طبيعي ويحدث كل فترة.",
+                            reply_markup=get_unregistered_keyboard()
+                        )
+                        # Mark as notified
+                        if is_pg:
+                            self.user_storage.update_token_expired_notified(telegram_id, True)
+                        else:
+                            user["token_expired_notified"] = True
+                            if hasattr(self.user_storage, '_save_users'):
+                                self.user_storage._save_users()
+                    return False
                 
             logger.debug(f"✅ Token valid for user {username}")
             
@@ -908,26 +976,146 @@ class TelegramBot:
             lastname = "جامعة الشام"
             email = '-'
         
-        user_data = {
+        # Store user data and token in context for later use
+        context.user_data['user_data'] = {
             "username": username,
             "fullname": fullname,
             "firstname": firstname,
             "lastname": lastname,
             "email": email
         }
-        logger.info(f"🔍 About to save user: telegram_id={telegram_id}, username={username}, token_length={len(token) if token else 0}, user_data={user_data}")
-        logger.info(f"🔍 Storage class type: {type(self.user_storage).__name__}")
-        logger.info(f"🔍 Storage class methods: {[method for method in dir(self.user_storage) if not method.startswith('_')]}")
+        context.user_data['token'] = token
+        context.user_data['password'] = password  # Store password temporarily for consent flow
+        
+        # Show password storage consent dialog
+        consent_message = (
+            "🔐 **خيارات الجلسة**\n\n"
+            "**الخيار الأول (جلسة آمنة بدون حفظ كلمة المرور):**\n"
+            "• كلمة المرور لا تُخزن نهائياً\n"
+            "• ستبقى مسجلاً عادةً لعدة أيام أو حتى أسبوع (حسب نظام الجامعة)\n"
+            "• عند انتهاء الجلسة، ستتوقف الإشعارات، وسيطلب منك البوت تسجيل الدخول مرة أخرى (هذا طبيعي ويهدف لحماية حسابك)\n\n"
+            "**الخيار الثاني (جلسة دائمة مع حفظ كلمة المرور):**\n"
+            "• كلمة المرور تُخزن مشفرة بالكامل في قاعدة البيانات\n"
+            "• لا أحد (ولا حتى المطور) يمكنه الوصول إليها\n"
+            "• البوت سيعيد تسجيل الدخول تلقائياً عند انتهاء الجلسة\n"
+            "• لن تحتاج لإدخال كلمة المرور مرة أخرى\n\n"
+            "✅ كلا الخيارين آمنان تماماً. اختر الأنسب لك."
+        )
+        
+        # Create consent keyboard
+        from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+        consent_keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("❌ لا، جلسة آمنة بدون حفظ كلمة المرور", callback_data="temp_session")],
+            [InlineKeyboardButton("✅ نعم، احفظ كلمة المرور بشكل دائم", callback_data="store_password")]
+        ])
+        
+        await update.message.reply_text(consent_message, reply_markup=consent_keyboard, parse_mode='Markdown')
+        return ASK_PASSWORD_STORAGE_CONSENT
+    
+    async def _consent_to_password_storage(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle user consent to password storage"""
+        query = update.callback_query
+        await query.answer()
+        
+        # Store the consent choice
+        context.user_data['store_password'] = True
+        
+        # Ask for password confirmation
+        await query.edit_message_text(
+            "🔐 **تأكيد كلمة المرور**\n\n"
+            "لضمان الأمان، يرجى إدخال كلمة المرور مرة أخرى:\n\n"
+            "⚠️ **تنبيه:** كلمة المرور ستُخزن مشفرة في قاعدة البيانات\n"
+            "لن يتمكن أحد من الوصول إليها إلا البوت لإعادة تسجيل الدخول تلقائياً.",
+            parse_mode='Markdown'
+        )
+        return ASK_PASSWORD_FOR_STORAGE
+    
+    async def _decline_password_storage(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle user decline of password storage"""
+        query = update.callback_query
+        await query.answer()
+        
+        # Store the consent choice
+        context.user_data['store_password'] = False
+        
+        # Complete registration without password storage
+        return await self._complete_registration(update, context)
+    
+    async def _store_password(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle password confirmation for storage"""
+        password_confirmation = update.message.text.strip()
+        original_password = context.user_data.get('password')
+        
+        # Validate password confirmation
+        if not is_valid_length(password_confirmation, min_len=1, max_len=100):
+            await update.message.reply_text(
+                "❌ كلمة المرور غير صحيحة.\n\n"
+                "❌ Invalid password format."
+            )
+            return ASK_PASSWORD_FOR_STORAGE
+        
+        # Check for invalid password characters
+        if any(char in password_confirmation for char in ['<', '>', '"', "'", '&', ';', '|', '`', '$', '(', ')', '{', '}']):
+            await update.message.reply_text(
+                "❌ كلمة المرور تحتوي على رموز غير مسموحة.\n\n"
+                "❌ Password contains invalid characters."
+            )
+            return ASK_PASSWORD_FOR_STORAGE
+        
+        # Verify password matches
+        if password_confirmation != original_password:
+            await update.message.reply_text(
+                "❌ كلمة المرور غير متطابقة. يرجى إدخال نفس كلمة المرور.\n\n"
+                "❌ Password confirmation does not match. Please enter the same password."
+            )
+            return ASK_PASSWORD_FOR_STORAGE
+        
+        # Complete registration with password storage
+        return await self._complete_registration(update, context)
+    
+    async def _complete_registration(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Complete user registration with or without password storage"""
+        telegram_id = update.effective_user.id
+        user_data = context.user_data.get('user_data')
+        token = context.user_data.get('token')
+        password = context.user_data.get('password')
+        store_password = context.user_data.get('store_password', False)
+        
+        if not user_data or not token:
+            await update.message.reply_text(
+                "❌ حدث خطأ في البيانات. يرجى المحاولة مرة أخرى.",
+                reply_markup=get_unregistered_keyboard()
+            )
+            return ConversationHandler.END
+        
+        # Save user to database
         try:
-            success = self.user_storage.save_user(telegram_id, username, token, user_data)
+            success = self.user_storage.save_user(
+                telegram_id, 
+                user_data['username'], 
+                token, 
+                user_data,
+                password=password if store_password else None,
+                store_password=store_password
+            )
+            
             if not success:
-                logger.error(f"❌ Failed to save user {username}")
-                await update.message.reply_text("❌ حدث خطأ أثناء حفظ البيانات. يرجى المحاولة مرة أخرى.", reply_markup=get_unregistered_keyboard())
-                return
-            logger.info(f"✅ User saved successfully")
+                logger.error(f"❌ Failed to save user {user_data['username']}")
+                await update.message.reply_text(
+                    "❌ حدث خطأ أثناء حفظ البيانات. يرجى المحاولة مرة أخرى.", 
+                    reply_markup=get_unregistered_keyboard()
+                )
+                return ConversationHandler.END
+                
+            logger.info(f"✅ User saved successfully with password storage: {store_password}")
+            
         except Exception as e:
             logger.error(f"❌ Error saving user: {e}", exc_info=True)
-            raise
+            await update.message.reply_text(
+                "❌ حدث خطأ أثناء حفظ البيانات. يرجى المحاولة مرة أخرى.", 
+                reply_markup=get_unregistered_keyboard()
+            )
+            return ConversationHandler.END
         
         # Create session
         try:
@@ -937,15 +1125,24 @@ class TelegramBot:
             logger.error(f"❌ Error creating user session: {e}", exc_info=True)
             # Don't raise here, continue with registration
         
-        # Show welcome message with keyboard
-        welcome_message = get_welcome_message(fullname)
+        # Show welcome message
+        welcome_message = get_welcome_message(user_data['fullname'])
+        
+        # Add password storage info to welcome message
+        if store_password:
+            welcome_message += "\n\n🔐 **تم حفظ كلمة المرور مشفرة**\nالبوت سيعيد تسجيل الدخول تلقائياً عند انتهاء الجلسة."
+        else:
+            welcome_message += "\n\n🔐 **جلسة مؤقتة**\nكلمة المرور لم تُخزن. ستحتاج لتسجيل الدخول مرة أخرى عند انتهاء الجلسة."
+        
         try:
-            # Try to send welcome message with keyboard
             await update.message.reply_text(welcome_message, reply_markup=get_main_keyboard())
         except Exception as e:
             logger.error(f"Error sending welcome message: {e}")
-            # Fallback: send message without keyboard
             await update.message.reply_text(welcome_message)
+        
+        # Clear sensitive data from context
+        context.user_data.pop('password', None)
+        
         return ConversationHandler.END
 
     async def _return_to_main(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

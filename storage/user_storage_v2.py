@@ -13,6 +13,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from sqlalchemy.exc import SQLAlchemyError
+from utils.password_encryption import password_encryption
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,10 @@ class User(Base):
     last_login = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     is_active = Column(Boolean, default=True, nullable=False)
     token_expired_notified = Column(Boolean, default=False, nullable=False)
+    
+    # Password storage (encrypted)
+    encrypted_password = Column(String(1000), nullable=True)  # Encrypted password
+    password_stored = Column(Boolean, default=False, nullable=False)  # Whether user consented to password storage
     
     # Indexes
     __table_args__ = (
@@ -94,7 +99,7 @@ class UserStorageV2:
         self.db_manager.create_tables()
         logger.info("✅ UserStorageV2 initialized")
     
-    def save_user(self, telegram_id: int, username: str, token: str, user_data: Dict[str, Any]) -> bool:
+    def save_user(self, telegram_id: int, username: str, token: str, user_data: Dict[str, Any], password: str = None, store_password: bool = False) -> bool:
         """Save or update user data"""
         try:
             with self.db_manager.get_session() as session:
@@ -117,9 +122,23 @@ class UserStorageV2:
                     user.email = email
                     user.last_login = datetime.utcnow()
                     user.is_active = True
+                    
+                    # Handle password storage if requested
+                    if store_password and password:
+                        user.encrypted_password = password_encryption.encrypt_password(password)
+                        user.password_stored = True
+                        logger.info(f"✅ Password stored for user {username}")
+                    elif not store_password:
+                        user.encrypted_password = None
+                        user.password_stored = False
+                        
                     logger.info(f"✅ User {username} (ID: {telegram_id}) updated")
                 else:
                     # Create new user
+                    encrypted_password = None
+                    if store_password and password:
+                        encrypted_password = password_encryption.encrypt_password(password)
+                        
                     new_user = User(
                         telegram_id=telegram_id,
                         username=username,
@@ -131,6 +150,8 @@ class UserStorageV2:
                         registration_date=datetime.utcnow(),
                         last_login=datetime.utcnow(),
                         is_active=True,
+                        encrypted_password=encrypted_password,
+                        password_stored=store_password and password is not None,
                     )
                     session.add(new_user)
                     logger.info(f"✅ User {username} (ID: {telegram_id}) created")
@@ -162,6 +183,7 @@ class UserStorageV2:
                         "last_login": user.last_login.isoformat() if user.last_login else None,
                         "is_active": user.is_active,
                         "token_expired_notified": user.token_expired_notified,
+                        "password_stored": user.password_stored,
                     }
                 return None
         except SQLAlchemyError as e:
@@ -254,6 +276,27 @@ class UserStorageV2:
         except Exception as e:
             logger.error(f"❌ Error updating token expired notification for user {telegram_id}: {e}")
             return False
+    
+    def get_stored_password(self, telegram_id: int) -> Optional[str]:
+        """Get decrypted password for user (only if password was stored)"""
+        try:
+            with self.db_manager.get_session() as session:
+                user = session.query(User).filter_by(telegram_id=telegram_id).first()
+                if user and user.password_stored and user.encrypted_password:
+                    try:
+                        decrypted_password = password_encryption.decrypt_password(user.encrypted_password)
+                        logger.info(f"✅ Retrieved stored password for user {user.username}")
+                        return decrypted_password
+                    except Exception as e:
+                        logger.error(f"❌ Failed to decrypt password for user {user.username}: {e}")
+                        return None
+                return None
+        except SQLAlchemyError as e:
+            logger.error(f"❌ Database error getting stored password for user {telegram_id}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"❌ Error getting stored password for user {telegram_id}: {e}")
+            return None
     
     def _save_users(self):
         """Compatibility method - no-op for PostgreSQL storage"""

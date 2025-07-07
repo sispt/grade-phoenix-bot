@@ -251,6 +251,44 @@ class DataMigrationV2:
             logger.error(f"❌ Error in token expiration notification reset: {e}", exc_info=True)
             return 0
     
+    def add_password_storage_fields(self) -> bool:
+        """Add password storage fields to users table"""
+        try:
+            logger.info("🔐 Adding password storage fields to database...")
+            
+            if not self.new_user_storage:
+                logger.error("❌ New user storage not initialized")
+                return False
+            
+            # Get database manager from user storage
+            db_manager = self.new_user_storage.db_manager
+            
+            # Add new columns to users table using SQLAlchemy session
+            with db_manager.get_session() as session:
+                from sqlalchemy import text
+                
+                alter_queries = [
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS encrypted_password TEXT",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS store_password BOOLEAN DEFAULT FALSE",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_consent_given BOOLEAN DEFAULT FALSE"
+                ]
+                
+                for query in alter_queries:
+                    try:
+                        session.execute(text(query))
+                        session.commit()
+                        logger.info(f"✅ Executed: {query}")
+                    except Exception as e:
+                        session.rollback()
+                        logger.warning(f"⚠️ Query may have failed (column might already exist): {query} - {e}")
+            
+            logger.info("🎉 Password storage fields added successfully")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Error adding password storage fields: {e}", exc_info=True)
+            return False
+    
     def create_backup(self):
         """Create backup of old data before migration"""
         try:
@@ -331,11 +369,15 @@ class DataMigrationV2:
             # Reset token expiration notifications
             reset_count = self.reset_token_expired_notifications()
             
+            # Add password storage fields
+            password_fields_added = self.add_password_storage_fields()
+            
             logger.info("🎉 Migration completed successfully!")
             logger.info(f"📊 Summary:")
             logger.info(f"   - Users migrated: {user_count}")
             logger.info(f"   - Grades migrated: {grade_count}")
             logger.info(f"   - Token notifications reset: {reset_count}")
+            logger.info(f"   - Password storage fields: {'Added' if password_fields_added else 'Failed'}")
             logger.info(f"   - Backup file: {backup_file}")
             
             return True

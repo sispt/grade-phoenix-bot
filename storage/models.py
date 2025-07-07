@@ -49,6 +49,10 @@ class User(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     token_expired_notified = Column(Boolean, default=False, nullable=False)
     
+    # Password storage (encrypted)
+    encrypted_password = Column(String(1000), nullable=True)  # Encrypted password
+    password_stored = Column(Boolean, default=False, nullable=False)  # Whether user consented to password storage
+    
     # Relationships
     grades = relationship("Grade", back_populates="user", cascade="all, delete-orphan")
     grade_history = relationship("GradeHistory", back_populates="user", cascade="all, delete-orphan")
