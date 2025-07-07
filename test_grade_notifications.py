@@ -78,11 +78,14 @@ async def test_grade_notification_system():
     # Test 2: Get stored grades
     print("\n2️⃣ Testing stored grades retrieval...")
     try:
+        if telegram_id is None or not isinstance(telegram_id, int):
+            print("❌ No valid telegram_id available")
+            return
         stored_grades = grade_storage.get_user_grades(telegram_id)
         print(f"✅ Found {len(stored_grades)} stored grades")
         for grade in stored_grades[:3]:  # Show first 3 grades
-            name = grade.get('course_name', 'N/A')
-            total = grade.get('total_grade_value', 'N/A')
+            name = grade.get('name', 'N/A')
+            total = grade.get('total', 'N/A')
             print(f"   📖 {name}: {total}")
     except Exception as e:
         print(f"❌ Failed to get stored grades: {e}")
@@ -97,30 +100,30 @@ async def test_grade_notification_system():
             fresh_formatted = []
             for grade in fresh_grades:
                 fresh_formatted.append({
-                    'course_name': grade.get('name'),
-                    'course_code': grade.get('code'),
-                    'coursework_grade': grade.get('coursework'),
-                    'final_exam_grade': grade.get('final_exam'),
-                    'total_grade_value': grade.get('total'),
+                    'name': grade.get('name'),
+                    'code': grade.get('code'),
+                    'coursework': grade.get('coursework'),
+                    'final_exam': grade.get('final_exam'),
+                    'total': grade.get('total'),
                 })
             
             # Simple comparison
             changes = []
-            stored_map = {g.get('course_code') or g.get('course_name'): g for g in stored_grades}
+            stored_map = {g.get('code') or g.get('name'): g for g in stored_grades}
             
             for fresh_grade in fresh_formatted:
-                key = fresh_grade.get('course_code') or fresh_grade.get('course_name')
+                key = fresh_grade.get('code') or fresh_grade.get('name')
                 stored_grade = stored_map.get(key)
                 
                 if stored_grade:
                     # Check for changes
-                    if (fresh_grade.get('total_grade_value') != stored_grade.get('total_grade_value') or
-                        fresh_grade.get('coursework_grade') != stored_grade.get('coursework_grade') or
-                        fresh_grade.get('final_exam_grade') != stored_grade.get('final_exam_grade')):
+                    if (fresh_grade.get('total') != stored_grade.get('total') or
+                        fresh_grade.get('coursework') != stored_grade.get('coursework') or
+                        fresh_grade.get('final_exam') != stored_grade.get('final_exam')):
                         changes.append({
-                            'course': fresh_grade.get('course_name'),
-                            'old_total': stored_grade.get('total_grade_value'),
-                            'new_total': fresh_grade.get('total_grade_value')
+                            'course': fresh_grade.get('name'),
+                            'old_total': stored_grade.get('total'),
+                            'new_total': fresh_grade.get('total')
                         })
             
             if changes:
@@ -140,7 +143,7 @@ async def test_grade_notification_system():
         from utils.analytics import GradeAnalytics
         analytics = GradeAnalytics(user_storage)
         
-        if fresh_grades:
+        if fresh_grades and telegram_id is not None and isinstance(telegram_id, int):
             message = await analytics.format_current_grades_with_quote(telegram_id, fresh_grades)
             print("✅ Notification message format test:")
             print(f"   Length: {len(message)} characters")
@@ -195,6 +198,10 @@ async def test_admin_force_grade_check():
             print(f"      ⚠️ No token for {username}")
             continue
         
+        if telegram_id is None or not isinstance(telegram_id, int):
+            print(f"      ⚠️ Invalid telegram_id for {username}")
+            continue
+        
         try:
             # Test token validity
             if not await api.test_token(token):
@@ -208,21 +215,21 @@ async def test_admin_force_grade_check():
                 continue
             
             new_grades = user_data.get("grades", [])
-            old_grades = grade_storage.get_user_grades(telegram_id)
+            stored_grades = grade_storage.get_user_grades(telegram_id)
             
             # Simple comparison
             changes = []
-            if old_grades and new_grades:
-                stored_map = {g.get('course_code') or g.get('course_name'): g for g in old_grades}
+            if stored_grades and new_grades:
+                stored_map = {g.get('code') or g.get('name'): g for g in stored_grades}
                 
                 for grade in new_grades:
                     key = grade.get('code') or grade.get('name')
                     stored_grade = stored_map.get(key)
                     
                     if stored_grade:
-                        if (grade.get('total') != stored_grade.get('total_grade_value') or
-                            grade.get('coursework') != stored_grade.get('coursework_grade') or
-                            grade.get('final_exam') != stored_grade.get('final_exam_grade')):
+                        if (grade.get('total') != stored_grade.get('total') or
+                            grade.get('coursework') != stored_grade.get('coursework') or
+                            grade.get('final_exam') != stored_grade.get('final_exam')):
                             changes.append(grade.get('name', 'Unknown'))
             
             if changes:
