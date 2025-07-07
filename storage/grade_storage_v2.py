@@ -53,15 +53,15 @@ class Grade(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     term_id = Column(Integer, ForeignKey("terms.id", ondelete="CASCADE"), nullable=True, index=True)
     
-    # Course information
-    course_name = Column(String(255), nullable=False, index=True)
-    course_code = Column(String(50), nullable=True, index=True)
+    # Course information (using API field names for consistency)
+    name = Column(String(255), nullable=False, index=True)  # Course name from API
+    code = Column(String(50), nullable=True, index=True)    # Course code from API
     ects_credits = Column(Numeric(3, 1), nullable=True)
     
-    # Grade values
-    coursework_grade = Column(String(20), nullable=True)
-    final_exam_grade = Column(String(20), nullable=True)
-    total_grade_value = Column(String(20), nullable=True)
+    # Grade values (using API field names for consistency)
+    coursework = Column(String(20), nullable=True)          # Coursework grade from API
+    final_exam = Column(String(20), nullable=True)          # Final exam grade from API
+    total = Column(String(20), nullable=True)               # Total grade from API
     numeric_grade = Column(Numeric(5, 2), nullable=True)
     
     # Grade status
@@ -78,7 +78,7 @@ class Grade(Base):
     __table_args__ = (
         Index('idx_grade_user_id', 'user_id'),
         Index('idx_grade_term_id', 'term_id'),
-        Index('idx_grade_course_code', 'course_code'),
+        Index('idx_grade_code', 'code'),
         Index('idx_grade_status', 'grade_status'),
         Index('idx_grade_numeric', 'numeric_grade'),
     )
@@ -204,17 +204,17 @@ class GradeStorageV2:
                     # Create or update grade
                     existing_grade = session.query(Grade).filter_by(
                         user_id=user_id,
-                        course_code=course_code,
+                        code=course_code,
                         term_id=term_db_id
                     ).first()
                     
                     if existing_grade:
                         # Update existing grade
-                        existing_grade.course_name = course_name
+                        existing_grade.name = course_name
                         existing_grade.ects_credits = ects_val
-                        existing_grade.coursework_grade = coursework
-                        existing_grade.final_exam_grade = final_exam
-                        existing_grade.total_grade_value = total
+                        existing_grade.coursework = coursework
+                        existing_grade.final_exam = final_exam
+                        existing_grade.total = total
                         existing_grade.numeric_grade = numeric_grade
                         existing_grade.grade_status = grade_status
                         existing_grade.updated_at = datetime.utcnow()
@@ -223,12 +223,12 @@ class GradeStorageV2:
                         grade = Grade(
                             user_id=user_id,
                             term_id=term_db_id,
-                            course_name=course_name,
-                            course_code=course_code,
+                            name=course_name,
+                            code=course_code,
                             ects_credits=ects_val,
-                            coursework_grade=coursework,
-                            final_exam_grade=final_exam,
-                            total_grade_value=total,
+                            coursework=coursework,
+                            final_exam=final_exam,
+                            total=total,
                             numeric_grade=numeric_grade,
                             grade_status=grade_status,
                         )
@@ -257,12 +257,12 @@ class GradeStorageV2:
                 grades = session.query(Grade).filter_by(user_id=user.id).all()
                 return [
                     {
-                        "course_name": grade.course_name,
-                        "course_code": grade.course_code,
-                        "ects_credits": float(grade.ects_credits) if grade.ects_credits else None,
-                        "coursework_grade": grade.coursework_grade,
-                        "final_exam_grade": grade.final_exam_grade,
-                        "total_grade_value": grade.total_grade_value,
+                        "name": grade.name,
+                        "code": grade.code,
+                        "ects": float(grade.ects_credits) if grade.ects_credits else None,
+                        "coursework": grade.coursework,
+                        "final_exam": grade.final_exam,
+                        "total": grade.total,
                         "numeric_grade": float(grade.numeric_grade) if grade.numeric_grade else None,
                         "grade_status": grade.grade_status,
                         "term_name": grade.term.name if grade.term else None,

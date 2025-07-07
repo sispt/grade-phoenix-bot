@@ -655,17 +655,7 @@ class TelegramBot:
                 logger.info(f"No grade data available for {username} in this check.")
                 return False
             new_grades = user_data.get("grades", [])
-            old_grades_raw = self.grade_storage.get_user_grades(telegram_id)
-            # --- Patch: Map old grades to API field format for comparison ---
-            def map_old_grade(g):
-                return {
-                    "name": g.get("course_name"),
-                    "code": g.get("course_code"),
-                    "coursework": g.get("coursework_grade"),
-                    "final_exam": g.get("final_exam_grade"),
-                    "total": g.get("total_grade_value"),
-                }
-            old_grades = [map_old_grade(g) for g in old_grades_raw]
+            old_grades = self.grade_storage.get_user_grades(telegram_id)
             changed_courses = self._compare_grades(old_grades, new_grades)
             if changed_courses:
                 logger.warning(f"GRADE CHECK: Found {len(changed_courses)} grade changes for user {username}. Sending notification.")

@@ -252,13 +252,13 @@ class UniversityAPI:
                     
                     if previous_term_id:
                         old_grades = await self._get_term_grades(token, previous_term_id, user_id=0)
-                        if old_grades:
+            if old_grades:
                             logger.info(f"✅ Found {len(old_grades)} old grades for term '{previous_term_name}'")
                             # Add term information to each grade
                             for grade in old_grades:
                                 grade['term_name'] = previous_term_name
                                 grade['term_id'] = previous_term_id
-                            return old_grades
+                return old_grades
             
             # Fallback: Try known previous term IDs
             logger.info("🔄 Trying known previous term IDs...")

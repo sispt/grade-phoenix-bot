@@ -163,6 +163,38 @@ telegram_university_bot/
 └── requirements.txt         # Dependencies
 ```
 
+## Grade Data Terminology
+
+This project uses **unified field names** throughout the codebase to ensure consistency and prevent bugs. All grade-related data follows the same terminology as the university API:
+
+### Core Grade Fields
+- **`name`** - Course name (e.g., "Advanced Mathematics")
+- **`code`** - Course code (e.g., "MATH101")
+- **`coursework`** - Coursework grade (e.g., "85 %" or "لم يتم النشر")
+- **`final_exam`** - Final exam grade (e.g., "90 %" or "لم يتم النشر")
+- **`total`** - Total course grade (e.g., "87 %" or "لم يتم النشر")
+
+### Additional Fields
+- **`ects`** - ECTS credits (e.g., 3.0)
+- **`term_name`** - Academic term name (e.g., "الفصل الأول 2024-2025")
+- **`term_id`** - Term identifier
+- **`grade_status`** - Publication status ("Published", "Not Published", "Unknown")
+- **`numeric_grade`** - Extracted numeric value from total grade
+
+### Benefits of Unified Terminology
+- **Consistency:** Same field names used in API, storage, and application logic
+- **Reliability:** Eliminates field mapping bugs and comparison issues
+- **Maintainability:** Easier to understand and modify grade-related code
+- **Developer Experience:** Clear expectations for all grade data operations
+
+### Migration
+If you're upgrading from an older version, use the migration script:
+```bash
+python migrate_grade_fields.py
+```
+
+This will update your database schema and migrate existing data to use the unified field names.
+
 ## Quick Start
 
 ### Prerequisites
