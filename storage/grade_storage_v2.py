@@ -4,7 +4,7 @@ Handles grade data storage with PostgreSQL
 """
 
 import logging
-from datetime import datetime, UTC
+from datetime import datetime
 from typing import Dict, List, Optional, Any
 from contextlib import contextmanager
 from decimal import Decimal
@@ -32,7 +32,7 @@ class Term(Base):
     name = Column(String(200), nullable=False)
     academic_year = Column(String(20), nullable=True)
     is_current = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=datetime.now(UTC), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     
     # Relationships
     grades = relationship("Grade", back_populates="term")
@@ -68,8 +68,8 @@ class Grade(Base):
     grade_status = Column(String(20), default="Not Published", nullable=False)
     
     # Metadata
-    created_at = Column(DateTime, default=datetime.now(UTC), nullable=False)
-    updated_at = Column(DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
     # Relationships
     term = relationship("Term", back_populates="grades")
@@ -217,7 +217,7 @@ class GradeStorageV2:
                         existing_grade.total = total
                         existing_grade.numeric_grade = numeric_grade
                         existing_grade.grade_status = grade_status
-                        existing_grade.updated_at = datetime.now(UTC)
+                        existing_grade.updated_at = datetime.utcnow()
                     else:
                         # Create new grade
                         grade = Grade(

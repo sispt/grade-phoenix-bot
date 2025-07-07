@@ -4,7 +4,7 @@ Clean, well-structured database schema
 """
 
 import logging
-from datetime import datetime, UTC
+from datetime import datetime
 from contextlib import contextmanager
 from decimal import Decimal
 from typing import Optional
@@ -44,14 +44,10 @@ class User(Base):
     lastname = Column(String(100), nullable=True)
     fullname = Column(String(200), nullable=True)
     email = Column(String(200), nullable=True)
-    registration_date = Column(DateTime, default=datetime.now(UTC), nullable=False)
-    last_login = Column(DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC))
+    registration_date = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_login = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     is_active = Column(Boolean, default=True, nullable=False)
     token_expired_notified = Column(Boolean, default=False, nullable=False)
-    
-    # Password storage (encrypted)
-    encrypted_password = Column(String(1000), nullable=True)  # Encrypted password
-    password_stored = Column(Boolean, default=False, nullable=False)  # Whether user consented to password storage
     
     # Relationships
     grades = relationship("Grade", back_populates="user", cascade="all, delete-orphan")
@@ -80,7 +76,7 @@ class Term(Base):
     is_current = Column(Boolean, default=False, nullable=False)
     start_date = Column(DateTime, nullable=True)
     end_date = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(UTC), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     
     # Relationships
     grades = relationship("Grade", back_populates="term")
@@ -105,25 +101,25 @@ class Grade(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     term_id = Column(Integer, ForeignKey("terms.id", ondelete="CASCADE"), nullable=True, index=True)
     
-    # Course information (using API field names for consistency)
-    name = Column(String(255), nullable=False, index=True)  # Course name from API
-    code = Column(String(50), nullable=True, index=True)    # Course code from API
-    ects_credits = Column(Numeric(3, 1), nullable=True)     # e.g., 3.0
+    # Course information
+    course_name = Column(String(255), nullable=False, index=True)
+    course_code = Column(String(50), nullable=True, index=True)
+    ects_credits = Column(Numeric(3, 1), nullable=True)  # e.g., 3.0
     
-    # Grade values (using API field names for consistency)
-    coursework = Column(String(20), nullable=True)          # Coursework grade from API
-    final_exam = Column(String(20), nullable=True)          # Final exam grade from API
-    total = Column(String(20), nullable=True)               # Total grade from API (e.g., "87 %" or "لم يتم النشر")
+    # Grade values (stored as strings for flexibility with Arabic text)
+    coursework_grade = Column(String(20), nullable=True)
+    final_exam_grade = Column(String(20), nullable=True)
+    total_grade_value = Column(String(20), nullable=True)  # e.g., "87 %" or "لم يتم النشر"
 
-    # Numeric grade for calculations (extracted from total)
-    numeric_grade = Column(Numeric(5, 2), nullable=True)    # e.g., 87.00
+    # Numeric grade for calculations (extracted from total_grade_value)
+    numeric_grade = Column(Numeric(5, 2), nullable=True)  # e.g., 87.00
     
     # Grade status
     grade_status = Column(String(20), default="Not Published", nullable=False)  # Published, Not Published, Unknown
     
     # Metadata
-    created_at = Column(DateTime, default=datetime.now(UTC), nullable=False)
-    updated_at = Column(DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
     # Relationships
     user = relationship("User", back_populates="grades")
@@ -133,14 +129,14 @@ class Grade(Base):
     __table_args__ = (
         Index('idx_grade_user_id', 'user_id'),
         Index('idx_grade_term_id', 'term_id'),
-        Index('idx_grade_code', 'code'),
+        Index('idx_grade_course_code', 'course_code'),
         Index('idx_grade_status', 'grade_status'),
         Index('idx_grade_numeric', 'numeric_grade'),
-        UniqueConstraint('user_id', 'code', 'term_id', name='unique_user_course_term'),
+        UniqueConstraint('user_id', 'course_code', 'term_id', name='unique_user_course_term'),
     )
 
     def __repr__(self):
-        return f"<Grade(user_id={self.user_id}, course='{self.name}', grade='{self.total}')>"
+        return f"<Grade(user_id={self.user_id}, course='{self.course_name}', grade='{self.total_grade_value}')>"
 
 
 class GradeHistory(Base):
@@ -152,14 +148,14 @@ class GradeHistory(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     grade_id = Column(Integer, ForeignKey("grades.id", ondelete="CASCADE"), nullable=False, index=True)
     
-    # Previous values (using API field names for consistency)
-    previous_total = Column(String(20), nullable=True)       # Previous total grade
+    # Previous values
+    previous_total_grade = Column(String(20), nullable=True)
     previous_numeric_grade = Column(Numeric(5, 2), nullable=True)
     previous_status = Column(String(20), nullable=True)
     
     # Change metadata
     change_type = Column(String(20), nullable=False)  # Created, Updated, Deleted
-    changed_at = Column(DateTime, default=datetime.now(UTC), nullable=False)
+    changed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     
     # Relationships
     user = relationship("User", back_populates="grade_history")
@@ -184,7 +180,7 @@ class CredentialTest(Base):
     id = Column(Integer, primary_key=True)
     username = Column(String(100), nullable=False, index=True)
     test_result = Column(Boolean, nullable=False)
-    test_date = Column(DateTime, default=datetime.now(UTC), nullable=False)
+    test_date = Column(DateTime, default=datetime.utcnow, nullable=False)
     error_message = Column(Text, nullable=True)
     response_time_ms = Column(Integer, nullable=True)
     user_agent = Column(String(500), nullable=True)

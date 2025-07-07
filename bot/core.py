@@ -34,6 +34,7 @@ from utils.logger import get_bot_logger
 # Get bot logger
 logger = get_bot_logger()
 ASK_USERNAME, ASK_PASSWORD, ASK_PASSWORD_STORAGE_CONSENT, ASK_PASSWORD_FOR_STORAGE = range(4)
+ASK_GPA_COURSE_COUNT, ASK_GPA_PERCENTAGE, ASK_GPA_ECTS = range(10, 13)
 
 class TelegramBot:
     """Main Telegram Bot Class"""
@@ -168,6 +169,16 @@ class TelegramBot:
         self.app.add_handler(CallbackQueryHandler(self._handle_callback))
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message))
         self.app.add_handler(CallbackQueryHandler(self._settings_callback_handler, pattern="^(back_to_main|cancel_action)$"))
+        gpa_calc_handler = ConversationHandler(
+            entry_points=[MessageHandler(filters.Regex("^🧮 حساب المعدل المخصص$"), self._gpa_calc_start)],
+            states={
+                ASK_GPA_COURSE_COUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._gpa_ask_course_count)],
+                ASK_GPA_PERCENTAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._gpa_ask_percentage)],
+                ASK_GPA_ECTS: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._gpa_ask_ects)],
+            },
+            fallbacks=[MessageHandler(filters.Regex("^❌ إلغاء$"), self._cancel_registration)],
+        )
+        self.app.add_handler(gpa_calc_handler)
 
     async def _send_message_with_keyboard(self, update, message, keyboard_type="main"):
         keyboards = {
@@ -542,10 +553,12 @@ class TelegramBot:
                 "🚪 تسجيل الخروج": self._logout_command,
                 # Refresh keyboard
                 "🔄 تحديث الأزرار": self._refresh_keyboard,
+                "🧮 حساب المعدل المخصص": self._gpa_calc_start,
             }
             action = actions.get(text)
             if action:
                 await action(update, context)
+                return
             else:
                 is_registered = self.user_storage.is_user_registered(user_id)
                 keyboard = get_main_keyboard() if is_registered else get_unregistered_keyboard()
@@ -1016,10 +1029,10 @@ class TelegramBot:
         # Show password storage consent dialog
         consent_message = (
             "🔐 **خيارات الجلسة**\n\n"
-            "**الخيار الأول (جلسة آمنة بدون حفظ كلمة المرور):**\n"
+            "**الخيار الأول (جلسة مؤقتة بدون حفظ كلمة المرور):**\n"
             "• كلمة المرور لا تُخزن نهائياً\n"
             "• ستبقى مسجلاً عادةً لعدة أيام أو حتى أسبوع (حسب نظام الجامعة)\n"
-            "• عند انتهاء الجلسة، ستتوقف الإشعارات، وسيطلب منك البوت تسجيل الدخول مرة أخرى (هذا طبيعي ويهدف لحماية حسابك)\n\n"
+            "• عند انتهاء الجلسة، ستتوقف الإشعارات، وسيطلب منك البوت تسجيل الدخول مرة أخرى\n\n"
             "**الخيار الثاني (جلسة دائمة مع حفظ كلمة المرور):**\n"
             "• كلمة المرور تُخزن مشفرة بالكامل في قاعدة البيانات\n"
             "• لا أحد (ولا حتى المطور) يمكنه الوصول إليها\n"
@@ -1339,3 +1352,79 @@ class TelegramBot:
                 "تمت إعادتك للقائمة الرئيسية.",
                 reply_markup=keyboard
             )
+
+    async def _gpa_calc_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        context.user_data['gpa_calc'] = {'courses': [], 'current': 0, 'count': 0}
+        await update.message.reply_text("كم عدد المقررات التي تريد حساب المعدل التراكمي لها؟ (أدخل رقماً بين 1 و10)")
+        return ASK_GPA_COURSE_COUNT
+
+    async def _gpa_ask_course_count(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        try:
+            count = int(update.message.text.strip())
+            if not (1 <= count <= 10):
+                raise ValueError
+            context.user_data['gpa_calc']['count'] = count
+            context.user_data['gpa_calc']['current'] = 1
+            await update.message.reply_text(f"أدخل النسبة المئوية للمقرر رقم 1 (مثال: 85)")
+            return ASK_GPA_PERCENTAGE
+        except Exception:
+            await update.message.reply_text("❌ أدخل رقماً صحيحاً بين 1 و10.")
+            return ASK_GPA_COURSE_COUNT
+
+    async def _gpa_ask_percentage(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        try:
+            # Try to extract integer from input
+            text = update.message.text.strip()
+            # Extract first number (integer or float) from the string
+            import re
+            match = re.search(r"\d+(?:\.\d+)?", text)
+            if not match:
+                raise ValueError("No digits found")
+            
+            percent = int(float(match.group(0)))
+            if not (0 <= percent <= 100):
+                raise ValueError("Out of range")
+            
+            # Check if percentage is below 30 (0 earned points)
+            if percent < 30:
+                await update.message.reply_text(f"⚠️ النسبة المئوية {percent}% أقل من 30%، ستكون النقاط المكتسبة 0.")
+            
+            context.user_data['gpa_calc']['courses'].append({'percentage': percent})
+            # Ask for ECTS for this course
+            current = context.user_data['gpa_calc']['current']
+            await update.message.reply_text(f"أدخل عدد نقاط ECTS المخصصة للمقرر رقم {current} (مثال: 4)")
+            return ASK_GPA_ECTS
+        except Exception:
+            await update.message.reply_text("❌ أدخل نسبة مئوية صحيحة بين 0 و100.")
+            return ASK_GPA_PERCENTAGE
+
+    async def _gpa_ask_ects(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        try:
+            ects = float(update.message.text.strip())
+            if not (0.5 <= ects <= 20):
+                raise ValueError
+            current = context.user_data['gpa_calc']['current']
+            context.user_data['gpa_calc']['courses'][-1]['ects'] = ects
+            if current >= context.user_data['gpa_calc']['count']:
+                # Calculate GPA
+                return await self._gpa_calc_show_result(update, context)
+            else:
+                context.user_data['gpa_calc']['current'] += 1
+                await update.message.reply_text(f"أدخل النسبة المئوية للمقرر رقم {context.user_data['gpa_calc']['current']} (دون إشارة %، مثال: 85)")
+                return ASK_GPA_PERCENTAGE
+        except Exception:
+            await update.message.reply_text("❌ أدخل عدد نقاط ECTS صحيح (عادة بين 0.5 و20)")
+            return ASK_GPA_ECTS
+
+    async def _gpa_calc_show_result(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        from utils.analytics import GradeAnalytics
+        analytics = GradeAnalytics(self.user_storage)
+        # Build grades list in the same format as analytics expects
+        grades = []
+        for c in context.user_data['gpa_calc']['courses']:
+            grades.append({'total': str(c['percentage']), 'ects': c['ects']})
+        gpa = analytics._calculate_gpa(grades)
+        gpa_str = f"{gpa:.3f}" if gpa is not None else "-"
+        await update.message.reply_text(f"✅ المعدل التراكمي (GPA) للمقررات المدخلة: {gpa_str}", reply_markup=get_main_keyboard())
+        context.user_data.pop('gpa_calc', None)
+        return ConversationHandler.END

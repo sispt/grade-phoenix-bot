@@ -259,6 +259,8 @@ class UniversityAPI:
                                 grade['term_name'] = previous_term_name
                                 grade['term_id'] = previous_term_id
                             return old_grades
+                    else:
+                        logger.warning("No previous term ID found")
             
             # Fallback: Try known previous term IDs
             logger.info("🔄 Trying known previous term IDs...")
