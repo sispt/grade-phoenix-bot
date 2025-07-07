@@ -336,15 +336,32 @@ class TelegramBot:
                 logger.warning(f"❌ No token for user {telegram_id}")
                 await update.message.reply_text("❗️ يجب إعادة تسجيل الدخول.", reply_markup=get_unregistered_keyboard())
                 return
+            
+            # Test token validity first
+            logger.info(f"🔍 Testing token validity for user {telegram_id}")
+            if not await self.university_api.test_token(token):
+                logger.warning(f"❌ Invalid token for user {telegram_id}, forcing logout")
+                await self._force_logout_user(telegram_id, update)
+                return
+            
             logger.info(f"🌐 Calling get_user_data for user {telegram_id}")
             user_data = await self.university_api.get_user_data(token)
             logger.info(f"📊 User data result: {user_data is not None}")
-            grades = user_data.get("grades", []) if user_data else []
+            
+            # Check if user_data is None (API error) or has no grades
+            if not user_data:
+                logger.warning(f"❌ API error for user {telegram_id}, forcing logout")
+                await self._force_logout_user(telegram_id, update)
+                return
+            
+            grades = user_data.get("grades", [])
             logger.info(f"📈 Grades count: {len(grades) if grades else 0}")
+            
             if not grades:
                 logger.warning(f"⚠️ No grades found for user {telegram_id}")
                 await update.message.reply_text("لا يوجد درجات متاحة بعد.", reply_markup=get_main_keyboard())
                 return
+            
             # Format grades with quote
             logger.info(f"📝 Formatting grades for user {telegram_id}")
             message = await self.grade_analytics.format_current_grades_with_quote(telegram_id, grades)
@@ -368,9 +385,18 @@ class TelegramBot:
             if not token:
                 await update.message.reply_text("❗️ يجب إعادة تسجيل الدخول.", reply_markup=get_unregistered_keyboard())
                 return
+            
+            # Test token validity first
+            logger.info(f"🔍 Testing token validity for user {telegram_id} (old grades)")
+            if not await self.university_api.test_token(token):
+                logger.warning(f"❌ Invalid token for user {telegram_id}, forcing logout")
+                await self._force_logout_user(telegram_id, update)
+                return
+            
             old_grades = await self.university_api.get_old_grades(token)
             if old_grades is None:
-                await update.message.reply_text("❌ حدث خطأ في الاتصال أو جلب الدرجات. حاول لاحقاً أو تواصل مع الدعم.", reply_markup=get_main_keyboard())
+                logger.warning(f"❌ API error for user {telegram_id} (old grades), forcing logout")
+                await self._force_logout_user(telegram_id, update)
                 return
             if not old_grades:
                 await update.message.reply_text("📚 لا توجد درجات سابقة متاحة للفصل الدراسي السابق.", reply_markup=get_main_keyboard())
@@ -1245,6 +1271,33 @@ class TelegramBot:
                 "❌ أنت غير مسجل. يرجى التسجيل أولاً.",
                 reply_markup=get_unregistered_keyboard()
             )
+
+    async def _force_logout_user(self, telegram_id: int, update: Update):
+        """Force logout user due to invalid token"""
+        logger.info(f"🔄 Forcing logout for user {telegram_id} due to invalid token")
+        
+        # End user session
+        if hasattr(security_manager, 'session_manager'):
+            security_manager.session_manager.invalidate_session(telegram_id)
+        
+        # Clear user token
+        if hasattr(self.user_storage, 'clear_user_token'):
+            # For PostgreSQL storage
+            self.user_storage.clear_user_token(telegram_id)
+        else:
+            # For file storage
+            user = self.user_storage.get_user(telegram_id)
+            if user:
+                user["token"] = None
+                user["is_active"] = False
+                if hasattr(self.user_storage, '_save_users'):
+                    self.user_storage._save_users()
+        
+        # Notify user
+        await update.message.reply_text(
+            "⏰ انتهت صلاحية الجلسة\n\nتم تسجيل الخروج تلقائياً لحماية حسابك. يرجى تسجيل الدخول مرة أخرى من خلال زر '🚀 تسجيل الدخول للجامعة'.",
+            reply_markup=get_unregistered_keyboard()
+        )
 
     async def _logout_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         telegram_id = update.effective_user.id
