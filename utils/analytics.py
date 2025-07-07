@@ -15,6 +15,8 @@ import re
 from googletrans import Translator
 import aiohttp
 from utils.translation import translate_text
+import csv
+from decimal import Decimal, ROUND_HALF_UP
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -219,18 +221,32 @@ class GradeAnalytics:
                 f"{avg_grade:.2f}%" if has_numeric and avg_grade > 0 else "لا يوجد درجات رقمية لحساب المتوسط"
             )
             
+            # Calculate GPA
+            gpa = self._calculate_gpa(old_grades)
+            gpa_str = f"{gpa:.2f}".rstrip('0').rstrip('.') if gpa is not None else "-"
+            
             # Get the actual term name from the first grade (all grades should have the same term)
             term_name = "الفصل الدراسي السابق"  # fallback
             if old_grades and old_grades[0].get('term_name'):
                 term_name = old_grades[0]['term_name']
+            
+            # Calculate completion status
+            completion_status = f"{completed_courses}/{total_courses}"
+            if completed_courses == 0:
+                completion_text = "لا توجد مقررات مكتملة"
+            elif completed_courses == total_courses:
+                completion_text = f"جميع المقررات مكتملة ({completion_status})"
+            else:
+                completion_text = f"مقررات مكتملة: {completion_status}"
             
             # Build message
             message = (
                 f"📚 **درجات {term_name}**\n\n"
                 f"**إحصائيات عامة:**\n"
                 f"• عدد المقررات: {total_courses}\n"
-                f"• المقررات المكتملة: {completed_courses}\n"
-                f"• متوسط الدرجات: {avg_grade_str}\n\n"
+                f"• {completion_text}\n"
+                f"• متوسط الدرجات: {avg_grade_str}\n"
+                f"• المعدل التراكمي (GPA): {gpa_str}\n\n"
                 f"**الدرجات التفصيلية:**\n"
             )
             for grade in old_grades:
@@ -301,17 +317,31 @@ class GradeAnalytics:
                 f"{avg_grade:.2f}%" if has_numeric and avg_grade > 0 else "لا يوجد درجات رقمية لحساب المتوسط"
             )
             
+            # Calculate GPA
+            gpa = self._calculate_gpa(grades)
+            gpa_str = f"{gpa:.2f}".rstrip('0').rstrip('.') if gpa is not None else "-"
+            
             # Get the actual term name from the first grade (all grades should have the same term)
             term_name = "الفصل الدراسي الحالي"  # fallback
             if grades and grades[0].get('term_name'):
                 term_name = grades[0]['term_name']
             
+            # Calculate completion status
+            completion_status = f"{completed_courses}/{total_courses}"
+            if completed_courses == 0:
+                completion_text = "لا توجد مقررات مكتملة"
+            elif completed_courses == total_courses:
+                completion_text = f"جميع المقررات مكتملة ({completion_status})"
+            else:
+                completion_text = f"مقررات مكتملة: {completion_status}"
+            
             message = (
                 f"📚 **درجات {term_name}**\n\n"
                 f"**إحصائيات عامة:**\n"
                 f"• عدد المقررات: {total_courses}\n"
-                f"• المقررات المكتملة: {completed_courses}\n"
-                f"• متوسط الدرجات: {avg_grade_str}\n\n"
+                f"• {completion_text}\n"
+                f"• متوسط الدرجات: {avg_grade_str}\n"
+                f"• المعدل التراكمي (GPA): {gpa_str}\n\n"
                 f"**الدرجات التفصيلية:**\n"
             )
             for grade in grades:
@@ -329,3 +359,121 @@ class GradeAnalytics:
         except Exception as e:
             logger.error(f"Error formatting current grades: {e}")
             return "❌ حدث خطأ أثناء تحليل الدرجات الحالية."
+
+    def _load_percentage_to_ects(self) -> dict:
+        """Load percentage to earned ECTS mapping from CSV."""
+        mapping = {}
+        try:
+            with open("storage/percentage_to_ects.csv", newline="", encoding="utf-8") as csvfile:
+                reader = csv.DictReader(csvfile)
+                for row in reader:
+                    try:
+                        percent = int(row['percentage'])
+                        ects = float(row['ects'])
+                        mapping[percent] = ects
+                    except (ValueError, KeyError):
+                        continue
+        except FileNotFoundError:
+            logger.warning("percentage_to_ects.csv not found, using default mapping")
+            # Default mapping for percentages 30-100
+            for percent in range(30, 101):
+                if percent >= 90:
+                    mapping[percent] = 4.0
+                elif percent >= 85:
+                    mapping[percent] = 3.7
+                elif percent >= 80:
+                    mapping[percent] = 3.3
+                elif percent >= 75:
+                    mapping[percent] = 3.0
+                elif percent >= 70:
+                    mapping[percent] = 2.7
+                elif percent >= 65:
+                    mapping[percent] = 2.3
+                elif percent >= 60:
+                    mapping[percent] = 2.0
+                elif percent >= 55:
+                    mapping[percent] = 1.7
+                elif percent >= 50:
+                    mapping[percent] = 1.3
+                elif percent >= 45:
+                    mapping[percent] = 1.0
+                elif percent >= 40:
+                    mapping[percent] = 0.7
+                elif percent >= 35:
+                    mapping[percent] = 0.3
+                else:
+                    mapping[percent] = 0.0
+        return mapping
+
+    def _calculate_gpa(self, grades: List[Dict[str, Any]]) -> Optional[float]:
+        """Calculate GPA using the formula: sum(earned_ects × assigned_ects) / sum(assigned_ects)"""
+        try:
+            if not grades:
+                return None
+            
+            # Load percentage to ECTS mapping
+            percentage_to_ects = self._load_percentage_to_ects()
+            
+            total_weighted_points = 0.0
+            total_assigned_ects = 0.0
+            valid_courses = 0
+            
+            for grade in grades:
+                if not grade:
+                    continue
+                
+                # Get percentage and assigned ECTS
+                total = grade.get('total')
+                assigned_ects = grade.get('ects')
+                
+                if not total or not assigned_ects:
+                    continue
+                
+                # Convert percentage to integer
+                try:
+                    if isinstance(total, str):
+                        # Extract first number (integer or float) from the string
+                        import re
+                        match = re.search(r"\d+(?:\.\d+)?", total)
+                        if not match:
+                            continue
+                        percentage = int(float(match.group(0)))
+                    else:
+                        percentage = int(total)
+                except (ValueError, TypeError):
+                    continue
+                
+                # Validate percentage range
+                if not (0 <= percentage <= 100):
+                    continue
+                
+                # Get earned ECTS from mapping (0 for percentages below 30)
+                if percentage < 30:
+                    earned_ects = 0.0
+                else:
+                    earned_ects = percentage_to_ects.get(percentage, 0.0)
+                
+                # Validate assigned ECTS
+                try:
+                    assigned_ects = float(assigned_ects)
+                    if not (0.5 <= assigned_ects <= 20):
+                        continue
+                except (ValueError, TypeError):
+                    continue
+                
+                # Calculate weighted points
+                total_weighted_points += earned_ects * assigned_ects
+                total_assigned_ects += assigned_ects
+                valid_courses += 1
+            
+            # Calculate GPA
+            if valid_courses > 0 and total_assigned_ects > 0:
+                gpa = total_weighted_points / total_assigned_ects
+                # Round to 3 decimal places
+                return round(gpa, 3)
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error calculating GPA: {e}")
+            return None
