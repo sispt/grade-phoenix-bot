@@ -7,7 +7,7 @@ import logging
 import logging.handlers
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from config import CONFIG
 
@@ -28,8 +28,8 @@ class ColoredFormatter(logging.Formatter):
         if record.levelname in self.COLORS:
             record.levelname = f"{self.COLORS[record.levelname]}{record.levelname}{self.COLORS['RESET']}"
         
-        # Add timestamp with emoji
-        record.timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # Add timestamp with emoji (UTC+3)
+        record.timestamp = (datetime.utcnow() + timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S")
         
         # Add component emoji based on logger name
         component_emojis = {
@@ -53,6 +53,14 @@ class ColoredFormatter(logging.Formatter):
         
         return super().format(record)
 
+class UTC3FileFormatter(logging.Formatter):
+    def formatTime(self, record, datefmt=None):
+        dt = datetime.utcfromtimestamp(record.created) + timedelta(hours=3)
+        if datefmt:
+            return dt.strftime(datefmt)
+        else:
+            return dt.isoformat(sep=" ", timespec="seconds")
+
 def setup_logging():
     """Setup comprehensive logging system"""
     
@@ -68,7 +76,7 @@ def setup_logging():
         '%(component_emoji)s %(timestamp)s - %(levelname)s - %(name)s: %(message)s'
     )
     
-    file_formatter = logging.Formatter(
+    file_formatter = UTC3FileFormatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
