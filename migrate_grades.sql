@@ -1,3 +1,6 @@
+-- Drop the old grade_history table if it exists
+DROP TABLE IF EXISTS grade_history CASCADE;
+
 -- Drop the old grades table if it exists
 DROP TABLE IF EXISTS grades CASCADE;
 
