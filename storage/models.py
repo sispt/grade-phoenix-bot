@@ -83,7 +83,6 @@ class Term(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     
     # Relationships
-    grades = relationship("Grade", back_populates="term")
     
     # Indexes
     __table_args__ = (

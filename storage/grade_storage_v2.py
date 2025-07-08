@@ -27,46 +27,27 @@ class GradeStorageV2:
         logger.info("✅ GradeStorageV2 initialized")
     
     def save_grades(self, telegram_id: int, grades_data: List[Dict[str, Any]]) -> bool:
-        """Save grades for a user (look up user_id by telegram_id)"""
+        """Save grades for a user (by telegram_id)"""
         try:
             with self.db_manager.get_session() as session:
-                # Get user by telegram_id
                 user = session.query(User).filter_by(telegram_id=telegram_id).first()
                 if not user:
                     logger.error(f"❌ User not found for telegram_id: {telegram_id}")
                     return False
-                user_id = user.id
                 saved_count = 0
                 skipped_count = 0
                 for grade_data in grades_data:
-                    # Extract grade information
                     course_name = grade_data.get("name", "")
                     course_code = grade_data.get("code", "")
                     ects = grade_data.get("ects", "")
                     coursework = grade_data.get("coursework", "")
                     final_exam = grade_data.get("final_exam", "")
                     total = grade_data.get("total", "")
-                    term_name = grade_data.get("term_name", "")
-                    term_id_str = grade_data.get("term_id", "")
                     # Skip if no course name
                     if not course_name:
                         logger.warning(f"⏭️ Skipping grade due to missing course name")
                         skipped_count += 1
                         continue
-                    # Handle term
-                    term_obj = None
-                    if term_id_str:
-                        term_obj = session.query(Term).filter_by(term_id=term_id_str).first()
-                        if not term_obj:
-                            # Create term if not exists
-                            term_obj = Term(
-                                term_id=term_id_str,
-                                name=term_name or term_id_str,
-                                is_current=True  # Assume current for now
-                            )
-                            session.add(term_obj)
-                            session.flush()  # Get term_obj.id
-                    term_db_id = term_obj.id if term_obj else None
                     # Normalize ECTS
                     try:
                         ects_val = float(ects) if ects else None
@@ -87,12 +68,10 @@ class GradeStorageV2:
                         grade_status = "Unknown"
                     # Create or update grade
                     existing_grade = session.query(Grade).filter_by(
-                        user_id=user_id,
-                        course_code=course_code,
-                        term_id=term_db_id
+                        telegram_id=telegram_id,
+                        course_code=course_code
                     ).first()
                     if existing_grade:
-                        # Update existing grade
                         existing_grade.course_name = course_name
                         existing_grade.course_code = course_code
                         setattr(existing_grade, 'ects_credits', ects_val if ects_val is not None else None)
@@ -103,10 +82,8 @@ class GradeStorageV2:
                         setattr(existing_grade, 'grade_status', grade_status)
                         setattr(existing_grade, 'updated_at', datetime.now(timezone.utc))
                     else:
-                        # Create new grade
                         grade = Grade(
-                            user_id=user_id,
-                            term_id=term_db_id,
+                            telegram_id=telegram_id,
                             course_name=course_name,
                             course_code=course_code,
                             ects_credits=ects_val if ects_val is not None else None,
@@ -127,15 +104,14 @@ class GradeStorageV2:
             logger.error(f"❌ Error saving grades for user {telegram_id}: {e}")
             return False
     def get_user_grades(self, telegram_id: int) -> List[Dict[str, Any]]:
-        """Get all grades for a user (by user_id, looked up from telegram_id)"""
+        """Get all grades for a user (by telegram_id)"""
         try:
             with self.db_manager.get_session() as session:
                 user = session.query(User).filter_by(telegram_id=telegram_id).first()
                 if not user:
                     logger.error(f"❌ User not found for telegram_id: {telegram_id}")
                     return []
-                user_id = user.id
-                grades = session.query(Grade).filter_by(user_id=user_id).all()
+                grades = session.query(Grade).filter_by(telegram_id=telegram_id).all()
                 return [
                     {
                         "name": grade.course_name,
@@ -146,7 +122,6 @@ class GradeStorageV2:
                         "total": grade.total_grade_value,
                         "numeric_grade": safe_float(getattr(grade, 'numeric_grade', None)),
                         "grade_status": grade.grade_status,
-                        "term_name": grade.term.name if getattr(grade, 'term', None) and getattr(grade.term, 'name', None) else None,
                         "created_at": grade.created_at.isoformat() if getattr(grade, 'created_at', None) else None,
                     }
                     for grade in grades
@@ -158,15 +133,14 @@ class GradeStorageV2:
             logger.error(f"❌ Error getting grades for user {telegram_id}: {e}")
             return []
     def delete_grades(self, telegram_id: int) -> bool:
-        """Delete all grades for a user (by user_id, looked up from telegram_id)"""
+        """Delete all grades for a user (by telegram_id)"""
         try:
             with self.db_manager.get_session() as session:
                 user = session.query(User).filter_by(telegram_id=telegram_id).first()
                 if not user:
                     logger.error(f"❌ User not found for telegram_id: {telegram_id}")
                     return False
-                user_id = user.id
-                grades = session.query(Grade).filter_by(user_id=user_id).all()
+                grades = session.query(Grade).filter_by(telegram_id=telegram_id).all()
                 for grade in grades:
                     session.delete(grade)
                 logger.info(f"✅ Deleted {len(grades)} grades for user {telegram_id}")
