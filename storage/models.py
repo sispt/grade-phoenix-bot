@@ -198,6 +198,70 @@ class CredentialTest(Base):
         return f"<CredentialTest(username='{self.username}', test_result={self.test_result}, test_date='{self.test_date}')>"
 
 
+class GradeFailsafe(Base):
+    """Failsafe grade table: no FKs, no constraints, always works."""
+    __tablename__ = "grades_failsafe"
+    id = Column(Integer, primary_key=True)
+    username_unique = Column(String(100), nullable=False, index=True)
+    name = Column(String(255), nullable=False, index=True)
+    code = Column(String(50), nullable=True, index=True)
+    ects = Column(Numeric(3, 1), nullable=True)
+    coursework = Column(String(20), nullable=True)
+    final_exam = Column(String(20), nullable=True)
+    total = Column(String(20), nullable=True)
+    numeric_grade = Column(Numeric(5, 2), nullable=True)
+    grade_status = Column(String(20), default="Not Published", nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return f"<GradeFailsafe(username_unique={self.username_unique}, code='{self.code}', name='{self.name}', grade='{self.total}')>"
+
+class GradeFailsafeStorage:
+    def __init__(self, database_url):
+        from storage.models import DatabaseManager, GradeFailsafe
+        self.db_manager = DatabaseManager(database_url)
+        self.GradeFailsafe = GradeFailsafe
+        self.db_manager.create_all_tables()
+    def save_grades(self, username_unique, grades_data):
+        from datetime import datetime, timezone
+        with self.db_manager.get_session() as session:
+            for grade_data in grades_data:
+                grade = self.GradeFailsafe(
+                    username_unique=username_unique,
+                    name=grade_data.get("name", ""),
+                    code=grade_data.get("code", ""),
+                    ects=grade_data.get("ects"),
+                    coursework=grade_data.get("coursework"),
+                    final_exam=grade_data.get("final_exam"),
+                    total=grade_data.get("total"),
+                    numeric_grade=grade_data.get("numeric_grade"),
+                    grade_status=grade_data.get("grade_status", "Unknown"),
+                    created_at=datetime.now(timezone.utc),
+                    updated_at=datetime.now(timezone.utc),
+                )
+                session.add(grade)
+            session.commit()
+    def get_user_grades(self, username_unique):
+        with self.db_manager.get_session() as session:
+            grades = session.query(self.GradeFailsafe).filter_by(username_unique=username_unique).all()
+            return [
+                {
+                    "name": g.name,
+                    "code": g.code,
+                    "ects": g.ects,
+                    "coursework": g.coursework,
+                    "final_exam": g.final_exam,
+                    "total": g.total,
+                    "numeric_grade": g.numeric_grade,
+                    "grade_status": g.grade_status,
+                    "created_at": g.created_at.isoformat() if g.created_at is not None else None,
+                    "updated_at": g.updated_at.isoformat() if g.updated_at is not None else None,
+                }
+                for g in grades
+            ]
+
+
 class DatabaseManager:
     """Manages database connection and sessions"""
 
