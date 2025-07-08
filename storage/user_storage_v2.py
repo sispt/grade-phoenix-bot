@@ -1,31 +1,29 @@
+#!/usr/bin/env python3
 """
-👤 User Storage V2 - Clean Implementation
-Handles user data storage with PostgreSQL
+User Storage V2 - Clean PostgreSQL-based user storage
+No password persistence - matches 2.0.1 branch
 """
 
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Any
-from contextlib import contextmanager
-
+from typing import Dict, List, Any, Optional
 from sqlalchemy.exc import SQLAlchemyError
 
-# Import models from the main models file
-from storage.models import Base, User, DatabaseManager
+from storage.models import DatabaseManager, User
 
 logger = logging.getLogger(__name__)
 
 
 class UserStorageV2:
-    """Clean user storage system"""
+    """Clean user storage system - no password persistence"""
     
     def __init__(self, database_url: str):
         self.db_manager = DatabaseManager(database_url)
         self.db_manager.create_all_tables()
         logger.info("✅ UserStorageV2 initialized")
     
-    def save_user(self, telegram_id: int, username: str, token: str, user_data: Dict[str, Any], password: str = None, store_password: bool = False) -> bool:
-        """Save or update user data with optional password storage"""
+    def save_user(self, telegram_id: int, username: str, token: str, user_data: Dict[str, Any]) -> bool:
+        """Save or update user data"""
         try:
             with self.db_manager.get_session() as session:
                 # Check if user exists
@@ -36,32 +34,7 @@ class UserStorageV2:
                 lastname = user_data.get("lastname")
                 fullname = user_data.get("fullname")
                 email = user_data.get("email")
-                
-                # Handle password encryption if needed
-                encrypted_password = None
-                if store_password and password:
-                    try:
-                        from cryptography.fernet import Fernet
-                        import base64
-                        import os
-                        
-                        # Get encryption key from environment
-                        key = os.getenv('ENCRYPTION_KEY')
-                        if not key:
-                            # Generate a new key if not exists
-                            key = Fernet.generate_key().decode()
-                            logger.warning("No encryption key found, generated new one")
-                        
-                        # Ensure key is properly formatted
-                        if len(key) != 44:  # Fernet key length
-                            key = base64.urlsafe_b64encode(key.encode()[:32]).decode()
-                        
-                        cipher = Fernet(key.encode())
-                        encrypted_password = cipher.encrypt(password.encode()).decode()
-                    except Exception as e:
-                        logger.error(f"❌ Error encrypting password: {e}")
-                        encrypted_password = None
-                        store_password = False
+                token_expired_notified = user_data.get("token_expired_notified", False)
                 
                 if user:
                     # Update existing user
@@ -73,14 +46,7 @@ class UserStorageV2:
                     user.email = email
                     user.last_login = datetime.utcnow()
                     user.is_active = True
-                    
-                    # Update password storage if provided
-                    if store_password:
-                        user.encrypted_password = encrypted_password
-                        user.password_stored = True
-                    elif password is None:  # Only update if explicitly not storing
-                        user.encrypted_password = None
-                        user.password_stored = False
+                    user.token_expired_notified = token_expired_notified
                     
                     logger.info(f"✅ User {username} (ID: {telegram_id}) updated")
                 else:
@@ -96,8 +62,7 @@ class UserStorageV2:
                         registration_date=datetime.utcnow(),
                         last_login=datetime.utcnow(),
                         is_active=True,
-                        encrypted_password=encrypted_password if store_password else None,
-                        password_stored=store_password,
+                        token_expired_notified=token_expired_notified,
                     )
                     session.add(new_user)
                     logger.info(f"✅ User {username} (ID: {telegram_id}) created")
@@ -129,8 +94,6 @@ class UserStorageV2:
                         "last_login": user.last_login.isoformat() if user.last_login else None,
                         "is_active": user.is_active,
                         "token_expired_notified": user.token_expired_notified,
-                        "encrypted_password": user.encrypted_password,
-                        "password_stored": user.password_stored,
                     }
                 return None
         except SQLAlchemyError as e:
@@ -158,8 +121,6 @@ class UserStorageV2:
                         "last_login": user.last_login.isoformat() if user.last_login else None,
                         "is_active": user.is_active,
                         "token_expired_notified": user.token_expired_notified,
-                        "encrypted_password": user.encrypted_password,
-                        "password_stored": user.password_stored,
                     }
                     for user in users
                 ]
@@ -229,39 +190,4 @@ class UserStorageV2:
     def _save_users(self):
         """Compatibility method - no-op for PostgreSQL storage"""
         # This method is not needed for PostgreSQL storage as it's handled automatically
-        pass
-    
-    def get_decrypted_password(self, telegram_id: int) -> Optional[str]:
-        """Get decrypted password for user"""
-        try:
-            with self.db_manager.get_session() as session:
-                user = session.query(User).filter_by(telegram_id=telegram_id).first()
-                if user and user.encrypted_password and user.password_stored:
-                    try:
-                        from cryptography.fernet import Fernet
-                        import base64
-                        import os
-                        
-                        # Get encryption key from environment
-                        key = os.getenv('ENCRYPTION_KEY')
-                        if not key:
-                            logger.error("No encryption key found")
-                            return None
-                        
-                        # Ensure key is properly formatted
-                        if len(key) != 44:  # Fernet key length
-                            key = base64.urlsafe_b64encode(key.encode()[:32]).decode()
-                        
-                        cipher = Fernet(key.encode())
-                        decrypted_password = cipher.decrypt(user.encrypted_password.encode()).decode()
-                        return decrypted_password
-                    except Exception as e:
-                        logger.error(f"❌ Error decrypting password for user {telegram_id}: {e}")
-                        return None
-                return None
-        except SQLAlchemyError as e:
-            logger.error(f"❌ Database error getting decrypted password for user {telegram_id}: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"❌ Error getting decrypted password for user {telegram_id}: {e}")
-            return None 
+        pass 
