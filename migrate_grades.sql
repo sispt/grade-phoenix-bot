@@ -26,3 +26,6 @@ CREATE INDEX idx_grade_username ON grades(username);
 CREATE INDEX idx_grade_code ON grades(code);
 CREATE INDEX idx_grade_status ON grades(grade_status);
 CREATE INDEX idx_grade_numeric ON grades(numeric_grade); 
+
+-- Ensure username is unique in users table for FK constraint
+ALTER TABLE users ADD CONSTRAINT unique_username UNIQUE (username); 
