@@ -2,7 +2,7 @@ import os
 from sqlalchemy import create_engine, text
 from config import CONFIG
 
-SQL_FILE = 'migrate_grades.sql'
+SQL_FILE = 'migrate_add_username_unique.sql'
 
 def run_sql_file(engine, sql_file):
     print(f"[MIGRATION] Running migration file: {sql_file}")
