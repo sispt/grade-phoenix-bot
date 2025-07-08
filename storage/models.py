@@ -49,6 +49,11 @@ class User(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     token_expired_notified = Column(Boolean, default=False, nullable=False)
     
+    # New fields for permanent/temporary session
+    encrypted_password = Column(Text, nullable=True)
+    password_stored = Column(Boolean, default=False, nullable=False)
+    password_consent_given = Column(Boolean, default=False, nullable=False)
+    
     # Relationships
     grades = relationship("Grade", back_populates="user", cascade="all, delete-orphan")
     grade_history = relationship("GradeHistory", back_populates="user", cascade="all, delete-orphan")
