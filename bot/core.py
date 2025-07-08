@@ -1272,7 +1272,13 @@ class TelegramBot:
         for c in context.user_data['gpa_calc']['courses']:
             grades.append({'total': str(c['percentage']), 'ects': c['ects']})
         gpa = analytics._calculate_gpa(grades)
-        gpa_str = f"{gpa:.3f}" if gpa is not None else "-"
+        if gpa is not None:
+            # Format to exactly 3 digits from left to right (e.g., 3.15, 2.5, 4.0)
+            gpa_str = f"{gpa:.2f}".rstrip('0').rstrip('.')
+            if gpa_str == '':
+                gpa_str = '0'
+        else:
+            gpa_str = "-"
         await update.message.reply_text(f"✅ المعدل التراكمي (GPA) للمقررات المدخلة: {gpa_str}", reply_markup=get_main_keyboard())
         context.user_data.pop('gpa_calc', None)
         return ConversationHandler.END
