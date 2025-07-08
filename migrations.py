@@ -1,8 +1,9 @@
 import os
 from sqlalchemy import create_engine, text
 from config import CONFIG
+from storage.models import DatabaseManager
 
-SQL_FILE = 'migrate_add_username_unique.sql'
+SQL_FILE = 'migrate_grades.sql'
 
 def run_sql_file(engine, sql_file):
     print(f"[MIGRATION] Running migration file: {sql_file}")
@@ -23,10 +24,16 @@ def run_sql_file(engine, sql_file):
     finally:
         conn.close()
 
-def main():
-    database_url = CONFIG["DATABASE_URL"]
-    engine = create_engine(database_url)
-    run_sql_file(engine, SQL_FILE)
-
 if __name__ == "__main__":
-    main() 
+    db_url = CONFIG.get('DATABASE_URL') or os.environ.get('DATABASE_URL')
+    if not db_url:
+        print("Please set the DATABASE_URL environment variable.")
+    else:
+        # Auto-migrate if requested
+        if os.environ.get('AUTO_MIGRATE') == '1':
+            print("[MIGRATION] AUTO_MIGRATE is set. Running create_all_tables...")
+            DatabaseManager.create_all_tables_for_url(db_url)
+        # Optionally run SQL file
+        if os.path.exists(SQL_FILE):
+            engine = create_engine(db_url)
+            run_sql_file(engine, SQL_FILE) 
