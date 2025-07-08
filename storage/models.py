@@ -96,12 +96,12 @@ class Term(Base):
 
 
 class Grade(Base):
-    """Grade model for storing individual course grades in the database (telegram_id as FK, unified terminology)"""
+    """Grade model for storing individual course grades in the database (username as FK, unified terminology)"""
 
     __tablename__ = "grades"
 
     id = Column(Integer, primary_key=True)
-    telegram_id = Column(BigInteger, ForeignKey("users.telegram_id", ondelete="CASCADE"), nullable=False, index=True)
+    username = Column(String(100), ForeignKey("users.username", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(255), nullable=False, index=True)
     code = Column(String(50), nullable=True, index=True)
     ects = Column(Numeric(3, 1), nullable=True)
@@ -114,15 +114,15 @@ class Grade(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     __table_args__ = (
-        Index('idx_grade_telegram_id', 'telegram_id'),
+        Index('idx_grade_username', 'username'),
         Index('idx_grade_code', 'code'),
         Index('idx_grade_status', 'grade_status'),
         Index('idx_grade_numeric', 'numeric_grade'),
-        UniqueConstraint('telegram_id', 'code', name='unique_user_course'),
+        UniqueConstraint('username', 'code', name='unique_user_course'),
     )
 
     def __repr__(self):
-        return f"<Grade(telegram_id={self.telegram_id}, code='{self.code}', name='{self.name}', grade='{self.total}')>"
+        return f"<Grade(username={self.username}, code='{self.code}', name='{self.name}', grade='{self.total}')>"
 
 
 class GradeHistory(Base):

@@ -4,10 +4,10 @@ DROP TABLE IF EXISTS grade_history CASCADE;
 -- Drop the old grades table if it exists
 DROP TABLE IF EXISTS grades CASCADE;
 
--- Create the new grades table with unified terminology
+-- Create the new grades table with username as FK and unified terminology
 CREATE TABLE grades (
     id SERIAL PRIMARY KEY,
-    telegram_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+    username VARCHAR(100) NOT NULL REFERENCES users(username) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     code VARCHAR(50),
     ects NUMERIC(3, 1),
@@ -18,11 +18,11 @@ CREATE TABLE grades (
     grade_status VARCHAR(20) NOT NULL DEFAULT 'Not Published',
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
-    CONSTRAINT unique_user_course UNIQUE (telegram_id, code)
+    CONSTRAINT unique_user_course UNIQUE (username, code)
 );
 
 -- Indexes for performance
-CREATE INDEX idx_grade_telegram_id ON grades(telegram_id);
+CREATE INDEX idx_grade_username ON grades(username);
 CREATE INDEX idx_grade_code ON grades(code);
 CREATE INDEX idx_grade_status ON grades(grade_status);
 CREATE INDEX idx_grade_numeric ON grades(numeric_grade); 
