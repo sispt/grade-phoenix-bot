@@ -103,9 +103,7 @@ class Grade(Base):
     __tablename__ = "grades"
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    term_id = Column(Integer, ForeignKey("terms.id", ondelete="CASCADE"), nullable=True, index=True)
-    
+    term_id = Column(Integer, ForeignKey("terms.id", ondelete="CASCADE"), nullable=True, index=True)    
     # Course information
     course_name = Column(String(255), nullable=False, index=True)
     course_code = Column(String(50), nullable=True, index=True)
