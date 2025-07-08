@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class GradeStorageV2:
-    """Clean grade storage system"""
+    """Clean grade storage system (grades are associated by user_id, not telegram_id)"""
     
     def __init__(self, database_url: str):
         self.db_manager = DatabaseManager(database_url)
@@ -27,14 +27,15 @@ class GradeStorageV2:
         logger.info("✅ GradeStorageV2 initialized")
     
     def save_grades(self, telegram_id: int, grades_data: List[Dict[str, Any]]) -> bool:
-        """Save grades for a user"""
+        """Save grades for a user (look up user_id by telegram_id)"""
         try:
             with self.db_manager.get_session() as session:
-                # Get user by telegram_id (no need for user_id)
+                # Get user by telegram_id
                 user = session.query(User).filter_by(telegram_id=telegram_id).first()
                 if not user:
                     logger.error(f"❌ User not found for telegram_id: {telegram_id}")
                     return False
+                user_id = user.id
                 saved_count = 0
                 skipped_count = 0
                 for grade_data in grades_data:
@@ -86,15 +87,14 @@ class GradeStorageV2:
                         grade_status = "Unknown"
                     # Create or update grade
                     existing_grade = session.query(Grade).filter_by(
-                        telegram_id=telegram_id,
-                        code=course_code,
+                        user_id=user_id,
+                        course_code=course_code,
                         term_id=term_db_id
                     ).first()
                     if existing_grade:
                         # Update existing grade
                         existing_grade.course_name = course_name
                         existing_grade.course_code = course_code
-                        # Fix: assign to instance attributes, not class variables
                         setattr(existing_grade, 'ects_credits', ects_val if ects_val is not None else None)
                         existing_grade.coursework_grade = coursework
                         existing_grade.final_exam_grade = final_exam
@@ -105,7 +105,7 @@ class GradeStorageV2:
                     else:
                         # Create new grade
                         grade = Grade(
-                            telegram_id=telegram_id,
+                            user_id=user_id,
                             term_id=term_db_id,
                             course_name=course_name,
                             course_code=course_code,
@@ -127,10 +127,15 @@ class GradeStorageV2:
             logger.error(f"❌ Error saving grades for user {telegram_id}: {e}")
             return False
     def get_user_grades(self, telegram_id: int) -> List[Dict[str, Any]]:
-        """Get all grades for a user"""
+        """Get all grades for a user (by user_id, looked up from telegram_id)"""
         try:
             with self.db_manager.get_session() as session:
-                grades = session.query(Grade).filter_by(telegram_id=telegram_id).all()
+                user = session.query(User).filter_by(telegram_id=telegram_id).first()
+                if not user:
+                    logger.error(f"❌ User not found for telegram_id: {telegram_id}")
+                    return []
+                user_id = user.id
+                grades = session.query(Grade).filter_by(user_id=user_id).all()
                 return [
                     {
                         "name": grade.course_name,
@@ -153,10 +158,15 @@ class GradeStorageV2:
             logger.error(f"❌ Error getting grades for user {telegram_id}: {e}")
             return []
     def delete_grades(self, telegram_id: int) -> bool:
-        """Delete all grades for a user"""
+        """Delete all grades for a user (by user_id, looked up from telegram_id)"""
         try:
             with self.db_manager.get_session() as session:
-                grades = session.query(Grade).filter_by(telegram_id=telegram_id).all()
+                user = session.query(User).filter_by(telegram_id=telegram_id).first()
+                if not user:
+                    logger.error(f"❌ User not found for telegram_id: {telegram_id}")
+                    return False
+                user_id = user.id
+                grades = session.query(Grade).filter_by(user_id=user_id).all()
                 for grade in grades:
                     session.delete(grade)
                 logger.info(f"✅ Deleted {len(grades)} grades for user {telegram_id}")

@@ -1,4 +1,4 @@
-# Contributing to Telegram University Bot
+# Contributing to Grade Phoenix Bot v2.1.0
 
 Thank you for your interest in contributing!
 
