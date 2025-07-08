@@ -226,12 +226,18 @@ class DatabaseManager:
     def create_all_tables(self):
         """Create all tables if they don't exist"""
         try:
-            Base.metadata.create_all(bind=self.engine)
+            Base.metadata.create_all(self.engine)
             logger.info("✅ All database tables created successfully.")
-            return True
         except Exception as e:
-            logger.error(f"❌ Error creating database tables: {e}", exc_info=True)
-            return False
+            logger.error(f"❌ Error creating tables: {e}")
+
+    @staticmethod
+    def create_all_tables_for_url(database_url: str):
+        """Utility to create all tables for any given database URL."""
+        from sqlalchemy import create_engine
+        engine = create_engine(database_url)
+        Base.metadata.create_all(engine)
+        print(f"✅ Ran create_all_tables() for {database_url}")
 
     def drop_all_tables(self):
         """Drop all tables (use with caution!)"""
@@ -255,3 +261,11 @@ class DatabaseManager:
             raise
         finally:
             session.close()
+
+if __name__ == "__main__":
+    import os
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url:
+        print("Please set the DATABASE_URL environment variable.")
+    else:
+        DatabaseManager.create_all_tables_for_url(db_url)
