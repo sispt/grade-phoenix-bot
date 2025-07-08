@@ -27,7 +27,7 @@ class GradeStorageV2:
         logger.info("✅ GradeStorageV2 initialized")
     
     def save_grades(self, telegram_id: int, grades_data: List[Dict[str, Any]]) -> bool:
-        """Save grades for a user (by telegram_id)"""
+        """Save grades for a user (by telegram_id) using unified API terminology"""
         try:
             logger.debug(f"[DEBUG] save_grades called for telegram_id={telegram_id} with {len(grades_data)} grades.")
             with self.db_manager.get_session() as session:
@@ -40,14 +40,15 @@ class GradeStorageV2:
                 skipped_count = 0
                 for grade_data in grades_data:
                     logger.debug(f"[DEBUG] Processing grade_data: {grade_data}")
-                    course_name = grade_data.get("name", "")
-                    course_code = grade_data.get("code", "")
+                    name = grade_data.get("name", "")
+                    code = grade_data.get("code", "")
                     ects = grade_data.get("ects", "")
                     coursework = grade_data.get("coursework", "")
                     final_exam = grade_data.get("final_exam", "")
                     total = grade_data.get("total", "")
+                    grade_status = grade_data.get("grade_status", "Unknown")
                     # Skip if no course name
-                    if not course_name:
+                    if not name:
                         logger.warning(f"⏭️ Skipping grade due to missing course name")
                         skipped_count += 1
                         continue
@@ -62,7 +63,7 @@ class GradeStorageV2:
                         match = re.search(r"(\d+)", total)
                         if match:
                             numeric_grade = float(match.group(1))
-                    # Determine grade status
+                    # Determine grade status if not provided
                     if not total or "لم يتم النشر" in total:
                         grade_status = "Not Published"
                     elif "%" in total or (numeric_grade is not None):
@@ -72,12 +73,12 @@ class GradeStorageV2:
                     # Create or update grade
                     existing_grade = session.query(Grade).filter_by(
                         telegram_id=telegram_id,
-                        course_code=course_code
+                        course_code=code
                     ).first()
-                    logger.debug(f"[DEBUG] Existing grade for telegram_id={telegram_id}, course_code={course_code}: {existing_grade}")
+                    logger.debug(f"[DEBUG] Existing grade for telegram_id={telegram_id}, code={code}: {existing_grade}")
                     if existing_grade:
-                        existing_grade.course_name = course_name
-                        existing_grade.course_code = course_code
+                        existing_grade.course_name = name
+                        existing_grade.course_code = code
                         setattr(existing_grade, 'ects_credits', ects_val if ects_val is not None else None)
                         existing_grade.coursework_grade = coursework
                         existing_grade.final_exam_grade = final_exam
@@ -89,8 +90,8 @@ class GradeStorageV2:
                     else:
                         grade = Grade(
                             telegram_id=telegram_id,
-                            course_name=course_name,
-                            course_code=course_code,
+                            course_name=name,
+                            course_code=code,
                             ects_credits=ects_val if ects_val is not None else None,
                             coursework_grade=coursework,
                             final_exam_grade=final_exam,
@@ -113,7 +114,7 @@ class GradeStorageV2:
             logger.error(f"❌ Error saving grades for user {telegram_id}: {e}\n{traceback.format_exc()}")
             return False
     def get_user_grades(self, telegram_id: int) -> List[Dict[str, Any]]:
-        """Get all grades for a user (by telegram_id)"""
+        """Get all grades for a user (by telegram_id) using unified API terminology"""
         try:
             with self.db_manager.get_session() as session:
                 user = session.query(User).filter_by(telegram_id=telegram_id).first()
