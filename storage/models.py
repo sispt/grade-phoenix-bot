@@ -248,6 +248,7 @@ class DatabaseManager:
         session = self.SessionLocal()
         try:
             yield session
+            session.commit()  # Commit if no exception
         except Exception as e:
             session.rollback()
             logger.error(f"❌ Database session error: {e}", exc_info=True)
