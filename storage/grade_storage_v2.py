@@ -27,7 +27,7 @@ class GradeStorageV2:
         logger.info("✅ GradeStorageV2 initialized")
     
     def save_grades(self, telegram_id: int, grades_data: List[Dict[str, Any]]) -> bool:
-        """Save grades for a user (by telegram_id) using unified API terminology"""
+        """Save grades for a user (by telegram_id) using only fields present in the SQL schema."""
         try:
             logger.debug(f"[DEBUG] save_grades called for telegram_id={telegram_id} with {len(grades_data)} grades.")
             with self.db_manager.get_session() as session:
@@ -42,11 +42,12 @@ class GradeStorageV2:
                     logger.debug(f"[DEBUG] Processing grade_data: {grade_data}")
                     name = grade_data.get("name", "")
                     code = grade_data.get("code", "")
-                    ects = grade_data.get("ects", "")
-                    coursework = grade_data.get("coursework", "")
-                    final_exam = grade_data.get("final_exam", "")
-                    total = grade_data.get("total", "")
+                    ects = grade_data.get("ects", None)
+                    coursework = grade_data.get("coursework", None)
+                    final_exam = grade_data.get("final_exam", None)
+                    total = grade_data.get("total", None)
                     grade_status = grade_data.get("grade_status", "Unknown")
+                    numeric_grade = grade_data.get("numeric_grade", None)
                     # Skip if no course name
                     if not name:
                         logger.warning(f"⏭️ Skipping grade due to missing course name")
@@ -54,57 +55,57 @@ class GradeStorageV2:
                         continue
                     # Normalize ECTS
                     try:
-                        ects_val = float(ects) if ects else None
+                        ects_val = float(ects) if ects is not None and ects != '' else None
                     except Exception:
                         ects_val = None
-                    # Extract numeric grade
-                    numeric_grade = None
-                    if total:
-                        match = re.search(r"(\d+)", total)
-                        if match:
-                            numeric_grade = float(match.group(1))
+                    # Normalize numeric_grade
+                    try:
+                        numeric_grade_val = float(numeric_grade) if numeric_grade is not None and numeric_grade != '' else None
+                    except Exception:
+                        numeric_grade_val = None
                     # Determine grade status if not provided
-                    if not total or "لم يتم النشر" in total:
+                    if not total or (isinstance(total, str) and "لم يتم النشر" in total):
                         grade_status = "Not Published"
-                    elif "%" in total or (numeric_grade is not None):
+                    elif (isinstance(total, str) and "%" in total) or (numeric_grade_val is not None):
                         grade_status = "Published"
                     else:
                         grade_status = "Unknown"
                     # Create or update grade
                     existing_grade = session.query(Grade).filter_by(
                         telegram_id=telegram_id,
-                        course_code=code
+                        code=code
                     ).first()
                     logger.debug(f"[DEBUG] Existing grade for telegram_id={telegram_id}, code={code}: {existing_grade}")
                     if existing_grade:
-                        existing_grade.course_name = name
-                        existing_grade.course_code = code
-                        setattr(existing_grade, 'ects_credits', ects_val if ects_val is not None else None)
-                        existing_grade.coursework_grade = coursework
-                        existing_grade.final_exam_grade = final_exam
-                        existing_grade.total_grade_value = total
-                        setattr(existing_grade, 'numeric_grade', Decimal(str(numeric_grade)) if numeric_grade is not None else None)
-                        setattr(existing_grade, 'grade_status', grade_status)
+                        existing_grade.name = name
+                        existing_grade.code = code
+                        setattr(existing_grade, 'ects', Decimal(str(ects_val)) if ects_val is not None else None)
+                        setattr(existing_grade, 'coursework', str(coursework) if coursework is not None else None)
+                        setattr(existing_grade, 'final_exam', str(final_exam) if final_exam is not None else None)
+                        setattr(existing_grade, 'total', str(total) if total is not None else None)
+                        setattr(existing_grade, 'numeric_grade', Decimal(str(numeric_grade_val)) if numeric_grade_val is not None else None)
+                        setattr(existing_grade, 'grade_status', str(grade_status))
                         setattr(existing_grade, 'updated_at', datetime.now(timezone.utc))
                         logger.debug(f"[DEBUG] Updated existing grade: {existing_grade}")
                     else:
                         grade = Grade(
                             telegram_id=telegram_id,
-                            course_name=name,
-                            course_code=code,
-                            ects_credits=ects_val if ects_val is not None else None,
-                            coursework_grade=coursework,
-                            final_exam_grade=final_exam,
-                            total_grade_value=total,
-                            numeric_grade=Decimal(str(numeric_grade)) if numeric_grade is not None else None,
-                            grade_status=grade_status,
+                            name=name,
+                            code=code,
+                            ects=Decimal(str(ects_val)) if ects_val is not None else None,
+                            coursework=str(coursework) if coursework is not None else None,
+                            final_exam=str(final_exam) if final_exam is not None else None,
+                            total=str(total) if total is not None else None,
+                            numeric_grade=Decimal(str(numeric_grade_val)) if numeric_grade_val is not None else None,
+                            grade_status=str(grade_status),
+                            created_at=datetime.now(timezone.utc),
+                            updated_at=datetime.now(timezone.utc),
                         )
                         session.add(grade)
                         logger.debug(f"[DEBUG] Added new grade: {grade}")
                     saved_count += 1
                 logger.info(f"✅ Grades saved for user {telegram_id}: {saved_count} saved, {skipped_count} skipped")
                 logger.debug(f"[DEBUG] Committing session for telegram_id={telegram_id}")
-                # The commit is handled by the context manager
                 return True
         except SQLAlchemyError as e:
             logger.error(f"❌ Database error saving grades for user {telegram_id}: {e}", exc_info=True)
