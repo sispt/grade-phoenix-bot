@@ -141,7 +141,7 @@ query {
     user {
       id
       username
-      name
+      fullname
     }
   }
 }
