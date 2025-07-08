@@ -709,7 +709,8 @@ class TelegramBot:
             telegram_id = user.get("telegram_id")
             username = user.get("username")
             token = user.get("token")
-            logger.debug(f"🔍 Starting grade check for user {username} (ID: {telegram_id})")
+            logger.info(f"[CALL] _check_and_notify_user_grades for username={username}, telegram_id={telegram_id}")
+            logger.info(f"[CHECK] self.grade_storage is type: {type(self.grade_storage)}")
             # Notify only once if token expired
             if not token:
                 logger.debug(f"❌ No token for user {username}")
@@ -840,7 +841,7 @@ class TelegramBot:
                 if changes:
                     any_changes = True
                     message += f"📚 {name} ({code})\n" + "\n".join(changes) + "\n\n"
-            # Always save new grades to storage using username, even if unchanged
+            logger.info(f"[CALL] About to call save_grades for username={username} with {len(new_grades)} grades.")
             self.grade_storage.save_grades(username, new_grades)
             if any_changes:
                 now_utc3 = datetime.now(timezone.utc) + timedelta(hours=3)
