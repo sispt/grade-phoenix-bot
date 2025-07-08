@@ -361,48 +361,54 @@ class GradeAnalytics:
             return "❌ حدث خطأ أثناء تحليل الدرجات الحالية."
 
     def _load_percentage_to_ects(self) -> dict:
-        """Load percentage to earned ECTS mapping from CSV."""
+        """Load percentage to earned points mapping from credit.csv."""
         mapping = {}
         try:
-            with open("storage/percentage_to_ects.csv", newline="", encoding="utf-8") as csvfile:
+            with open("storage/credit.csv", newline="", encoding="utf-8") as csvfile:
                 reader = csv.DictReader(csvfile)
                 for row in reader:
                     try:
                         percent = int(row['percentage'])
-                        ects = float(row['ects'])
-                        mapping[percent] = ects
-                    except (ValueError, KeyError):
+                        earned_points = float(row['earned_points'])
+                        mapping[percent] = earned_points
+                    except (ValueError, KeyError) as e:
+                        logger.warning(f"Invalid row in credit.csv: {row}, error: {e}")
                         continue
+            logger.info(f"Loaded {len(mapping)} percentage-to-points mappings from credit.csv")
         except FileNotFoundError:
-            logger.warning("percentage_to_ects.csv not found, using default mapping")
-            # Default mapping for percentages 30-100
+            logger.error("credit.csv not found, using default mapping")
+            # Default mapping for percentages 30-100 (same as credit.csv)
             for percent in range(30, 101):
                 if percent >= 90:
-                    mapping[percent] = 4.0
+                    mapping[percent] = 3.57
                 elif percent >= 85:
-                    mapping[percent] = 3.7
+                    mapping[percent] = 3.35
                 elif percent >= 80:
-                    mapping[percent] = 3.3
+                    mapping[percent] = 3.14
                 elif percent >= 75:
-                    mapping[percent] = 3.0
+                    mapping[percent] = 2.92
                 elif percent >= 70:
-                    mapping[percent] = 2.7
+                    mapping[percent] = 2.71
                 elif percent >= 65:
-                    mapping[percent] = 2.3
+                    mapping[percent] = 2.5
                 elif percent >= 60:
-                    mapping[percent] = 2.0
+                    mapping[percent] = 2.28
                 elif percent >= 55:
-                    mapping[percent] = 1.7
+                    mapping[percent] = 2.07
                 elif percent >= 50:
-                    mapping[percent] = 1.3
+                    mapping[percent] = 1.85
                 elif percent >= 45:
-                    mapping[percent] = 1.0
+                    mapping[percent] = 1.64
                 elif percent >= 40:
-                    mapping[percent] = 0.7
+                    mapping[percent] = 1.38
                 elif percent >= 35:
-                    mapping[percent] = 0.3
+                    mapping[percent] = 1.17
+                elif percent >= 30:
+                    mapping[percent] = 0.0
                 else:
                     mapping[percent] = 0.0
+        except Exception as e:
+            logger.error(f"Error loading credit mapping: {e}")
         return mapping
 
     def _calculate_gpa(self, grades: List[Dict[str, Any]]) -> Optional[float]:
