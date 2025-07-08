@@ -103,7 +103,10 @@ class Grade(Base):
     __tablename__ = "grades"
 
     id = Column(Integer, primary_key=True)
-    term_id = Column(Integer, ForeignKey("terms.id", ondelete="CASCADE"), nullable=True, index=True)    
+    # user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)  # Removed
+    telegram_id = Column(BigInteger, nullable=False, index=True)
+    term_id = Column(Integer, ForeignKey("terms.id", ondelete="CASCADE"), nullable=True, index=True)
+    
     # Course information
     course_name = Column(String(255), nullable=False, index=True)
     course_code = Column(String(50), nullable=True, index=True)
@@ -125,21 +128,21 @@ class Grade(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
     # Relationships
-    user = relationship("User", back_populates="grades")
+    # user = relationship("User", back_populates="grades")  # Removed
     term = relationship("Term", back_populates="grades")
     
     # Indexes and constraints
     __table_args__ = (
-        Index('idx_grade_user_id', 'user_id'),
         Index('idx_grade_term_id', 'term_id'),
         Index('idx_grade_course_code', 'course_code'),
         Index('idx_grade_status', 'grade_status'),
         Index('idx_grade_numeric', 'numeric_grade'),
-        UniqueConstraint('user_id', 'course_code', 'term_id', name='unique_user_course_term'),
+        Index('idx_grade_telegram_id', 'telegram_id'),
+        UniqueConstraint('telegram_id', 'course_code', 'term_id', name='unique_user_course_term'),
     )
 
     def __repr__(self):
-        return f"<Grade(user_id={self.user_id}, course='{self.course_name}', grade='{self.total_grade_value}')>"
+        return f"<Grade(telegram_id={self.telegram_id}, course='{self.course_name}', grade='{self.total_grade_value}')>"
 
 
 class GradeHistory(Base):
