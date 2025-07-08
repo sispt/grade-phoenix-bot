@@ -20,6 +20,10 @@ def migrate():
             print("[MIGRATION] Migration complete.")
         else:
             print("[MIGRATION] user_id column already exists in grades table. No migration needed.")
+        if 'term_id' not in columns:
+            print("[MIGRATION] Adding term_id column to grades table...")
+            conn.execute(text('ALTER TABLE grades ADD COLUMN term_id INTEGER'))
+            print("[MIGRATION] term_id column added.")
 
 if __name__ == "__main__":
     migrate() 
