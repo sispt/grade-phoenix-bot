@@ -27,6 +27,7 @@ class GradeStorageV2:
         logger.info("✅ GradeStorageV2 initialized")
     
     def save_grades(self, username: str, grades_data: List[Dict[str, Any]], notify_callback=None) -> bool:
+        logger.info(f"[CALL] save_grades called for username={username} with {len(grades_data)} grades.")
         """Save grades for a user (by username). Notify if changed."""
         try:
             logger.debug(f"[DEBUG] save_grades called for username={username} with {len(grades_data)} grades.")
@@ -49,7 +50,7 @@ class GradeStorageV2:
                     grade_status = grade_data.get("grade_status", "Unknown")
                     numeric_grade = grade_data.get("numeric_grade", None)
                     if not name:
-                        logger.warning(f"⏭️ Skipping grade due to missing course name")
+                        logger.warning(f"⏭️ Skipping grade due to missing course name: {grade_data}")
                         skipped_count += 1
                         continue
                     try:
@@ -92,6 +93,7 @@ class GradeStorageV2:
                                 changed = True
                                 old_values[field] = old_val
                         if changed:
+                            logger.info(f"[UPDATE] Updating existing grade for username={username}, code={code}: old={old_values}, new={new_values}")
                             # Notify user of change
                             if notify_callback:
                                 notify_callback(username, code, old_values, new_values)
@@ -123,6 +125,7 @@ class GradeStorageV2:
                             updated_at=datetime.now(timezone.utc),
                         )
                         session.add(grade)
+                        logger.info(f"[INSERT] Created new grade row for username={username}, code={code}, name={name}, total={total}")
                         logger.debug(f"[DEBUG] Added new grade: {grade}")
                         changed = True
                         if notify_callback:
@@ -131,7 +134,7 @@ class GradeStorageV2:
                         saved_count += 1
                     else:
                         skipped_count += 1
-                logger.info(f"✅ Grades saved for user {username}: {saved_count} saved/updated, {skipped_count} skipped (no change)")
+                logger.info(f"[RETURN] save_grades for username={username}: {saved_count} saved/updated, {skipped_count} skipped (no change)")
                 logger.debug(f"[DEBUG] Committing session for username={username}")
                 return True
         except SQLAlchemyError as e:
@@ -142,14 +145,17 @@ class GradeStorageV2:
             logger.error(f"❌ Error saving grades for user {username}: {e}\n{traceback.format_exc()}")
             return False
     def get_user_grades(self, username: str) -> List[Dict[str, Any]]:
+        logger.info(f"[CALL] get_user_grades called for username={username}")
         """Get all grades for a user (by username) using unified API terminology"""
         try:
             with self.db_manager.get_session() as session:
                 user = session.query(User).filter_by(username=username).first()
+                logger.debug(f"[DEBUG] User lookup for username={username}: {user}")
                 if not user:
                     logger.error(f"❌ User not found for username: {username}")
                     return []
                 grades = session.query(Grade).filter_by(username=user.username).all()
+                logger.info(f"[RETURN] get_user_grades for username={username}: {len(grades)} grades found.")
                 return [
                     {
                         "name": grade.name,
@@ -172,17 +178,19 @@ class GradeStorageV2:
             logger.error(f"❌ Error getting grades for user {username}: {e}")
             return []
     def delete_grades(self, username: str) -> bool:
+        logger.info(f"[CALL] delete_grades called for username={username}")
         """Delete all grades for a user (by username)"""
         try:
             with self.db_manager.get_session() as session:
                 user = session.query(User).filter_by(username=username).first()
+                logger.debug(f"[DEBUG] User lookup for username={username}: {user}")
                 if not user:
                     logger.error(f"❌ User not found for username: {username}")
                     return False
                 grades = session.query(Grade).filter_by(username=user.username).all()
                 for grade in grades:
                     session.delete(grade)
-                logger.info(f"✅ Deleted {len(grades)} grades for user {username}")
+                logger.info(f"[RETURN] delete_grades for username={username}: {len(grades)} grades deleted.")
                 return True
         except SQLAlchemyError as e:
             logger.error(f"❌ Database error deleting grades for user {username}: {e}")
