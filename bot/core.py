@@ -647,15 +647,15 @@ class TelegramBot:
         await update.message.reply_text(f"✅ تم فحص الدرجات وإشعار {count} مستخدم (إذا كان هناك تغيير).", reply_markup=get_main_keyboard())
 
     async def _grade_checking_loop(self):
-        logger.info("🚦 Entered _grade_checking_loop")
+        logger.info("🚦 Entered _grade_checking_loop (unconditional)")
         try:
             await asyncio.sleep(10)
-            logger.info("🚦 Slept 10 seconds, entering while loop")
-            while self.running:
-                logger.info("🔔 Running scheduled grade check for all users...")
+            logger.info("🚦 Slept 10 seconds, entering infinite loop")
+            while True:
+                logger.info("🔔 Running scheduled grade check for all users (unconditional)...")
                 await self._notify_all_users_grades()
                 interval = CONFIG.get('GRADE_CHECK_INTERVAL', 10) * 60
-                logger.info(f"🚦 Sleeping for {interval} seconds before next check")
+                logger.info(f"🚦 Sleeping for {interval} seconds before next check (unconditional)")
                 await asyncio.sleep(interval)
         except Exception as e:
             logger.error(f"❌ Exception in _grade_checking_loop: {e}", exc_info=True)
