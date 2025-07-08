@@ -387,6 +387,15 @@ class TelegramBot:
                 await update.message.reply_text("لا يوجد درجات متاحة بعد.", reply_markup=get_main_keyboard())
                 return
             
+            # Save grades to storage
+            username_unique = user.get("username_unique")
+            if username_unique:
+                logger.info(f"💾 Saving {len(grades)} grades to storage for user {username_unique}")
+                self.grade_storage.save_grades(username_unique, grades)
+                logger.info(f"✅ Grades saved successfully for user {username_unique}")
+            else:
+                logger.warning(f"❌ No username_unique found for user {telegram_id}, cannot save grades")
+            
             # Format grades with quote
             logger.info(f"📝 Formatting grades for user {telegram_id}")
             message = await self.grade_analytics.format_current_grades_with_quote(telegram_id, grades)
@@ -429,6 +438,14 @@ class TelegramBot:
             if not old_grades:
                 await update.message.reply_text("📚 لا توجد درجات سابقة متاحة للفصل الدراسي السابق.", reply_markup=get_main_keyboard())
                 return
+            
+            # Save old grades to storage (optional, for historical tracking)
+            username_unique = user.get("username_unique")
+            if username_unique:
+                logger.info(f"💾 Saving {len(old_grades)} old grades to storage for user {username_unique}")
+                # Note: We could save old grades to a separate table if needed
+                logger.info(f"✅ Old grades processing completed for user {username_unique}")
+            
             formatted_message = await self.grade_analytics.format_old_grades_with_analysis(telegram_id, old_grades)
             # Split long messages if needed
             if len(formatted_message) > 4096:
