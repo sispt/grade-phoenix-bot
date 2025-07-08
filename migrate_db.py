@@ -30,6 +30,19 @@ def migrate():
             print("[MIGRATION] Adding term_id column to grades table...")
             conn.execute(text('ALTER TABLE grades ADD COLUMN term_id INTEGER'))
             print("[MIGRATION] term_id column added.")
+        # Migrate existing grades to grade_history if history is empty
+        result = conn.execute(text('SELECT COUNT(*) FROM grade_history'))
+        history_count = result.scalar() if hasattr(result, 'scalar') else list(result)[0][0]
+        if history_count == 0:
+            print("[MIGRATION] Migrating existing grades to grade_history...")
+            conn.execute(text('''
+                INSERT INTO grade_history (user_id, grade_id, previous_total_grade, previous_numeric_grade, previous_status, change_type, changed_at)
+                SELECT user_id, id, total_grade_value, numeric_grade, grade_status, 'Created', NOW()
+                FROM grades
+            '''))
+            print("[MIGRATION] Migration to grade_history complete.")
+        else:
+            print("[MIGRATION] grade_history already contains data. No migration needed.")
 
 if __name__ == "__main__":
     migrate() 
