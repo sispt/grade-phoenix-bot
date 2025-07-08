@@ -96,18 +96,18 @@ class Term(Base):
 
 
 class Grade(Base):
-    """Grade model for storing individual course grades in the database (telegram_id as FK)"""
+    """Grade model for storing individual course grades in the database (telegram_id as FK, unified terminology)"""
 
     __tablename__ = "grades"
 
     id = Column(Integer, primary_key=True)
     telegram_id = Column(BigInteger, ForeignKey("users.telegram_id", ondelete="CASCADE"), nullable=False, index=True)
-    course_name = Column(String(255), nullable=False, index=True)
-    course_code = Column(String(50), nullable=True, index=True)
-    ects_credits = Column(Numeric(3, 1), nullable=True)
-    coursework_grade = Column(String(20), nullable=True)
-    final_exam_grade = Column(String(20), nullable=True)
-    total_grade_value = Column(String(20), nullable=True)
+    name = Column(String(255), nullable=False, index=True)
+    code = Column(String(50), nullable=True, index=True)
+    ects = Column(Numeric(3, 1), nullable=True)
+    coursework = Column(String(20), nullable=True)
+    final_exam = Column(String(20), nullable=True)
+    total = Column(String(20), nullable=True)
     numeric_grade = Column(Numeric(5, 2), nullable=True)
     grade_status = Column(String(20), default="Not Published", nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -115,14 +115,14 @@ class Grade(Base):
 
     __table_args__ = (
         Index('idx_grade_telegram_id', 'telegram_id'),
-        Index('idx_grade_course_code', 'course_code'),
+        Index('idx_grade_code', 'code'),
         Index('idx_grade_status', 'grade_status'),
         Index('idx_grade_numeric', 'numeric_grade'),
-        UniqueConstraint('telegram_id', 'course_code', name='unique_user_course'),
+        UniqueConstraint('telegram_id', 'code', name='unique_user_course'),
     )
 
     def __repr__(self):
-        return f"<Grade(telegram_id={self.telegram_id}, course='{self.course_name}', grade='{self.total_grade_value}')>"
+        return f"<Grade(telegram_id={self.telegram_id}, code='{self.code}', name='{self.name}', grade='{self.total}')>"
 
 
 class GradeHistory(Base):
