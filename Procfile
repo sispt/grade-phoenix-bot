@@ -1,1 +1,1 @@
-web: python create_database.py && python migration_v2.py && python main.py
+web: python migration_v2.py && python main.py
