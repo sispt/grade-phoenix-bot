@@ -24,16 +24,14 @@ def run_sql_file(engine, sql_file):
     finally:
         conn.close()
 
-if __name__ == "__main__":
-    db_url = CONFIG.get('DATABASE_URL') or os.environ.get('DATABASE_URL')
+def main():
+    db_url = os.environ.get('DATABASE_URL')
     if not db_url:
-        print("Please set the DATABASE_URL environment variable.")
-    else:
-        # Auto-migrate if requested
-        if os.environ.get('AUTO_MIGRATE') == '1':
-            print("[MIGRATION] AUTO_MIGRATE is set. Running create_all_tables...")
-            DatabaseManager.create_all_tables_for_url(db_url)
-        # Optionally run SQL file
-        if os.path.exists(SQL_FILE):
-            engine = create_engine(db_url)
-            run_sql_file(engine, SQL_FILE) 
+        print('Please set the DATABASE_URL environment variable.')
+        return
+    print(f'Creating all tables in: {db_url}')
+    DatabaseManager.create_all_tables_for_url(db_url)
+    print('✅ All tables created! You can now use your new database.')
+
+if __name__ == '__main__':
+    main() 
