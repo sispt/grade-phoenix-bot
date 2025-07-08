@@ -1,1 +1,1 @@
-web: python migration_v2.py && python main.py
+web: python main.py
