@@ -1274,7 +1274,14 @@ class TelegramBot:
         gpa = analytics._calculate_gpa(grades)
         if gpa is not None:
             # Format to exactly 3 digits from left to right (e.g., 3.15, 2.5, 4.0)
-            gpa_str = f"{gpa:.2f}".rstrip('0').rstrip('.')
+            # Remove trailing zeros and decimal point
+            gpa_str = f"{gpa:.2f}"
+            # Remove trailing zeros (including those followed by decimal point)
+            while gpa_str.endswith('0') and '.' in gpa_str:
+                gpa_str = gpa_str[:-1]
+            # Remove trailing decimal point
+            if gpa_str.endswith('.'):
+                gpa_str = gpa_str[:-1]
             if gpa_str == '':
                 gpa_str = '0'
         else:
