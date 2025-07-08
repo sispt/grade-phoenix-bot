@@ -29,14 +29,17 @@ class GradeStorageV2:
     def save_grades(self, telegram_id: int, grades_data: List[Dict[str, Any]]) -> bool:
         """Save grades for a user (by telegram_id)"""
         try:
+            logger.debug(f"[DEBUG] save_grades called for telegram_id={telegram_id} with {len(grades_data)} grades.")
             with self.db_manager.get_session() as session:
                 user = session.query(User).filter_by(telegram_id=telegram_id).first()
+                logger.debug(f"[DEBUG] User lookup for telegram_id={telegram_id}: {user}")
                 if not user:
                     logger.error(f"❌ User not found for telegram_id: {telegram_id}")
                     return False
                 saved_count = 0
                 skipped_count = 0
                 for grade_data in grades_data:
+                    logger.debug(f"[DEBUG] Processing grade_data: {grade_data}")
                     course_name = grade_data.get("name", "")
                     course_code = grade_data.get("code", "")
                     ects = grade_data.get("ects", "")
@@ -71,6 +74,7 @@ class GradeStorageV2:
                         telegram_id=telegram_id,
                         course_code=course_code
                     ).first()
+                    logger.debug(f"[DEBUG] Existing grade for telegram_id={telegram_id}, course_code={course_code}: {existing_grade}")
                     if existing_grade:
                         existing_grade.course_name = course_name
                         existing_grade.course_code = course_code
@@ -81,6 +85,7 @@ class GradeStorageV2:
                         setattr(existing_grade, 'numeric_grade', Decimal(str(numeric_grade)) if numeric_grade is not None else None)
                         setattr(existing_grade, 'grade_status', grade_status)
                         setattr(existing_grade, 'updated_at', datetime.now(timezone.utc))
+                        logger.debug(f"[DEBUG] Updated existing grade: {existing_grade}")
                     else:
                         grade = Grade(
                             telegram_id=telegram_id,
@@ -94,14 +99,18 @@ class GradeStorageV2:
                             grade_status=grade_status,
                         )
                         session.add(grade)
+                        logger.debug(f"[DEBUG] Added new grade: {grade}")
                     saved_count += 1
                 logger.info(f"✅ Grades saved for user {telegram_id}: {saved_count} saved, {skipped_count} skipped")
+                logger.debug(f"[DEBUG] Committing session for telegram_id={telegram_id}")
+                # The commit is handled by the context manager
                 return True
         except SQLAlchemyError as e:
-            logger.error(f"❌ Database error saving grades for user {telegram_id}: {e}")
+            logger.error(f"❌ Database error saving grades for user {telegram_id}: {e}", exc_info=True)
             return False
         except Exception as e:
-            logger.error(f"❌ Error saving grades for user {telegram_id}: {e}")
+            import traceback
+            logger.error(f"❌ Error saving grades for user {telegram_id}: {e}\n{traceback.format_exc()}")
             return False
     def get_user_grades(self, telegram_id: int) -> List[Dict[str, Any]]:
         """Get all grades for a user (by telegram_id)"""
