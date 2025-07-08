@@ -8,7 +8,8 @@ def run_sql_file(engine, sql_file):
     print(f"[MIGRATION] Running migration file: {sql_file}")
     with open(sql_file, 'r') as f:
         sql_commands = f.read()
-    with engine.raw_connection() as conn:
+    conn = engine.raw_connection()
+    try:
         cursor = conn.cursor()
         try:
             cursor.execute(sql_commands)
@@ -19,6 +20,8 @@ def run_sql_file(engine, sql_file):
             conn.rollback()
         finally:
             cursor.close()
+    finally:
+        conn.close()
 
 def main():
     database_url = CONFIG["DATABASE_URL"]
