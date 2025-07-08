@@ -28,6 +28,7 @@ from utils.messages import get_welcome_message, get_help_message, get_simple_wel
 from security.enhancements import security_manager, is_valid_length
 from security.headers import security_headers, security_policy
 from utils.analytics import GradeAnalytics
+from utils.settings import UserSettings
 from university.api_client_v2 import UniversityAPIV2
 from utils.logger import get_bot_logger
 
@@ -49,6 +50,7 @@ class TelegramBot:
         self._initialize_storage() 
         # Initialize components that depend on storage
         self.grade_analytics = GradeAnalytics(self.user_storage)
+        self.user_settings = UserSettings(self.user_storage)
         self.admin_dashboard = AdminDashboard(self)
         self.broadcast_system = BroadcastSystem(self)
         self.grade_check_task = None
@@ -790,51 +792,109 @@ class TelegramBot:
             # Use username_unique for grade storage
             old_grades = self.grade_storage.get_user_grades(username_unique)
             logger.debug(f"📊 Found {len(old_grades) if old_grades else 0} stored grades for user {username_unique}")
-            changed_courses = self._compare_grades(old_grades, new_grades)
-            logger.debug(f"🔍 Grade comparison for {username_unique}: {len(changed_courses)} changes detected")
-            message = f"🎓 تم تحديث درجاتك في المواد التالية:\n\n"
+            
+            # Get user's grade notification sensitivity setting
+            user_settings = self.user_settings.get_user_settings(telegram_id)
+            sensitivity = user_settings.get("notifications", {}).get("grade_sensitivity", "meaningful")
+            logger.debug(f"🔍 User {username_unique} grade sensitivity setting: {sensitivity}")
+            
+            changed_courses = self._compare_grades(old_grades, new_grades, sensitivity)
+            logger.debug(f"🔍 Grade comparison for {username_unique}: {len(changed_courses)} {sensitivity} changes detected")
+            
+            if not changed_courses:
+                logger.debug(f"✅ No {sensitivity} grade changes for user {username_unique}, not sending notification.")
+                # Still save the grades even if no notification is sent
+                self.grade_storage.save_grades(username_unique, new_grades)
+                return False
+            
+            # Create appropriate message based on sensitivity
+            if sensitivity == "all":
+                message = f"🎓 تم تحديث درجاتك في المواد التالية:\n\n"
+            elif sensitivity == "significant":
+                message = f"🎓 تم تحديث درجاتك بشكل كبير في المواد التالية:\n\n"
+            else:  # meaningful
+                message = f"🎓 تم تحديث درجاتك في المواد التالية:\n\n"
             old_map = {g.get('code') or g.get('name'): g for g in old_grades if g.get('code') or g.get('name')}
-            any_changes = False
+            
             for grade in changed_courses:
                 name = grade.get('name', 'N/A')
                 code = grade.get('code', '-')
-                coursework = grade.get('coursework', 'لم يتم النشر')
-                final_exam = grade.get('final_exam', 'لم يتم النشر')
-                total = grade.get('total', 'لم يتم النشر')
                 key = code if code != '-' else name
                 old = old_map.get(key, {})
+                
                 def show_change(field, label):
+                    """Show changes based on sensitivity setting"""
                     old_val = old.get(field, '—')
                     new_val = grade.get(field, '—')
-                    if old_val != new_val and old_val != '—':
-                        return f"{label}: {old_val} → {new_val}"
+                    
+                    # Check if both values are meaningful grades
+                    def is_meaningful(val):
+                        return val and val != 'لم يتم النشر' and val != '—' and val != '-'
+                    
+                    old_meaningful = is_meaningful(old_val)
+                    new_meaningful = is_meaningful(new_val)
+                    
+                    if sensitivity == "all":
+                        # Show all changes
+                        if old_val != new_val:
+                            if not old_meaningful and new_meaningful:
+                                return f"{label}: تم النشر → {new_val}"
+                            elif old_meaningful and not new_meaningful:
+                                return f"{label}: {old_val} → تم إلغاء النشر"
+                            else:
+                                return f"{label}: {old_val} → {new_val}"
+                    elif sensitivity == "significant":
+                        # Show only significant changes
+                        if old_meaningful and new_meaningful and old_val != new_val:
+                            # Check if it's a significant change
+                            try:
+                                old_num = float(old_val) if old_val.replace('.', '').replace('-', '').isdigit() else None
+                                new_num = float(new_val) if new_val.replace('.', '').replace('-', '').isdigit() else None
+                                if old_num is not None and new_num is not None and abs(new_num - old_num) >= 5:
+                                    return f"{label}: {old_val} → {new_val}"
+                                elif old_num is None or new_num is None:  # Letter grades
+                                    return f"{label}: {old_val} → {new_val}"
+                            except:
+                                return f"{label}: {old_val} → {new_val}"
+                    else:  # meaningful (default)
+                        # Show only meaningful changes
+                        if old_meaningful and new_meaningful and old_val != new_val:
+                            return f"{label}: {old_val} → {new_val}"
+                        elif not old_meaningful and new_meaningful:
+                            return f"{label}: تم النشر → {new_val}"
                     return None
+                
                 changes = [
                     show_change('coursework', 'الأعمال'),
                     show_change('final_exam', 'النظري'),
                     show_change('total', 'النهائي'),
                 ]
                 changes = [c for c in changes if c]
+                
                 if changes:
-                    any_changes = True
                     message += f"📚 {name} ({code})\n" + "\n".join(changes) + "\n\n"
+            
+            # If we reach here, we have meaningful changes to report
             logger.info(f"[CALL] About to call save_grades for username_unique={username_unique} with {len(new_grades)} grades.")
             self.grade_storage.save_grades(username_unique, new_grades)
-            if any_changes:
-                now_utc3 = datetime.now(timezone.utc) + timedelta(hours=3)
-                message += f"🕒 وقت التحديث: {now_utc3.strftime('%Y-%m-%d %H:%M')} (UTC+3)"
-                await self.app.bot.send_message(chat_id=telegram_id, text=message)
-                return True
-            else:
-                logger.debug(f"✅ No actual field changes for user {username_unique}, not sending notification.")
-                return False
+            
+            now_utc3 = datetime.now(timezone.utc) + timedelta(hours=3)
+            message += f"🕒 وقت التحديث: {now_utc3.strftime('%Y-%m-%d %H:%M')} (UTC+3)"
+            await self.app.bot.send_message(chat_id=telegram_id, text=message)
+            logger.info(f"✅ Sent grade change notification to user {username_unique}")
+            return True
         except Exception as e:
             logger.error(f"❌ Error in _check_and_notify_user_grades for user {user.get('username', 'Unknown')}: {e}", exc_info=True)
             return False
 
-    def _compare_grades(self, old_grades: List[Dict], new_grades: List[Dict]) -> List[Dict]:
+    def _compare_grades(self, old_grades: List[Dict], new_grades: List[Dict], sensitivity: str = "meaningful") -> List[Dict]:
         """
-        Return only courses where important fields (total, coursework, final_exam) changed.
+        Return only courses where important fields (total, coursework, final_exam) changed based on sensitivity level.
+        
+        Sensitivity levels:
+        - "all": Notify about any change, including new courses and "لم يتم النشر" changes
+        - "meaningful": Only notify about actual grade changes (default)
+        - "significant": Only notify about significant grade changes (e.g., letter grade changes)
         """
         def extract_relevant(grade):
             return {
@@ -843,16 +903,94 @@ class TelegramBot:
                 'coursework': grade.get('coursework'),
                 'final_exam': grade.get('final_exam'),
             }
+        
+        def is_meaningful_grade(value):
+            """Check if a grade value is meaningful (not empty, None, or 'لم يتم النشر')"""
+            if not value or value == 'لم يتم النشر' or value == '—' or value == '-':
+                return False
+            return True
+        
+        def has_meaningful_change(old_val, new_val):
+            """Check if there's a meaningful change between two grade values"""
+            old_meaningful = is_meaningful_grade(old_val)
+            new_meaningful = is_meaningful_grade(new_val)
+            
+            # If both are not meaningful, no change
+            if not old_meaningful and not new_meaningful:
+                return False
+            
+            # If one is meaningful and the other isn't, that's a change
+            if old_meaningful != new_meaningful:
+                return True
+            
+            # If both are meaningful, check if they're different
+            if old_meaningful and new_meaningful:
+                return old_val != new_val
+            
+            return False
+        
+        def has_significant_change(old_val, new_val):
+            """Check if there's a significant change between two grade values (e.g., letter grade changes)"""
+            if not is_meaningful_grade(old_val) or not is_meaningful_grade(new_val):
+                return False
+            
+            # Try to extract numeric values for comparison
+            try:
+                old_num = float(old_val) if old_val.replace('.', '').replace('-', '').isdigit() else None
+                new_num = float(new_val) if new_val.replace('.', '').replace('-', '').isdigit() else None
+                
+                if old_num is not None and new_num is not None:
+                    # Consider significant if difference is >= 5 points
+                    return abs(new_num - old_num) >= 5
+                else:
+                    # For letter grades, any change is significant
+                    return old_val != new_val
+            except:
+                # If we can't parse as numbers, treat as letter grades
+                return old_val != new_val
+        
         old_map = {g.get('code') or g.get('name'): extract_relevant(g) for g in old_grades if g.get('code') or g.get('name')}
         changed = []
+        
         for new_grade in new_grades:
             key = new_grade.get('code') or new_grade.get('name')
             if not key:
                 continue
+                
             relevant_new = extract_relevant(new_grade)
             relevant_old = old_map.get(key)
-            if relevant_old is None or relevant_new != relevant_old:
+            
+            # Handle new courses based on sensitivity
+            if relevant_old is None:
+                if sensitivity == "all":
+                    logger.debug(f"📝 New course '{key}' found, including in changes (sensitivity: all)")
+                    changed.append(new_grade)
+                else:
+                    logger.debug(f"📝 New course '{key}' found, skipping notification (sensitivity: {sensitivity})")
+                continue
+            
+            # Choose comparison function based on sensitivity
+            if sensitivity == "all":
+                def compare_func(old_val, new_val):
+                    return old_val != new_val
+            elif sensitivity == "significant":
+                compare_func = has_significant_change
+            else:  # "meaningful" (default)
+                compare_func = has_meaningful_change
+            
+            # Check for changes in any of the important fields
+            total_changed = compare_func(relevant_old.get('total'), relevant_new.get('total'))
+            coursework_changed = compare_func(relevant_old.get('coursework'), relevant_new.get('coursework'))
+            final_exam_changed = compare_func(relevant_old.get('final_exam'), relevant_new.get('final_exam'))
+            
+            has_changes = total_changed or coursework_changed or final_exam_changed
+            
+            if has_changes:
+                logger.debug(f"📊 {sensitivity.capitalize()} change detected for course '{key}': total={total_changed}, coursework={coursework_changed}, final_exam={final_exam_changed}")
                 changed.append(new_grade)
+            else:
+                logger.debug(f"✅ No {sensitivity} changes for course '{key}'")
+        
         return changed
 
     async def _register_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
