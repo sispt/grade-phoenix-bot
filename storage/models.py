@@ -55,7 +55,6 @@ class User(Base):
     password_consent_given = Column(Boolean, default=False, nullable=False)
     
     # Relationships
-    grades = relationship("Grade", back_populates="user", cascade="all, delete-orphan")
     grade_history = relationship("GradeHistory", back_populates="user", cascade="all, delete-orphan")
     
     # Indexes
