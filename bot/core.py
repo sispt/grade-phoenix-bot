@@ -840,12 +840,12 @@ class TelegramBot:
                 if changes:
                     any_changes = True
                     message += f"📚 {name} ({code})\n" + "\n".join(changes) + "\n\n"
+            # Always save new grades to storage using username, even if unchanged
+            self.grade_storage.save_grades(username, new_grades)
             if any_changes:
                 now_utc3 = datetime.now(timezone.utc) + timedelta(hours=3)
                 message += f"🕒 وقت التحديث: {now_utc3.strftime('%Y-%m-%d %H:%M')} (UTC+3)"
                 await self.app.bot.send_message(chat_id=telegram_id, text=message)
-                # Save new grades to storage using username
-                self.grade_storage.save_grades(username, new_grades)
                 return True
             else:
                 logger.debug(f"✅ No actual field changes for user {username}, not sending notification.")
