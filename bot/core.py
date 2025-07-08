@@ -537,8 +537,19 @@ class TelegramBot:
                 if handled:
                     return
             # Handle error recovery buttons
-            if text in ["🔄 إعادة المحاولة", "🏠 العودة للرئيسية"]:
-                await self._handle_error_recovery(update, context)
+            # If the user presses a session type button outside registration, show the welcome message and keyboard
+            if text in [
+                "🔒 جلسة مؤقتة (لا يتم تخزين كلمة المرور)",
+                "🔑 جلسة دائمة (تخزين كلمة المرور مشفر)"
+            ]:
+                user = self.user_storage.get_user(user_id)
+                if user:
+                    from utils.messages import get_welcome_message
+                    welcome_message = get_welcome_message(user.get('fullname'))
+                    await update.message.reply_text(welcome_message, reply_markup=get_main_keyboard())
+                else:
+                    from utils.messages import get_simple_welcome_message
+                    await update.message.reply_text(get_simple_welcome_message(), reply_markup=get_unregistered_keyboard())
                 return
             # Map button text to actions
             actions = {
@@ -799,7 +810,7 @@ class TelegramBot:
                 return False
             new_grades = user_data.get("grades", [])
             logger.debug(f"📊 Found {len(new_grades)} new grades for user {username}")
-            old_grades = self.grade_storage.get_user_grades(telegram_id)
+            old_grades = self.grade_storage.get_user_grades(username)
             logger.debug(f"📊 Found {len(old_grades) if old_grades else 0} stored grades for user {username}")
             changed_courses = self._compare_grades(old_grades, new_grades)
             logger.debug(f"🔍 Grade comparison for {username}: {len(changed_courses)} changes detected")
@@ -833,6 +844,8 @@ class TelegramBot:
                 now_utc3 = datetime.now(timezone.utc) + timedelta(hours=3)
                 message += f"🕒 وقت التحديث: {now_utc3.strftime('%Y-%m-%d %H:%M')} (UTC+3)"
                 await self.app.bot.send_message(chat_id=telegram_id, text=message)
+                # Save new grades to storage using username
+                self.grade_storage.save_grades(username, new_grades)
                 return True
             else:
                 logger.debug(f"✅ No actual field changes for user {username}, not sending notification.")

@@ -19,7 +19,7 @@ from storage.models import DatabaseManager
 from storage.user_storage_v2 import UserStorageV2
 from storage.grade_storage_v2 import GradeStorageV2
 from utils.analytics import GradeAnalytics
-from university.api_client import UniversityAPI
+from university.api_client_v2 import UniversityAPIV2
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -35,7 +35,7 @@ class MockBot:
         self.user_storage = UserStorageV2(database_url)
         self.grade_storage = GradeStorageV2(database_url)
         self.grade_analytics = GradeAnalytics(self.user_storage)
-        self.university_api = UniversityAPI()
+        self.university_api = UniversityAPIV2()
         
     async def send_quote_to_all_users(self, message):
         """Mock send quote to users"""

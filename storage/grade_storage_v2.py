@@ -26,17 +26,16 @@ class GradeStorageV2:
         self.db_manager.create_all_tables()
         logger.info("✅ GradeStorageV2 initialized")
     
-    def save_grades(self, telegram_id: int, grades_data: List[Dict[str, Any]], notify_callback=None) -> bool:
-        """Save grades for a user (by username, looked up from telegram_id). Notify if changed."""
+    def save_grades(self, username: str, grades_data: List[Dict[str, Any]], notify_callback=None) -> bool:
+        """Save grades for a user (by username). Notify if changed."""
         try:
-            logger.debug(f"[DEBUG] save_grades called for telegram_id={telegram_id} with {len(grades_data)} grades.")
+            logger.debug(f"[DEBUG] save_grades called for username={username} with {len(grades_data)} grades.")
             with self.db_manager.get_session() as session:
-                user = session.query(User).filter_by(telegram_id=telegram_id).first()
-                logger.debug(f"[DEBUG] User lookup for telegram_id={telegram_id}: {user}")
+                user = session.query(User).filter_by(username=username).first()
+                logger.debug(f"[DEBUG] User lookup for username={username}: {user}")
                 if not user:
-                    logger.error(f"❌ User not found for telegram_id: {telegram_id}")
+                    logger.error(f"❌ User not found for username: {username}")
                     return False
-                username = user.username
                 saved_count = 0
                 skipped_count = 0
                 for grade_data in grades_data:
@@ -136,19 +135,19 @@ class GradeStorageV2:
                 logger.debug(f"[DEBUG] Committing session for username={username}")
                 return True
         except SQLAlchemyError as e:
-            logger.error(f"❌ Database error saving grades for user {telegram_id}: {e}", exc_info=True)
+            logger.error(f"❌ Database error saving grades for user {username}: {e}", exc_info=True)
             return False
         except Exception as e:
             import traceback
-            logger.error(f"❌ Error saving grades for user {telegram_id}: {e}\n{traceback.format_exc()}")
+            logger.error(f"❌ Error saving grades for user {username}: {e}\n{traceback.format_exc()}")
             return False
-    def get_user_grades(self, telegram_id: int) -> List[Dict[str, Any]]:
-        """Get all grades for a user (by telegram_id) using unified API terminology"""
+    def get_user_grades(self, username: str) -> List[Dict[str, Any]]:
+        """Get all grades for a user (by username) using unified API terminology"""
         try:
             with self.db_manager.get_session() as session:
-                user = session.query(User).filter_by(telegram_id=telegram_id).first()
+                user = session.query(User).filter_by(username=username).first()
                 if not user:
-                    logger.error(f"❌ User not found for telegram_id: {telegram_id}")
+                    logger.error(f"❌ User not found for username: {username}")
                     return []
                 grades = session.query(Grade).filter_by(username=user.username).all()
                 return [
@@ -167,33 +166,30 @@ class GradeStorageV2:
                     for grade in grades
                 ]
         except SQLAlchemyError as e:
-            logger.error(f"❌ Database error getting grades for user {telegram_id}: {e}")
+            logger.error(f"❌ Database error getting grades for user {username}: {e}")
             return []
         except Exception as e:
-            logger.error(f"❌ Error getting grades for user {telegram_id}: {e}")
+            logger.error(f"❌ Error getting grades for user {username}: {e}")
             return []
-    def delete_grades(self, telegram_id: int) -> bool:
-        """Delete all grades for a user (by telegram_id)"""
+    def delete_grades(self, username: str) -> bool:
+        """Delete all grades for a user (by username)"""
         try:
             with self.db_manager.get_session() as session:
-                user = session.query(User).filter_by(telegram_id=telegram_id).first()
+                user = session.query(User).filter_by(username=username).first()
                 if not user:
-                    logger.error(f"❌ User not found for telegram_id: {telegram_id}")
+                    logger.error(f"❌ User not found for username: {username}")
                     return False
                 grades = session.query(Grade).filter_by(username=user.username).all()
                 for grade in grades:
                     session.delete(grade)
-                logger.info(f"✅ Deleted {len(grades)} grades for user {telegram_id}")
+                logger.info(f"✅ Deleted {len(grades)} grades for user {username}")
                 return True
         except SQLAlchemyError as e:
-            logger.error(f"❌ Database error deleting grades for user {telegram_id}: {e}")
+            logger.error(f"❌ Database error deleting grades for user {username}: {e}")
             return False
         except Exception as e:
-            logger.error(f"❌ Error deleting grades for user {telegram_id}: {e}")
+            logger.error(f"❌ Error deleting grades for user {username}: {e}")
             return False
-    def get_grades(self, telegram_id: int) -> List[Dict[str, Any]]:
-        """Compatibility method - alias for get_user_grades"""
-        return self.get_user_grades(telegram_id) 
 
 def safe_float(val):
     from sqlalchemy.orm.attributes import InstrumentedAttribute
