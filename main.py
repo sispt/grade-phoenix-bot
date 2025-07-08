@@ -136,42 +136,11 @@ def check_environment():
     return True
 
 
-def auto_migrate_database(database_url):
-    """
-    Auto-migrate the grades table to use user_id as FK to users.id.
-    Adds user_id column if missing, migrates data from telegram_id, and sets up FK.
-    """
-    engine = create_engine(database_url)
-    insp = inspect(engine)
-    with engine.connect() as conn:
-        # Check if 'user_id' column exists in 'grades'
-        columns = [col['name'] for col in insp.get_columns('grades')]
-        if 'user_id' not in columns:
-            print("[MIGRATION] Adding user_id column to grades table...")
-            conn.execute(text('ALTER TABLE grades ADD COLUMN user_id INTEGER'))
-            # Migrate data: set user_id based on telegram_id
-            print("[MIGRATION] Migrating user_id values from telegram_id...")
-            conn.execute(text('UPDATE grades SET user_id = (SELECT id FROM users WHERE users.telegram_id = grades.telegram_id)'))
-            # Set user_id as NOT NULL (if all rows have user_id)
-            conn.execute(text('ALTER TABLE grades ALTER COLUMN user_id SET NOT NULL'))
-            # Add FK constraint
-            print("[MIGRATION] Adding foreign key constraint on user_id...")
-            conn.execute(text('ALTER TABLE grades ADD CONSTRAINT fk_grades_user_id FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE'))
-            # Optional: drop telegram_id column if no longer needed
-            # conn.execute(text('ALTER TABLE grades DROP COLUMN telegram_id'))
-            print("[MIGRATION] Migration complete.")
-        else:
-            print("[MIGRATION] user_id column already exists in grades table. No migration needed.")
-
-
 def main():
     """Main function"""
     # Check environment
     if not check_environment():
         sys.exit(1)
-
-    # Run DB migration before anything else
-    auto_migrate_database(CONFIG["DATABASE_URL"])
 
     # Create bot runner
     runner = BotRunner()
