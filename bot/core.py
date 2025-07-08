@@ -162,8 +162,6 @@ class TelegramBot:
         self.app.add_handler(CommandHandler("admin", self._admin_command))
         self.app.add_handler(CommandHandler("notify_grades", self._admin_notify_grades))
         self.app.add_handler(CallbackQueryHandler(self._handle_callback))
-        self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message))
-        self.app.add_handler(CallbackQueryHandler(self._settings_callback_handler, pattern="^(back_to_main|cancel_action)$"))
         gpa_calc_handler = ConversationHandler(
             entry_points=[MessageHandler(filters.Regex("^🧮 حساب المعدل المخصص$"), self._gpa_calc_start)],
             states={
@@ -174,6 +172,8 @@ class TelegramBot:
             fallbacks=[MessageHandler(filters.Regex("^❌ إلغاء$"), self._cancel_registration)],
         )
         self.app.add_handler(gpa_calc_handler)
+        self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message))
+        self.app.add_handler(CallbackQueryHandler(self._settings_callback_handler, pattern="^(back_to_main|cancel_action)$"))
 
     async def _send_message_with_keyboard(self, update, message, keyboard_type="main"):
         keyboards = {
