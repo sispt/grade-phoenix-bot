@@ -147,6 +147,7 @@ class TelegramBot:
                 ASK_PASSWORD_FOR_STORAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._store_password)],
             },
             fallbacks=[CommandHandler("cancel", self._cancel_registration), MessageHandler(filters.Regex("^❌ إلغاء$"), self._cancel_registration)],
+            per_message=True,
         )
         self.app.add_handler(registration_handler)
         self.app.add_handler(self.broadcast_system.get_conversation_handler())
@@ -177,6 +178,7 @@ class TelegramBot:
                 ASK_GPA_ECTS: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._gpa_ask_ects)],
             },
             fallbacks=[MessageHandler(filters.Regex("^❌ إلغاء$"), self._cancel_registration)],
+            per_message=True,
         )
         self.app.add_handler(gpa_calc_handler)
 
