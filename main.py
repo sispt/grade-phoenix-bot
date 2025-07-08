@@ -170,6 +170,9 @@ def main():
     if not check_environment():
         sys.exit(1)
 
+    # Run DB migration before anything else
+    auto_migrate_database(CONFIG["DATABASE_URL"])
+
     # Create bot runner
     runner = BotRunner()
 
