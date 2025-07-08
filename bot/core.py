@@ -803,40 +803,40 @@ class TelegramBot:
             logger.debug(f"📊 Found {len(old_grades) if old_grades else 0} stored grades for user {username}")
             changed_courses = self._compare_grades(old_grades, new_grades)
             logger.debug(f"🔍 Grade comparison for {username}: {len(changed_courses)} changes detected")
-            if changed_courses:
-                logger.warning(f"GRADE CHECK: Found {len(changed_courses)} grade changes for user {username}. Sending notification.")
-                display_name = user.get('fullname') or user.get('username', 'المستخدم')
-                message = f"🎓 تم تحديث درجاتك في المواد التالية:\n\n"
-                old_map = {g.get('code') or g.get('name'): g for g in old_grades if g.get('code') or g.get('name')}
-                for grade in changed_courses:
-                    name = grade.get('name', 'N/A')
-                    code = grade.get('code', '-')
-                    coursework = grade.get('coursework', 'لم يتم النشر')
-                    final_exam = grade.get('final_exam', 'لم يتم النشر')
-                    total = grade.get('total', 'لم يتم النشر')
-                    key = code if code != '-' else name
-                    old = old_map.get(key, {})
-                    def show_change(field, label):
-                        old_val = old.get(field, '—')
-                        new_val = grade.get(field, '—')
-                        if old_val != new_val and old_val != '—':
-                            return f"{label}: {old_val} → {new_val}"
-                        return None
-                    changes = [
-                        show_change('coursework', 'الأعمال'),
-                        show_change('final_exam', 'النظري'),
-                        show_change('total', 'النهائي'),
-                    ]
-                    changes = [c for c in changes if c]
-                    if changes:
-                        message += f"📚 {name} ({code})\n" + "\n".join(changes) + "\n\n"
+            message = f"🎓 تم تحديث درجاتك في المواد التالية:\n\n"
+            old_map = {g.get('code') or g.get('name'): g for g in old_grades if g.get('code') or g.get('name')}
+            any_changes = False
+            for grade in changed_courses:
+                name = grade.get('name', 'N/A')
+                code = grade.get('code', '-')
+                coursework = grade.get('coursework', 'لم يتم النشر')
+                final_exam = grade.get('final_exam', 'لم يتم النشر')
+                total = grade.get('total', 'لم يتم النشر')
+                key = code if code != '-' else name
+                old = old_map.get(key, {})
+                def show_change(field, label):
+                    old_val = old.get(field, '—')
+                    new_val = grade.get(field, '—')
+                    if old_val != new_val and old_val != '—':
+                        return f"{label}: {old_val} → {new_val}"
+                    return None
+                changes = [
+                    show_change('coursework', 'الأعمال'),
+                    show_change('final_exam', 'النظري'),
+                    show_change('total', 'النهائي'),
+                ]
+                changes = [c for c in changes if c]
+                if changes:
+                    any_changes = True
+                    message += f"📚 {name} ({code})\n" + "\n".join(changes) + "\n\n"
+            if any_changes:
                 now_utc3 = datetime.now(timezone.utc) + timedelta(hours=3)
                 message += f"🕒 وقت التحديث: {now_utc3.strftime('%Y-%m-%d %H:%M')} (UTC+3)"
                 await self.app.bot.send_message(chat_id=telegram_id, text=message)
                 return True
             else:
-                logger.debug(f"✅ No grade changes for user {username}")
-            return False
+                logger.debug(f"✅ No actual field changes for user {username}, not sending notification.")
+                return False
         except Exception as e:
             logger.error(f"❌ Error in _check_and_notify_user_grades for user {user.get('username', 'Unknown')}: {e}", exc_info=True)
             return False
