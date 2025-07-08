@@ -366,3 +366,11 @@ def get_contact_support_inline_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("📞 تواصل مع الدعم الفني", url=f"https://t.me/{admin_username.lstrip('@')}")]
     ])
+
+
+def get_session_settings_keyboard() -> ReplyKeyboardMarkup:
+    """Keyboard for session/password management settings."""
+    return ReplyKeyboardMarkup([
+        ["🔑 إدارة الجلسة/كلمة المرور"],
+        ["🔙 العودة"]
+    ], resize_keyboard=True, one_time_keyboard=True)

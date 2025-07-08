@@ -4,7 +4,7 @@ Handles grade data storage with PostgreSQL
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 from contextlib import contextmanager
 from decimal import Decimal
@@ -110,7 +110,7 @@ class GradeStorageV2:
                         existing_grade.total = total
                         existing_grade.numeric_grade = numeric_grade
                         existing_grade.grade_status = grade_status
-                        existing_grade.updated_at = datetime.utcnow()
+                        existing_grade.updated_at = datetime.now(timezone.utc)
                     else:
                         # Create new grade
                         grade = Grade(

@@ -3,7 +3,7 @@
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Any, Tuple
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -31,7 +31,7 @@ class CredentialCache:
 
             with self.db_manager.get_session() as session:
                 # Check for recent credential test
-                cache_cutoff = datetime.utcnow() - timedelta(
+                cache_cutoff = datetime.now(timezone.utc) - timedelta(
                     hours=self.cache_duration_hours
                 )
 
@@ -62,7 +62,7 @@ class CredentialCache:
 
             with self.db_manager.get_session() as session:
                 # Get latest test result
-                cache_cutoff = datetime.utcnow() - timedelta(
+                cache_cutoff = datetime.now(timezone.utc) - timedelta(
                     hours=self.cache_duration_hours
                 )
 
@@ -103,7 +103,7 @@ class CredentialCache:
                 test_record = CredentialTest(
                     username=username_key,
                     test_result=test_result,
-                    test_date=datetime.utcnow(),
+                    test_date=datetime.now(timezone.utc),
                     error_message=error_message,
                     response_time_ms=response_time_ms,
                     user_agent=user_agent,
@@ -139,7 +139,7 @@ class CredentialCache:
                 )
 
                 # Recent tests (last 24 hours)
-                recent_cutoff = datetime.utcnow() - timedelta(hours=24)
+                recent_cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
                 recent_tests = (
                     session.query(CredentialTest)
                     .filter(CredentialTest.test_date >= recent_cutoff)
@@ -184,7 +184,7 @@ class CredentialCache:
             else:
                 hours = float(hours)
 
-            cutoff_date = datetime.utcnow() - timedelta(hours=hours)
+            cutoff_date = datetime.now(timezone.utc) - timedelta(hours=hours)
 
             with self.db_manager.get_session() as session:
                 deleted_count = (

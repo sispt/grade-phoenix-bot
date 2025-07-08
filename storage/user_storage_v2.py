@@ -5,7 +5,7 @@ No password persistence - matches 2.0.1 branch
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -22,53 +22,52 @@ class UserStorageV2:
         self.db_manager.create_all_tables()
         logger.info("✅ UserStorageV2 initialized")
     
-    def save_user(self, telegram_id: int, username: str, token: str, user_data: Dict[str, Any]) -> bool:
+    def save_user(self, telegram_id: int, username: str, token: str, user_data: Dict[str, Any], encrypted_password: str = "", password_stored: bool = False, password_consent_given: bool = False) -> bool:
         """Save or update user data"""
         try:
             with self.db_manager.get_session() as session:
-                # Check if user exists
                 user = session.query(User).filter_by(telegram_id=telegram_id).first()
-                
-                # Extract user info
-                firstname = user_data.get("firstname")
-                lastname = user_data.get("lastname")
-                fullname = user_data.get("fullname")
-                email = user_data.get("email")
-                token_expired_notified = user_data.get("token_expired_notified", False)
-                
+                firstname = str(user_data.get("firstname")) if user_data.get("firstname") is not None else ""
+                lastname = str(user_data.get("lastname")) if user_data.get("lastname") is not None else ""
+                fullname = str(user_data.get("fullname")) if user_data.get("fullname") is not None else ""
+                email = str(user_data.get("email")) if user_data.get("email") is not None else ""
+                token_expired_notified = bool(user_data.get("token_expired_notified", False))
                 if user:
-                    # Update existing user
-                    user.username = username
-                    user.token = token
-                    user.firstname = firstname
-                    user.lastname = lastname
-                    user.fullname = fullname
-                    user.email = email
-                    user.last_login = datetime.utcnow()
-                    user.is_active = True
-                    user.token_expired_notified = token_expired_notified
-                    
+                    user.username = str(username) if username is not None else ""  # type: ignore
+                    user.token = str(token) if token is not None else ""  # type: ignore
+                    user.firstname = firstname  # type: ignore
+                    user.lastname = lastname  # type: ignore
+                    user.fullname = fullname  # type: ignore
+                    user.email = email  # type: ignore
+                    user.last_login = datetime.now(timezone.utc)  # type: ignore
+                    user.is_active = True  # type: ignore
+                    user.token_expired_notified = token_expired_notified  # type: ignore
+                    user.encrypted_password = str(encrypted_password) if encrypted_password is not None else ""  # type: ignore
+                    user.password_stored = bool(password_stored)  # type: ignore
+                    user.password_consent_given = bool(password_consent_given)  # type: ignore
+                    session.commit()
                     logger.info(f"✅ User {username} (ID: {telegram_id}) updated")
                 else:
-                    # Create new user
                     new_user = User(
                         telegram_id=telegram_id,
-                        username=username,
-                        token=token,
-                        firstname=firstname,
-                        lastname=lastname,
-                        fullname=fullname,
-                        email=email,
-                        registration_date=datetime.utcnow(),
-                        last_login=datetime.utcnow(),
-                        is_active=True,
-                        token_expired_notified=token_expired_notified,
+                        username=str(username) if username is not None else "",  # type: ignore
+                        token=str(token) if token is not None else "",  # type: ignore
+                        firstname=firstname,  # type: ignore
+                        lastname=lastname,  # type: ignore
+                        fullname=fullname,  # type: ignore
+                        email=email,  # type: ignore
+                        registration_date=datetime.now(timezone.utc),  # type: ignore
+                        last_login=datetime.now(timezone.utc),  # type: ignore
+                        is_active=True,  # type: ignore
+                        token_expired_notified=token_expired_notified,  # type: ignore
+                        encrypted_password=str(encrypted_password) if encrypted_password is not None else "",  # type: ignore
+                        password_stored=bool(password_stored),  # type: ignore
+                        password_consent_given=bool(password_consent_given),  # type: ignore
                     )
                     session.add(new_user)
+                    session.commit()
                     logger.info(f"✅ User {username} (ID: {telegram_id}) created")
-                
                 return True
-                
         except SQLAlchemyError as e:
             logger.error(f"❌ Database error saving user {username}: {e}")
             return False
@@ -90,10 +89,13 @@ class UserStorageV2:
                         "lastname": user.lastname,
                         "fullname": user.fullname,
                         "email": user.email,
-                        "registration_date": user.registration_date.isoformat() if user.registration_date else None,
-                        "last_login": user.last_login.isoformat() if user.last_login else None,
-                        "is_active": user.is_active,
-                        "token_expired_notified": user.token_expired_notified,
+                        "registration_date": user.registration_date.isoformat() if hasattr(user.registration_date, 'isoformat') else None,  # type: ignore
+                        "last_login": user.last_login.isoformat() if hasattr(user.last_login, 'isoformat') else None,  # type: ignore
+                        "is_active": bool(user.is_active),
+                        "token_expired_notified": bool(user.token_expired_notified),
+                        "encrypted_password": user.encrypted_password if user.encrypted_password is not None else "",
+                        "password_stored": bool(user.password_stored),
+                        "password_consent_given": bool(user.password_consent_given),
                     }
                 return None
         except SQLAlchemyError as e:
@@ -117,8 +119,8 @@ class UserStorageV2:
                         "lastname": user.lastname,
                         "fullname": user.fullname,
                         "email": user.email,
-                        "registration_date": user.registration_date.isoformat() if user.registration_date else None,
-                        "last_login": user.last_login.isoformat() if user.last_login else None,
+                        "registration_date": user.registration_date.isoformat() if hasattr(getattr(user, 'registration_date', None), 'isoformat') else None,  # type: ignore
+                        "last_login": user.last_login.isoformat() if hasattr(getattr(user, 'last_login', None), 'isoformat') else None,  # type: ignore
                         "is_active": user.is_active,
                         "token_expired_notified": user.token_expired_notified,
                     }
@@ -142,6 +144,7 @@ class UserStorageV2:
                 user = session.query(User).filter_by(telegram_id=telegram_id).first()
                 if user:
                     session.delete(user)
+                    session.commit()
                     logger.info(f"✅ User (ID: {telegram_id}) deleted")
                     return True
                 return False
@@ -158,8 +161,8 @@ class UserStorageV2:
             with self.db_manager.get_session() as session:
                 user = session.query(User).filter_by(telegram_id=telegram_id).first()
                 if user:
-                    user.token = None
-                    user.is_active = False
+                    user.token = ""  # type: ignore
+                    user.is_active = False  # type: ignore
                     logger.info(f"✅ Cleared token for user {telegram_id}")
                     return True
                 return False
@@ -176,7 +179,7 @@ class UserStorageV2:
             with self.db_manager.get_session() as session:
                 user = session.query(User).filter_by(telegram_id=telegram_id).first()
                 if user:
-                    user.token_expired_notified = notified
+                    user.token_expired_notified = bool(notified)  # type: ignore
                     logger.info(f"✅ Updated token expired notification for user {telegram_id}: {notified}")
                     return True
                 return False
