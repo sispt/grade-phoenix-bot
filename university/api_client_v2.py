@@ -65,18 +65,30 @@ class UniversityAPIV2:
             headers = {**self.api_headers, "Authorization": f"Bearer {token}"}
             payload = {"query": UNIVERSITY_QUERIES["TEST_TOKEN"]}
             
+            logger.debug(f"🔍 Testing token with payload: {payload}")
+            
             async with aiohttp.ClientSession(timeout=self.timeout) as session:
                 async with session.post(
                     self.api_url, headers=headers, json=payload
                 ) as response:
+                    logger.debug(f"🔍 Token test response status: {response.status}")
+                    
                     if response.status == 200:
                         data = await response.json()
-                        return (
+                        logger.debug(f"🔍 Token test response data: {data}")
+                        
+                        is_valid = (
                             "data" in data
                             and data["data"].get("getGUI", {}).get("user") is not None
                         )
-                    return False
-        except Exception:
+                        logger.info(f"🔍 Token validation result: {is_valid}")
+                        return is_valid
+                    else:
+                        response_text = await response.text()
+                        logger.warning(f"❌ Token test failed with status {response.status}: {response_text}")
+                        return False
+        except Exception as e:
+            logger.error(f"❌ Token test exception: {e}", exc_info=True)
             return False
 
     async def get_user_info(self, token: str) -> Optional[Dict[str, Any]]:
