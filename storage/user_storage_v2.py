@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 User Storage V2 - Clean PostgreSQL-based user storage
-No password persistence - matches 2.0.1 branch
 """
 
 import logging
@@ -84,6 +83,7 @@ class UserStorageV2:
                     return {
                         "telegram_id": user.telegram_id,
                         "username": user.username,
+                        "username_unique": getattr(user, 'username_unique', user.username),
                         "token": user.token,
                         "firstname": user.firstname,
                         "lastname": user.lastname,
@@ -194,3 +194,26 @@ class UserStorageV2:
         """Compatibility method - no-op for PostgreSQL storage"""
         # This method is not needed for PostgreSQL storage as it's handled automatically
         pass 
+
+def migrate_backfill_username_unique(database_url: str):
+    """
+    For all users where username_unique is NULL or empty, set username_unique = username.
+    """
+    from storage.models import DatabaseManager, User
+    db_manager = DatabaseManager(database_url)
+    with db_manager.get_session() as session:
+        users = session.query(User).filter((User.username_unique == None) | (User.username_unique == "")).all()
+        count = 0
+        for user in users:
+            user.username_unique = user.username
+            count += 1
+        session.commit()
+        print(f"[MIGRATION] Backfilled username_unique for {count} users.")
+
+if __name__ == "__main__":
+    import os
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url:
+        print("Please set the DATABASE_URL environment variable.")
+    else:
+        migrate_backfill_username_unique(db_url) 

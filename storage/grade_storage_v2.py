@@ -26,16 +26,16 @@ class GradeStorageV2:
         self.db_manager.create_all_tables()
         logger.info("✅ GradeStorageV2 initialized")
     
-    def save_grades(self, username: str, grades_data: List[Dict[str, Any]], notify_callback=None) -> bool:
-        logger.info(f"[CALL] save_grades called for username={username} with {len(grades_data)} grades.")
-        """Save grades for a user (by username). Notify if changed."""
+    def save_grades(self, username_unique: str, grades_data: List[Dict[str, Any]], notify_callback=None) -> bool:
+        logger.info(f"[CALL] save_grades called for username_unique={username_unique} with {len(grades_data)} grades.")
+        """Save grades for a user (by username_unique). Notify if changed."""
         try:
-            logger.debug(f"[DEBUG] save_grades called for username={username} with {len(grades_data)} grades.")
+            logger.debug(f"[DEBUG] save_grades called for username_unique={username_unique} with {len(grades_data)} grades.")
             with self.db_manager.get_session() as session:
-                user = session.query(User).filter_by(username=username).first()
-                logger.debug(f"[DEBUG] User lookup for username={username}: {user}")
+                user = session.query(User).filter_by(username_unique=username_unique).first()
+                logger.debug(f"[DEBUG] User lookup for username_unique={username_unique}: {user}")
                 if not user:
-                    logger.error(f"❌ User not found for username: {username}")
+                    logger.error(f"❌ User not found for username_unique: {username_unique}")
                     return False
                 saved_count = 0
                 skipped_count = 0
@@ -68,10 +68,10 @@ class GradeStorageV2:
                     else:
                         grade_status = "Unknown"
                     existing_grade = session.query(Grade).filter_by(
-                        username=username,
+                        username_unique=user.username_unique,
                         code=code
                     ).first()
-                    logger.debug(f"[DEBUG] Existing grade for username={username}, code={code}: {existing_grade}")
+                    logger.debug(f"[DEBUG] Existing grade for username_unique={user.username_unique}, code={code}: {existing_grade}")
                     changed = False
                     old_values = {}
                     new_values = {
@@ -93,10 +93,10 @@ class GradeStorageV2:
                                 changed = True
                                 old_values[field] = old_val
                         if changed:
-                            logger.info(f"[UPDATE] Updating existing grade for username={username}, code={code}: old={old_values}, new={new_values}")
+                            logger.info(f"[UPDATE] Updating existing grade for username_unique={user.username_unique}, code={code}: old={old_values}, new={new_values}")
                             # Notify user of change
                             if notify_callback:
-                                notify_callback(username, code, old_values, new_values)
+                                notify_callback(user.username_unique, code, old_values, new_values)
                             # Update grade
                             existing_grade.name = name
                             existing_grade.code = code
@@ -109,10 +109,10 @@ class GradeStorageV2:
                             setattr(existing_grade, 'updated_at', datetime.now(timezone.utc))
                             logger.debug(f"[DEBUG] Updated existing grade: {existing_grade}")
                         else:
-                            logger.debug(f"[DEBUG] No change for grade username={username}, code={code}")
+                            logger.debug(f"[DEBUG] No change for grade username_unique={user.username_unique}, code={code}")
                     else:
                         grade = Grade(
-                            username=username,
+                            username_unique=user.username_unique,
                             name=name,
                             code=code,
                             ects=Decimal(str(ects_val)) if ects_val is not None else None,
@@ -125,37 +125,37 @@ class GradeStorageV2:
                             updated_at=datetime.now(timezone.utc),
                         )
                         session.add(grade)
-                        logger.info(f"[INSERT] Created new grade row for username={username}, code={code}, name={name}, total={total}")
+                        logger.info(f"[INSERT] Created new grade row for username_unique={user.username_unique}, code={code}, name={name}, total={total}")
                         logger.debug(f"[DEBUG] Added new grade: {grade}")
                         changed = True
                         if notify_callback:
-                            notify_callback(username, code, None, new_values)
+                            notify_callback(user.username_unique, code, None, new_values)
                     if changed:
                         saved_count += 1
                     else:
                         skipped_count += 1
-                logger.info(f"[RETURN] save_grades for username={username}: {saved_count} saved/updated, {skipped_count} skipped (no change)")
-                logger.debug(f"[DEBUG] Committing session for username={username}")
+                logger.info(f"[RETURN] save_grades for username_unique={user.username_unique}: {saved_count} saved/updated, {skipped_count} skipped (no change)")
+                logger.debug(f"[DEBUG] Committing session for username_unique={user.username_unique}")
                 return True
         except SQLAlchemyError as e:
-            logger.error(f"❌ Database error saving grades for user {username}: {e}", exc_info=True)
+            logger.error(f"❌ Database error saving grades for user {username_unique}: {e}", exc_info=True)
             return False
         except Exception as e:
             import traceback
-            logger.error(f"❌ Error saving grades for user {username}: {e}\n{traceback.format_exc()}")
+            logger.error(f"❌ Error saving grades for user {username_unique}: {e}\n{traceback.format_exc()}")
             return False
-    def get_user_grades(self, username: str) -> List[Dict[str, Any]]:
-        logger.info(f"[CALL] get_user_grades called for username={username}")
-        """Get all grades for a user (by username) using unified API terminology"""
+    def get_user_grades(self, username_unique: str) -> List[Dict[str, Any]]:
+        logger.info(f"[CALL] get_user_grades called for username_unique={username_unique}")
+        """Get all grades for a user (by username_unique) using unified API terminology"""
         try:
             with self.db_manager.get_session() as session:
-                user = session.query(User).filter_by(username=username).first()
-                logger.debug(f"[DEBUG] User lookup for username={username}: {user}")
+                user = session.query(User).filter_by(username_unique=username_unique).first()
+                logger.debug(f"[DEBUG] User lookup for username_unique={username_unique}: {user}")
                 if not user:
-                    logger.error(f"❌ User not found for username: {username}")
+                    logger.error(f"❌ User not found for username_unique: {username_unique}")
                     return []
-                grades = session.query(Grade).filter_by(username=user.username).all()
-                logger.info(f"[RETURN] get_user_grades for username={username}: {len(grades)} grades found.")
+                grades = session.query(Grade).filter_by(username_unique=user.username_unique).all()
+                logger.info(f"[RETURN] get_user_grades for username_unique={user.username_unique}: {len(grades)} grades found.")
                 return [
                     {
                         "name": grade.name,
@@ -172,31 +172,31 @@ class GradeStorageV2:
                     for grade in grades
                 ]
         except SQLAlchemyError as e:
-            logger.error(f"❌ Database error getting grades for user {username}: {e}")
+            logger.error(f"❌ Database error getting grades for user {username_unique}: {e}")
             return []
         except Exception as e:
-            logger.error(f"❌ Error getting grades for user {username}: {e}")
+            logger.error(f"❌ Error getting grades for user {username_unique}: {e}")
             return []
-    def delete_grades(self, username: str) -> bool:
-        logger.info(f"[CALL] delete_grades called for username={username}")
-        """Delete all grades for a user (by username)"""
+    def delete_grades(self, username_unique: str) -> bool:
+        logger.info(f"[CALL] delete_grades called for username_unique={username_unique}")
+        """Delete all grades for a user (by username_unique)"""
         try:
             with self.db_manager.get_session() as session:
-                user = session.query(User).filter_by(username=username).first()
-                logger.debug(f"[DEBUG] User lookup for username={username}: {user}")
+                user = session.query(User).filter_by(username_unique=username_unique).first()
+                logger.debug(f"[DEBUG] User lookup for username_unique={username_unique}: {user}")
                 if not user:
-                    logger.error(f"❌ User not found for username: {username}")
+                    logger.error(f"❌ User not found for username_unique: {username_unique}")
                     return False
-                grades = session.query(Grade).filter_by(username=user.username).all()
+                grades = session.query(Grade).filter_by(username_unique=user.username_unique).all()
                 for grade in grades:
                     session.delete(grade)
-                logger.info(f"[RETURN] delete_grades for username={username}: {len(grades)} grades deleted.")
+                logger.info(f"[RETURN] delete_grades for username_unique={user.username_unique}: {len(grades)} grades deleted.")
                 return True
         except SQLAlchemyError as e:
-            logger.error(f"❌ Database error deleting grades for user {username}: {e}")
+            logger.error(f"❌ Database error deleting grades for user {username_unique}: {e}")
             return False
         except Exception as e:
-            logger.error(f"❌ Error deleting grades for user {username}: {e}")
+            logger.error(f"❌ Error deleting grades for user {username_unique}: {e}")
             return False
 
 def safe_float(val):

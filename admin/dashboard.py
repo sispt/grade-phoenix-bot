@@ -567,6 +567,7 @@ class AdminDashboard:
             return
         token = user.get("token")
         username = user.get("username", "-")
+        username_unique = user.get("username_unique", username)
         if not token:
             await query.edit_message_text(
                 f"❌ لا يوجد رمز دخول لهذا المستخدم ({username}).",
@@ -601,6 +602,7 @@ class AdminDashboard:
             return
         token = user.get("token")
         username = user.get("username", "-")
+        username_unique = user.get("username_unique", username)
         if not token:
             await query.edit_message_text(
                 f"❌ لا يوجد رمز دخول لهذا المستخدم ({username}).",

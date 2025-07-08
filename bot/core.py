@@ -708,8 +708,9 @@ class TelegramBot:
         try:
             telegram_id = user.get("telegram_id")
             username = user.get("username")
+            username_unique = user.get("username_unique")
             token = user.get("token")
-            logger.info(f"[CALL] _check_and_notify_user_grades for username={username}, telegram_id={telegram_id}")
+            logger.info(f"[CALL] _check_and_notify_user_grades for username={username}, username_unique={username_unique}, telegram_id={telegram_id}")
             logger.info(f"[CHECK] self.grade_storage is type: {type(self.grade_storage)}")
             # Notify only once if token expired
             if not token:
@@ -750,34 +751,9 @@ class TelegramBot:
                             # Now continue as if token is valid
                         else:
                             logger.warning(f"❌ Auto-login failed for user {username}")
-                            # Notify user as before
-                            if not notified:
-                                await self.app.bot.send_message(
-                                    chat_id=telegram_id,
-                                    text="⏰ انتهت صلاحية الجلسة\n\nيرجى تسجيل الدخول مرة أخرى من خلال زر '🚀 تسجيل الدخول للجامعة' ثم إدخال بياناتك من جديد. هذا طبيعي ويحدث كل فترة.",
-                                    reply_markup=get_unregistered_keyboard()
-                                )
-                                if is_pg:
-                                    self.user_storage.update_token_expired_notified(telegram_id, True)
-                                else:
-                                    user["token_expired_notified"] = True
-                                    if hasattr(self.user_storage, '_save_users'):
-                                        self.user_storage._save_users()
                             return False
                     except Exception as e:
-                        logger.error(f"❌ Error during auto-login for user {username}: {e}", exc_info=True)
-                        if not notified:
-                            await self.app.bot.send_message(
-                                chat_id=telegram_id,
-                                text="⏰ انتهت صلاحية الجلسة\n\nيرجى تسجيل الدخول مرة أخرى من خلال زر '🚀 تسجيل الدخول للجامعة' ثم إدخال بياناتك من جديد. هذا طبيعي ويحدث كل فترة.",
-                                reply_markup=get_unregistered_keyboard()
-                            )
-                            if is_pg:
-                                self.user_storage.update_token_expired_notified(telegram_id, True)
-                            else:
-                                user["token_expired_notified"] = True
-                                if hasattr(self.user_storage, '_save_users'):
-                                    self.user_storage._save_users()
+                        logger.warning(f"❌ Auto-login failed for user {username}")
                         return False
                 else:
                     # Token is invalid, notify user to login manually
@@ -811,10 +787,11 @@ class TelegramBot:
                 return False
             new_grades = user_data.get("grades", [])
             logger.debug(f"📊 Found {len(new_grades)} new grades for user {username}")
-            old_grades = self.grade_storage.get_user_grades(username)
-            logger.debug(f"📊 Found {len(old_grades) if old_grades else 0} stored grades for user {username}")
+            # Use username_unique for grade storage
+            old_grades = self.grade_storage.get_user_grades(username_unique)
+            logger.debug(f"📊 Found {len(old_grades) if old_grades else 0} stored grades for user {username_unique}")
             changed_courses = self._compare_grades(old_grades, new_grades)
-            logger.debug(f"🔍 Grade comparison for {username}: {len(changed_courses)} changes detected")
+            logger.debug(f"🔍 Grade comparison for {username_unique}: {len(changed_courses)} changes detected")
             message = f"🎓 تم تحديث درجاتك في المواد التالية:\n\n"
             old_map = {g.get('code') or g.get('name'): g for g in old_grades if g.get('code') or g.get('name')}
             any_changes = False
@@ -841,15 +818,15 @@ class TelegramBot:
                 if changes:
                     any_changes = True
                     message += f"📚 {name} ({code})\n" + "\n".join(changes) + "\n\n"
-            logger.info(f"[CALL] About to call save_grades for username={username} with {len(new_grades)} grades.")
-            self.grade_storage.save_grades(username, new_grades)
+            logger.info(f"[CALL] About to call save_grades for username_unique={username_unique} with {len(new_grades)} grades.")
+            self.grade_storage.save_grades(username_unique, new_grades)
             if any_changes:
                 now_utc3 = datetime.now(timezone.utc) + timedelta(hours=3)
                 message += f"🕒 وقت التحديث: {now_utc3.strftime('%Y-%m-%d %H:%M')} (UTC+3)"
                 await self.app.bot.send_message(chat_id=telegram_id, text=message)
                 return True
             else:
-                logger.debug(f"✅ No actual field changes for user {username}, not sending notification.")
+                logger.debug(f"✅ No actual field changes for user {username_unique}, not sending notification.")
                 return False
         except Exception as e:
             logger.error(f"❌ Error in _check_and_notify_user_grades for user {user.get('username', 'Unknown')}: {e}", exc_info=True)
