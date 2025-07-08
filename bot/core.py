@@ -71,8 +71,6 @@ class TelegramBot:
         self.app = Application.builder().token(CONFIG["TELEGRAM_TOKEN"]).build()
         await self._update_bot_info()
         self._add_handlers()
-        self.grade_check_task = asyncio.create_task(self._grade_checking_loop())
-        self.daily_quote_task = asyncio.create_task(self.scheduled_daily_quote_broadcast())
         await self.app.initialize()
         await self.app.start()
         port = int(os.environ.get("PORT", 8443))
@@ -105,6 +103,10 @@ class TelegramBot:
         
         await self.app.updater.start_webhook(listen="0.0.0.0", port=port, url_path=CONFIG["TELEGRAM_TOKEN"], webhook_url=webhook_url)
         logger.info(f"✅ Bot started on webhook: {webhook_url}")
+
+        # Start background tasks only after the bot is fully initialized and started
+        self.grade_check_task = asyncio.create_task(self._grade_checking_loop())
+        self.daily_quote_task = asyncio.create_task(self.scheduled_daily_quote_broadcast())
 
     async def _update_bot_info(self):
         try:
