@@ -224,6 +224,7 @@ class GradeFailsafeStorage:
         self.GradeFailsafe = GradeFailsafe
         self.db_manager.create_all_tables()
     def save_grades(self, username_unique, grades_data):
+        print("DEBUG: grades_data =", grades_data)  # Debug print to check input
         from datetime import datetime, timezone
         with self.db_manager.get_session() as session:
             for grade_data in grades_data:
