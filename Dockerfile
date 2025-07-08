@@ -1,4 +1,4 @@
-THIS SHOULD BE A LINTER ERRORFROM python:3.12-slim
+FROM python:3.12-slim
 
 # Set working directory
 WORKDIR /app
