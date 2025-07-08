@@ -22,7 +22,7 @@ def run_pytest_tests():
     # Set environment variables for consistent testing
     SEMVER_REGEX = r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$'
     env = os.environ.copy()
-    raw_version = os.getenv("BOT_VERSION", "v2.1.0")
+    raw_version = os.getenv("BOT_VERSION", "2.1.0")
     if re.match(SEMVER_REGEX, raw_version):
         validated_version = raw_version
     else:
