@@ -163,4 +163,17 @@ Thumbs.db
 *.backup
 
 # Bot data
-bot_data.json 
+bot_data.json
+
+# Test files
+test_*.py
+*_test.py
+tests/
+test/
+testing/
+test_files/
+test_data/
+test_results/
+*.test.py
+test_*.pyc
+*_test.pyc 
