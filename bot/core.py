@@ -84,7 +84,7 @@ class TelegramBot:
         self._add_handlers()
         await self.app.initialize()
         await self.app.start()
-        port = int(os.environ.get("PORT", 8443))
+        port = int(os.environ.get("PORT", 8000))
         
         # Try to get Railway URL from environment
         railway_app_name = os.getenv("RAILWAY_APP_NAME")
