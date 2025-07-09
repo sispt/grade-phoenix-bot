@@ -64,6 +64,15 @@ All notable changes to this project will be documented in this file.
 - Updated version management and documentation
 - Enhanced error handling and user experience improvements
 
+## [3.0.0] - 2025-07-09
+### Major Changes
+- Secure password storage: Encrypted passwords are now stored for permanent sessions, with proper consent and management fields (`encrypted_password`, `password_stored`, `password_consent_given`).
+- Auto-login: If a session token expires and a password is stored, the bot will auto-login using the encrypted password.
+- GPA calculator UX: Added a cancel button to every step of the custom GPA calculator flow. Users can now exit at any time and are returned to the correct main keyboard (registered/unregistered).
+- Generalized cancel handling: All cancel actions throughout the bot now return users to the appropriate main menu based on registration status.
+- Project cleanup: Removed unused migration scripts, clarified folder structure, and improved code organization.
+- Various bug fixes and user experience improvements.
+
 ---
 
 _This changelog summarizes major features and improvements for each release. For detailed commit history, see the repository's commit log._

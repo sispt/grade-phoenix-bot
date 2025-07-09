@@ -430,3 +430,16 @@ This bot is now ready for robust production deployment using FastAPI and Uvicorn
 **Note:**
 - You do NOT need to run `main.py` directly anymore for production. All bot logic is now managed by FastAPI and Uvicorn.
 - All background tasks (grade notifications, daily quotes) will run as expected.
+
+---
+
+## Version 3.0.0 (2025-07-09)
+
+### What's New?
+- **Encrypted Password Storage:** User passwords are now securely encrypted and stored (with consent) for permanent sessions, enabling auto-login when tokens expire.
+- **Auto-login:** If a user's session token expires and a password is stored, the bot will automatically log in again using the encrypted password.
+- **Improved GPA Calculator:** The custom GPA calculator now features a cancel button at every step, allowing users to exit at any time and return to the correct main menu.
+- **Generalized Cancel Handling:** All cancel actions throughout the bot now return users to the appropriate main menu (registered or unregistered).
+- **Project Cleanup:** Unused migration scripts removed, folder structure clarified, and code organization improved.
+
+See the [CHANGELOG.md](./CHANGELOG.md) for full details.
