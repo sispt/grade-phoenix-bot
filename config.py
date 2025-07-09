@@ -53,9 +53,9 @@ CONFIG = {
     "UNIVERSITY_WEBSITE": "https://staging.sis.shamuniversity.com",
     "UNIVERSITY_NAME": "جامعة الشام",
     # Bot settings
-    "BOT_NAME": "grade-phoenix-bot",
+    "BOT_NAME": "بوت الإشعار الجامعي",
     "BOT_VERSION": validated_version,
-    "BOT_DESCRIPTION": "بوت متقدم لإشعارات الدرجات مع لوحة تحكم إدارية شاملة - grade-phoenix-bot",
+    "BOT_DESCRIPTION": "بوت متقدم لإشعارات الدرجات مع لوحة تحكم إدارية شاملة - بوت الإشعار الجامعي",
     # Grade check interval (minutes)
     "GRADE_CHECK_INTERVAL": int(
         os.getenv("GRADE_CHECK_INTERVAL", "15")
@@ -1258,9 +1258,9 @@ MESSAGE_TEMPLATES = {
     """,
     "BROADCAST_FOOTER": """
 ---
-🔔 **grade-phoenix-bot**
+🔔 **بوت الإشعار الجامعي**
 👨‍💻 المطور: عبدالرحمن عبدالقادر
-📧 البريد الإلكتروني: tox098123@gmail.com
+📧 البريد الإلكتروني: abdulrahmanabdulkader59@gmail.com
     """,
 }
 
