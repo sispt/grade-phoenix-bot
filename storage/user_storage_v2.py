@@ -64,7 +64,10 @@ class UserStorageV2:
                     email=user_data.get('email'),
                     session_token=user_data.get('session_token'),
                     token_expires_at=user_data.get('token_expires_at'),
-                    is_active=True
+                    is_active=True,
+                    encrypted_password=user_data.get('encrypted_password'),
+                    password_stored=user_data.get('password_stored', False),
+                    password_consent_given=user_data.get('password_consent_given', False)
                 )
                 
                 session.add(user)
