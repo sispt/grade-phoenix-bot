@@ -39,6 +39,20 @@ class AdminDashboard:
         await update.message.reply_text(dashboard_text, reply_markup=keyboard)
 
     async def handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        # Harden: Only allow admin to access dashboard callbacks
+        if not update.effective_user or update.effective_user.id != CONFIG["ADMIN_ID"]:
+            user_id = getattr(update.effective_user, 'id', None)
+            username = getattr(update.effective_user, 'username', None)
+            logger.warning(f"[SECURITY] Non-admin user tried to access admin dashboard callback: id={user_id}, username={username}")
+            # Try to send a denial message if possible
+            try:
+                if update.callback_query:
+                    await update.callback_query.answer(text="🚫 ليس لديك صلاحية لهذه العملية.", show_alert=True)
+                elif update.message:
+                    await update.message.reply_text("🚫 ليس لديك صلاحية لهذه العملية.")
+            except Exception:
+                pass
+            return
         query = update.callback_query
         if query is None:
             logger.error("handle_callback called with no callback_query in update.")
@@ -157,6 +171,20 @@ class AdminDashboard:
                     text="✅ تم إنشاء النسخة الاحتياطية.",
                     reply_markup=get_enhanced_admin_dashboard_keyboard(),
                 )
+            elif action == "silent_update":
+                await query.edit_message_text(text="🔕 جاري تنفيذ التحديث الصامت (بدون إشعارات)...")
+                # Simulate silent update: refresh grades/data for all users, but do not send notifications
+                try:
+                    count = await self.bot._silent_update_all_users_grades()
+                    await query.edit_message_text(
+                        text=f"✅ تم تنفيذ التحديث الصامت لـ {count} مستخدم (بدون إشعارات).",
+                        reply_markup=get_enhanced_admin_dashboard_keyboard(),
+                    )
+                except Exception as e:
+                    await query.edit_message_text(
+                        text=f"❌ حدث خطأ أثناء التحديث الصامت: {e}",
+                        reply_markup=get_enhanced_admin_dashboard_keyboard(),
+                    )
             elif action == "back_to_dashboard":
                 await query.edit_message_text(
                     text=self._get_dashboard_text(),

@@ -15,11 +15,12 @@ from config import CONFIG
 def get_main_keyboard() -> ReplyKeyboardMarkup:
     """Main keyboard for registered users."""
     keyboard = [
-        ["📊 درجات الفصل الحالي", "📚 درجات الفصل السابق"],
+        ["📊 درجات الفصل الحالي", "📚 درجات الفصل السابق", "📅 جميع الفصول"],
         ["👤 معلوماتي الشخصية", "🧮 حساب المعدل المخصص"],
         ["📞 الدعم الفني", "❓ المساعدة والدليل"],
         ["⚙️ الإعدادات والتخصيص", "❌ إلغاء"],
         ["🚪 تسجيل الخروج"]
+        ["📥 تحميل معلوماتي"],
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
@@ -106,6 +107,7 @@ def get_enhanced_admin_dashboard_keyboard() -> InlineKeyboardMarkup:
         [
             InlineKeyboardButton("🔄 تحديث البيانات", callback_data="refresh_data"),
             InlineKeyboardButton("💾 إنشاء نسخة احتياطية", callback_data="backup_data"),
+            InlineKeyboardButton("🔕 تحديث صامت", callback_data="silent_update"),
         ],
         [InlineKeyboardButton("❌ إغلاق لوحة التحكم", callback_data="close_dashboard")],
     ]

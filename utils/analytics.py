@@ -45,7 +45,7 @@ class GradeAnalytics:
                     json.dump({}, f, ensure_ascii=False, indent=2)
 
     def get_quote_category_for_grades(self, grades: List[Dict[str, Any]]) -> list:
-        """Determine the most relevant quote category based on grades (numeric, single-letter, or double-letter). Returns a list of categories."""
+        """Determine the most relevant quote category based on grades (numeric, single-letter, or double-letter). Returns a list of categories. For low grades, use comforting/supportive categories."""
         if not grades:
             return ["beginning"]
         numeric_totals = []
@@ -79,8 +79,11 @@ class GradeAnalytics:
                 return ["achievement"]
             elif avg >= 60:
                 return ["growth"]
-            else:
-                return ["perseverance"]
+            elif avg < 60:
+                # Comforting/supportive for low numeric grades
+                return [
+                    "resilience", "perseverance", "hope", "encouragement", "compassion", "self-improvement", "growth", "reflection", "meaningful life"
+                ]
         # Letter grade logic
         if letter_grades:
             # Map letter grades to performance
@@ -95,24 +98,55 @@ class GradeAnalytics:
             elif best in ["C+", "C", "C-", "CC", "DC"]:
                 return ["growth"]
             elif best in ["D+", "D", "D-", "DD", "FF", "F"]:
-                return ["perseverance"]
+                # Comforting/supportive for low letter grades
+                return [
+                    "resilience", "perseverance", "hope", "encouragement", "compassion", "self-improvement", "growth", "reflection", "meaningful life"
+                ]
             else:
                 return ["learning"]
         return ["learning"]
 
+    def get_quote_category_for_gpa(self, gpa: float) -> list:
+        """Return a quote category based on GPA value. For low GPA, use comforting/supportive categories."""
+        if gpa is None:
+            return ["learning"]
+        if gpa >= 3.5:
+            return ["excellence"]
+        elif gpa >= 3.0:
+            return ["achievement"]
+        elif gpa >= 2.0:
+            return ["growth"]
+        else:
+            # For low GPA, use comforting/supportive categories
+            return [
+                "resilience", "perseverance", "hope", "encouragement", "compassion", "self-improvement", "growth", "reflection", "meaningful life"
+            ]
+
     async def get_daily_quote(self, categories: list = None) -> dict:
         """Fetch a daily quote, trying all preferred and general keywords in order."""
+        # Improved, high-quality keywords for better quotes
         general_keywords = [
-            "philosophy", "wisdom", "motivation", "learning", "education", "progress", "growth", "Psychology", "Anthropology"
+            # Philosophy & Wisdom
+            "philosophy", "wisdom", "stoicism", "existentialism", "ethics", "virtue", "meaning", "truth", "logic", "reason", "consciousness", "mindfulness",
+            # Literature & Classics
+            "literature", "poetry", "classics", "Shakespeare", "Socrates", "Plato", "Aristotle", "Seneca", "Marcus Aurelius", "Epictetus", "Nietzsche", "Kant", "Confucius", "Lao Tzu",
+            # Science & Knowledge
+            "science", "knowledge", "curiosity", "discovery", "innovation", "creativity", "learning", "education",
+            # Human Potential & Character
+            "character", "integrity", "resilience", "courage", "perseverance", "growth", "reflection", "purpose", "self-discipline", "self-improvement", "gratitude", "humility",
+            # Psychology & Meaningful Life
+            "psychology", "meaningful life", "happiness", "fulfillment", "compassion", "empathy", "altruism", "generosity"
         ]
-        # If categories is a string, convert to list
+        # Filter specified categories to only allow high-quality keywords
+        allowed_keywords = set(general_keywords)
         if categories is None:
             categories = []
         elif isinstance(categories, str):
             categories = [categories]
-        # Remove duplicates, preserve order
+        # Remove duplicates, preserve order, and filter for quality
         seen = set()
-        all_keywords = [k for k in categories if not (k in seen or seen.add(k))] + [k for k in general_keywords if k not in categories]
+        filtered_categories = [k for k in categories if k in allowed_keywords and not (k in seen or seen.add(k))]
+        all_keywords = filtered_categories + [k for k in general_keywords if k not in filtered_categories]
         # Try each keyword in order
         for keyword in all_keywords:
             try:
@@ -298,12 +332,16 @@ class GradeAnalytics:
             return 0.0
 
     async def format_current_grades_with_quote(
-        self, telegram_id: int, grades: List[Dict[str, Any]]
+        self, telegram_id: int, grades: List[Dict[str, Any]], manual: bool = False
     ) -> str:
-        """Format current term grades and append a dual-language quote, using a relevant category."""
+        """Format current term grades and append a dual-language quote, using a relevant category. If manual=True, use GPA for category if available."""
         import re
         try:
-            category = self.get_quote_category_for_grades(grades)
+            gpa = self._calculate_gpa(grades)
+            if manual and gpa is not None:
+                category = self.get_quote_category_for_gpa(gpa)
+            else:
+                category = self.get_quote_category_for_grades(grades)
             quote = await self.get_daily_quote(category)
             total_courses = len(grades)
             completed_courses = sum(1 for grade in grades if grade.get("total"))
@@ -316,17 +354,10 @@ class GradeAnalytics:
             avg_grade_str = (
                 f"{avg_grade:.2f}%" if has_numeric and avg_grade > 0 else "لا يوجد درجات رقمية لحساب المتوسط"
             )
-            
-            # Calculate GPA
-            gpa = self._calculate_gpa(grades)
             gpa_str = f"{gpa:.2f}".rstrip('0').rstrip('.') if gpa is not None else "-"
-            
-            # Get the actual term name from the first grade (all grades should have the same term)
             term_name = "الفصل الدراسي الحالي"  # fallback
             if grades and grades[0].get('term_name'):
                 term_name = grades[0]['term_name']
-            
-            # Calculate completion status
             completion_status = f"{completed_courses}/{total_courses}"
             if completed_courses == 0:
                 completion_text = "لا توجد مقررات مكتملة"
@@ -334,7 +365,6 @@ class GradeAnalytics:
                 completion_text = f"جميع المقررات مكتملة ({completion_status})"
             else:
                 completion_text = f"مقررات مكتملة: {completion_status}"
-            
             message = (
                 f"📚 **درجات {term_name}**\n\n"
                 f"**إحصائيات عامة:**\n"

@@ -11,15 +11,17 @@ import logging
 import re
 
 from .models import DatabaseManager, User
+from .grade_storage_v2 import GradeStorageV2
 
 logger = logging.getLogger(__name__)
 
 class UserStorageV2:
     """User storage system using PostgreSQL"""
     
-    def __init__(self, database_url: str):
+    def __init__(self, database_url: str, grade_storage: Optional[GradeStorageV2] = None):
         self.db_manager = DatabaseManager(database_url)
         self._ensure_tables()
+        self.grade_storage = grade_storage
     
     def _ensure_tables(self):
         """Ensure database tables exist"""
@@ -130,7 +132,7 @@ class UserStorageV2:
                     if hasattr(user, key):
                         setattr(user, key, value)
                 
-                user.updated_at = datetime.now(timezone.utc)
+                setattr(user, 'updated_at', datetime.now(timezone.utc))
                 session.commit()
                 logger.info(f"✅ User updated successfully: {username}")
                 return True
@@ -147,10 +149,10 @@ class UserStorageV2:
                 if not user:
                     return False
                 
-                user.session_token = token
-                user.token_expires_at = expires_at
-                user.last_login = datetime.now(timezone.utc)
-                user.updated_at = datetime.now(timezone.utc)
+                setattr(user, 'session_token', token)
+                setattr(user, 'token_expires_at', expires_at)
+                setattr(user, 'last_login', datetime.now(timezone.utc))
+                setattr(user, 'updated_at', datetime.now(timezone.utc))
                 
                 session.commit()
                 logger.info(f"✅ Session token updated for: {username}")
@@ -163,12 +165,14 @@ class UserStorageV2:
     def delete_user(self, username: str) -> bool:
         """Delete user and all associated grades"""
         try:
+            # Cascade delete grades first
+            if self.grade_storage:
+                self.grade_storage.delete_user_grades(username)
             with self._get_session() as session:
                 user = session.query(User).filter(User.username == username).first()
                 if not user:
                     logger.warning(f"User not found for deletion: {username}")
                     return False
-                
                 session.delete(user)
                 session.commit()
                 logger.info(f"✅ User deleted successfully: {username}")
@@ -231,7 +235,7 @@ class UserStorageV2:
                     return False
                 
                 # You can add a field for this if needed
-                user.updated_at = datetime.now(timezone.utc)
+                setattr(user, 'updated_at', datetime.now(timezone.utc))
                 session.commit()
                 return True
                 
@@ -279,9 +283,9 @@ class UserStorageV2:
             'lastname': user.lastname,
             'email': user.email,
             'session_token': user.session_token,
-            'token_expires_at': user.token_expires_at.isoformat() if user.token_expires_at else None,
-            'last_login': user.last_login.isoformat() if user.last_login else None,
+            'token_expires_at': user.token_expires_at.isoformat() if getattr(user, 'token_expires_at', None) is not None else None,
+            'last_login': user.last_login.isoformat() if getattr(user, 'last_login', None) is not None else None,
             'is_active': user.is_active,
-            'created_at': user.created_at.isoformat() if user.created_at else None,
-            'updated_at': user.updated_at.isoformat() if user.updated_at else None
+            'created_at': user.created_at.isoformat() if getattr(user, 'created_at', None) is not None else None,
+            'updated_at': user.updated_at.isoformat() if getattr(user, 'updated_at', None) is not None else None
         } 

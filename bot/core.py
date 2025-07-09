@@ -12,6 +12,7 @@ from telegram.ext import (
 from typing import Dict, List
 import re
 import os
+import json
 
 from config import CONFIG
 from storage.models import DatabaseManager
@@ -39,6 +40,8 @@ ASK_USERNAME, ASK_PASSWORD, ASK_SESSION_TYPE, ASK_PASSWORD_CONFIRM = range(4)
 ASK_GPA_COURSE_COUNT, ASK_GPA_PERCENTAGE, ASK_GPA_ECTS = range(10, 13)
 # Add new states for settings/session management
 ASK_SETTINGS_MAIN, ASK_SESSION_MANAGEMENT = 20, 21
+# Add new state for older terms selection
+ASK_OLDER_TERM_NUMBER = 30
 
 class TelegramBot:
     """Main Telegram Bot Class"""
@@ -55,6 +58,7 @@ class TelegramBot:
         self.broadcast_system = BroadcastSystem(self)
         self.grade_check_task = None
         self.running = False
+        self._user_locks = {}  # username_unique: asyncio.Lock
 
     def _initialize_storage(self):
         pg_initialized = False
@@ -67,6 +71,11 @@ class TelegramBot:
         except Exception as e:
             logger.critical(f"❌ FATAL: Storage initialization failed. Bot cannot run: {e}", exc_info=True)
             raise RuntimeError("Failed to initialize storage systems.")
+
+    def _get_user_lock(self, username_unique):
+        if username_unique not in self._user_locks:
+            self._user_locks[username_unique] = asyncio.Lock()
+        return self._user_locks[username_unique]
 
     async def start(self):
         self.running = True
@@ -192,6 +201,14 @@ class TelegramBot:
             fallbacks=[MessageHandler(filters.Regex("^🔙 العودة$"), self._return_to_main)],
         )
         self.app.add_handler(settings_handler)
+        older_terms_handler = ConversationHandler(
+            entry_points=[MessageHandler(filters.Regex("^📅 جميع الفصول$"), self._older_terms_command)],
+            states={
+                ASK_OLDER_TERM_NUMBER: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._ask_older_term_number)],
+            },
+            fallbacks=[MessageHandler(filters.Regex("^❌ إلغاء$"), self._cancel_registration)],
+        )
+        self.app.add_handler(older_terms_handler)
 
     async def _send_message_with_keyboard(self, update, message, keyboard_type="main"):
         keyboards = {
@@ -233,7 +250,7 @@ class TelegramBot:
             "كيفية الاستخدام:\n"
             "1. اضغط '🚀 تسجيل الدخول' وأدخل بياناتك الجامعية\n"
             "2. استخدم الأزرار لفحص الدرجات والإعدادات\n"
-            "3. للمساعدة تواصل مع المطور\n\n"
+            "3. استعمل الأزرار للمساعدة أو الدعم الفني\n\n"
             "الأوامر الأساسية:\n"
             "/start - بدء الاستخدام\n"
             "/help - المساعدة\n"
@@ -252,7 +269,6 @@ class TelegramBot:
             help_text += "\nأوامر المدير:\n/security_stats - إحصائيات الأمان\n/admin - لوحة التحكم\n"
         help_text += f"\n👨‍💻 المطور: {CONFIG.get('ADMIN_USERNAME', '@admin')}"
         try:
-            # Send help as plain text
             await update.message.reply_text(help_text)
         except Exception as e:
             logger.error(f"Error sending help message: {e}")
@@ -398,10 +414,17 @@ class TelegramBot:
             logger.info(f"✅ Sending formatted message to user {telegram_id}")
             await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN, reply_markup=get_main_keyboard())
         except Exception as e:
-            logger.error(f"❌ Error in _grades_command: {e}", exc_info=True)
+            logger.error(f"[ALERT] Error in _grades_command: {e}", exc_info=True)
+            admin_id = CONFIG.get("ADMIN_ID")
+            admin_username = CONFIG.get("ADMIN_USERNAME", "@admin")
+            if admin_id:
+                try:
+                    await self.app.bot.send_message(chat_id=admin_id, text=f"[DB/UX ERROR] User: {update.effective_user.id}\nAction: grades\nError: {e}")
+                except Exception:
+                    pass
             is_registered = self.user_storage.is_user_registered(update.effective_user.id)
             keyboard = get_main_keyboard() if is_registered else get_unregistered_keyboard()
-            await update.message.reply_text("❌ حدث خطأ أثناء جلب الدرجات.", reply_markup=keyboard)
+            await update.message.reply_text(f"❌ حدث خطأ أثناء جلب الدرجات. إذا استمرت المشكلة، لا تتردد في التواصل مع المطور {admin_username}.", reply_markup=keyboard)
 
     async def _old_grades_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
@@ -443,11 +466,18 @@ class TelegramBot:
             else:
                 await update.message.reply_text(formatted_message, reply_markup=get_main_keyboard())
         except Exception as e:
-            logger.error(f"Error in _old_grades_command: {e}", exc_info=True)
+            logger.error(f"[ALERT] Error in _old_grades_command: {e}", exc_info=True)
+            admin_id = CONFIG.get("ADMIN_ID")
+            admin_username = CONFIG.get("ADMIN_USERNAME", "@admin")
+            if admin_id:
+                try:
+                    await self.app.bot.send_message(chat_id=admin_id, text=f"[DB/UX ERROR] User: {update.effective_user.id}\nAction: old_grades\nError: {e}")
+                except Exception:
+                    pass
             context.user_data.pop('last_action', None)
             is_registered = self.user_storage.is_user_registered(update.effective_user.id)
             keyboard = get_main_keyboard() if is_registered else get_unregistered_keyboard()
-            await update.message.reply_text("❌ حدث خطأ غير متوقع أثناء جلب الدرجات السابقة. يرجى المحاولة لاحقاً أو التواصل مع الدعم.", reply_markup=keyboard)
+            await update.message.reply_text(f"❌ حدث خطأ غير متوقع أثناء جلب الدرجات السابقة. إذا استمرت المشكلة، لا تتردد في التواصل مع المطور {admin_username}.", reply_markup=keyboard)
 
     async def _profile_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
@@ -491,7 +521,7 @@ class TelegramBot:
         try:
             admin_username = CONFIG.get("ADMIN_USERNAME", "@admin")
             await update.message.reply_text(
-                f"📞 للدعم الفني تواصل مع المطور: {admin_username}\nاضغط الزر أدناه للتواصل مباشرة.",
+                f"📞 للدعم الفني: {admin_username}\nاضغط الزر أدناه للتواصل مباشرة.",
                 reply_markup=self._get_contact_support_keyboard()
             )
         except Exception as e:
@@ -589,6 +619,8 @@ class TelegramBot:
                 # Refresh keyboard
                 "🔄 تحديث الأزرار": self._refresh_keyboard,
                 "🧮 حساب المعدل المخصص": self._gpa_calc_start,
+                "📅 جميع الفصول": self._older_terms_command,
+                "📥 تحميل معلوماتي": self._download_my_info_command,
             }
             action = actions.get(text)
             if action:
@@ -602,12 +634,19 @@ class TelegramBot:
                     reply_markup=keyboard
                 )
         except Exception as e:
-            logger.error(f"Error in _handle_message: {e}", exc_info=True)
+            logger.error(f"[ALERT] Error in _handle_message: {e}", exc_info=True)
+            admin_id = CONFIG.get("ADMIN_ID")
+            admin_username = CONFIG.get("ADMIN_USERNAME", "@admin")
+            if admin_id:
+                try:
+                    await self.app.bot.send_message(chat_id=admin_id, text=f"[UX ERROR] User: {user_id}\nAction: {text}\nError: {e}")
+                except Exception:
+                    pass
             context.user_data.clear()
             is_registered = self.user_storage.is_user_registered(user_id)
             keyboard = get_main_keyboard() if is_registered else get_unregistered_keyboard()
             await update.message.reply_text(
-                "❌ حدث خطأ غير متوقع\n\n**الحلول:**\n• جرب مرة أخرى بعد قليل\n• إذا استمرت المشكلة، تواصل مع الدعم\n• تأكد من اتصالك بالإنترنت\n\n📞 للمساعدة: اضغط '📞 الدعم الفني' أو الزر أدناه.",
+                f"❌ حدث خطأ غير متوقع\n\n**الحلول:**\n• جرب مرة أخرى بعد قليل\n• إذا استمرت المشكلة، لا تتردد في التواصل مع المطور {admin_username}\n• تأكد من اتصالك بالإنترنت\n\n📞 للمساعدة: اضغط '📞 الدعم الفني' أو الزر أدناه.",
                 reply_markup=keyboard
             )
 
@@ -717,175 +756,189 @@ class TelegramBot:
             token = user.get("session_token")
             logger.info(f"[CALL] _check_and_notify_user_grades for username={username}, username_unique={username_unique}, telegram_id={telegram_id}")
             logger.info(f"[CHECK] self.grade_storage is type: {type(self.grade_storage)}")
-            # Notify only once if token expired
-            if not token:
-                logger.debug(f"❌ No token for user {username}")
-                return False
-            is_pg = hasattr(self.user_storage, 'update_token_expired_notified')
-            notified = user.get("token_expired_notified", False)
-            logger.debug(f"🔍 Testing token for user {username}")
-            if not await self.university_api.test_token(token):
-                logger.warning(f"❌ Token expired for user {username}")
-                # Try auto-login if password is stored
-                if user.get("password_stored") and user.get("encrypted_password"):
-                    try:
-                        from utils.crypto import decrypt_password
-                        decrypted_password = decrypt_password(user["encrypted_password"])
-                        new_token = await self.university_api.login(user["username"], decrypted_password)
-                        if new_token:
-                            logger.info(f"🔑 Auto-login successful for user {username}, updating token.")
-                            # Update token in storage
-                            user["token"] = new_token
-                            self.user_storage.save_user(
-                                telegram_id,
-                                user["username"],
-                                new_token,
-                                user,
-                                encrypted_password=user["encrypted_password"],
-                                password_stored=True,
-                                password_consent_given=user.get("password_consent_given", True)
-                            )
-                            # Retry grade check with new token
-                            token = new_token
-                            if is_pg:
-                                self.user_storage.update_token_expired_notified(telegram_id, False)
+            lock = self._get_user_lock(username_unique)
+            async with lock:
+                # Notify only once if token expired
+                if not token:
+                    logger.debug(f"❌ No token for user {username}")
+                    return False
+                is_pg = hasattr(self.user_storage, 'update_token_expired_notified')
+                notified = user.get("token_expired_notified", False)
+                logger.debug(f"🔍 Testing token for user {username}")
+                if not await self.university_api.test_token(token):
+                    logger.warning(f"❌ Token expired for user {username}")
+                    # Try auto-login if password is stored
+                    if user.get("password_stored") and user.get("encrypted_password"):
+                        try:
+                            from utils.crypto import decrypt_password
+                            decrypted_password = decrypt_password(user["encrypted_password"])
+                            new_token = await self.university_api.login(user["username"], decrypted_password)
+                            if new_token:
+                                logger.info(f"🔑 Auto-login successful for user {username}, updating token.")
+                                # Update token in storage
+                                user["token"] = new_token
+                                self.user_storage.save_user(
+                                    telegram_id,
+                                    user["username"],
+                                    new_token,
+                                    user,
+                                    encrypted_password=user["encrypted_password"],
+                                    password_stored=True,
+                                    password_consent_given=user.get("password_consent_given", True)
+                                )
+                                # Retry grade check with new token
+                                token = new_token
+                                if is_pg:
+                                    self.user_storage.update_token_expired_notified(telegram_id, False)
+                                else:
+                                    user["token_expired_notified"] = False
+                                    if hasattr(self.user_storage, '_save_users'):
+                                        self.user_storage._save_users()
+                                # Now continue as if token is valid
                             else:
-                                user["token_expired_notified"] = False
-                                if hasattr(self.user_storage, '_save_users'):
-                                    self.user_storage._save_users()
-                            # Now continue as if token is valid
-                        else:
+                                logger.warning(f"❌ Auto-login failed for user {username}")
+                                return False
+                        except Exception as e:
                             logger.warning(f"❌ Auto-login failed for user {username}")
                             return False
-                    except Exception as e:
-                        logger.warning(f"❌ Auto-login failed for user {username}")
-                        return False
-                else:
-                    # Token is invalid, notify user to login manually
-                    if not notified:
-                        await self.app.bot.send_message(
-                            chat_id=telegram_id,
-                            text="⏰ انتهت صلاحية الجلسة\n\nيرجى تسجيل الدخول مرة أخرى من خلال زر '🚀 تسجيل الدخول للجامعة' ثم إدخال بياناتك من جديد. هذا طبيعي ويحدث كل فترة.",
-                            reply_markup=get_unregistered_keyboard()
-                        )
-                        if is_pg:
-                            self.user_storage.update_token_expired_notified(telegram_id, True)
-                        else:
-                            user["token_expired_notified"] = True
-                            if hasattr(self.user_storage, '_save_users'):
-                                self.user_storage._save_users()
-                    return False
-            logger.debug(f"✅ Token valid for user {username}")
-            # Reset notification flag if token is valid
-            if notified:
-                if is_pg:
-                    self.user_storage.update_token_expired_notified(telegram_id, False)
-                else:
-                    # Update file storage
-                    user["token_expired_notified"] = False
-                    if hasattr(self.user_storage, '_save_users'):
-                        self.user_storage._save_users()
-            logger.debug(f"🔍 Fetching user data for {username}")
-            user_data = await self.university_api.get_user_data(token)
-            if not user_data or "grades" not in user_data:
-                logger.info(f"No grade data available for {username} in this check.")
-                return False
-            new_grades = user_data.get("grades", [])
-            logger.debug(f"📊 Found {len(new_grades)} new grades for user {username}")
-            # Use username_unique for grade storage
-            old_grades = self.grade_storage.get_user_grades(username_unique)
-            logger.debug(f"📊 Found {len(old_grades) if old_grades else 0} stored grades for user {username_unique}")
-            
-            # Get user's grade notification sensitivity setting
-            user_settings = self.user_settings.get_user_settings(telegram_id)
-            sensitivity = user_settings.get("notifications", {}).get("grade_sensitivity", "meaningful")
-            logger.debug(f"🔍 User {username_unique} grade sensitivity setting: {sensitivity}")
-            
-            changed_courses = self._compare_grades(old_grades, new_grades, sensitivity)
-            logger.debug(f"🔍 Grade comparison for {username_unique}: {len(changed_courses)} {sensitivity} changes detected")
-            
-            if not changed_courses:
-                logger.debug(f"✅ No {sensitivity} grade changes for user {username_unique}, not sending notification.")
-                # Still save the grades even if no notification is sent
-                self.grade_storage.store_grades(username_unique, new_grades)
-                return False
-            
-            # Create appropriate message based on sensitivity
-            if sensitivity == "all":
-                message = f"🎓 تم تحديث درجاتك في المواد التالية:\n\n"
-            elif sensitivity == "significant":
-                message = f"🎓 تم تحديث درجاتك بشكل كبير في المواد التالية:\n\n"
-            else:  # meaningful
-                message = f"🎓 تم تحديث درجاتك في المواد التالية:\n\n"
-            old_map = {g.get('code') or g.get('name'): g for g in old_grades if g.get('code') or g.get('name')}
-            
-            for grade in changed_courses:
-                name = grade.get('name', 'N/A')
-                code = grade.get('code', '-')
-                key = code if code != '-' else name
-                old = old_map.get(key, {})
-                
-                def show_change(field, label):
-                    """Show changes based on sensitivity setting"""
-                    old_val = old.get(field, '—')
-                    new_val = grade.get(field, '—')
-                    
-                    # Check if both values are meaningful grades
-                    def is_meaningful(val):
-                        return val and val != 'لم يتم النشر' and val != '—' and val != '-'
-                    
-                    old_meaningful = is_meaningful(old_val)
-                    new_meaningful = is_meaningful(new_val)
-                    
-                    if sensitivity == "all":
-                        # Show all changes
-                        if old_val != new_val:
-                            if not old_meaningful and new_meaningful:
-                                return f"{label}: تم النشر → {new_val}"
-                            elif old_meaningful and not new_meaningful:
-                                return f"{label}: {old_val} → تم إلغاء النشر"
+                    else:
+                        # Token is invalid, notify user to login manually
+                        if not notified:
+                            await self.app.bot.send_message(
+                                chat_id=telegram_id,
+                                text="⏰ انتهت صلاحية الجلسة\n\nيرجى تسجيل الدخول مرة أخرى من خلال زر '🚀 تسجيل الدخول للجامعة' ثم إدخال بياناتك من جديد. هذا طبيعي ويحدث كل فترة.",
+                                reply_markup=get_unregistered_keyboard()
+                            )
+                            if is_pg:
+                                self.user_storage.update_token_expired_notified(telegram_id, True)
                             else:
-                                return f"{label}: {old_val} → {new_val}"
-                    elif sensitivity == "significant":
-                        # Show only significant changes
-                        if old_meaningful and new_meaningful and old_val != new_val:
-                            # Check if it's a significant change
-                            try:
-                                old_num = float(old_val) if old_val.replace('.', '').replace('-', '').isdigit() else None
-                                new_num = float(new_val) if new_val.replace('.', '').replace('-', '').isdigit() else None
-                                if old_num is not None and new_num is not None and abs(new_num - old_num) >= 5:
-                                    return f"{label}: {old_val} → {new_val}"
-                                elif old_num is None or new_num is None:  # Letter grades
-                                    return f"{label}: {old_val} → {new_val}"
-                            except:
-                                return f"{label}: {old_val} → {new_val}"
-                    else:  # meaningful (default)
-                        # Show only meaningful changes
-                        if old_meaningful and new_meaningful and old_val != new_val:
-                            return f"{label}: {old_val} → {new_val}"
-                        elif not old_meaningful and new_meaningful:
-                            return f"{label}: تم النشر → {new_val}"
-                    return None
+                                user["token_expired_notified"] = True
+                                if hasattr(self.user_storage, '_save_users'):
+                                    self.user_storage._save_users()
+                        return False
+                logger.debug(f"✅ Token valid for user {username}")
+                # Reset notification flag if token is valid
+                if notified:
+                    if is_pg:
+                        self.user_storage.update_token_expired_notified(telegram_id, False)
+                    else:
+                        # Update file storage
+                        user["token_expired_notified"] = False
+                        if hasattr(self.user_storage, '_save_users'):
+                            self.user_storage._save_users()
+                logger.debug(f"🔍 Fetching user data for {username}")
+                user_data = await self.university_api.get_user_data(token)
+                if not user_data or "grades" not in user_data:
+                    logger.info(f"No grade data available for {username} in this check.")
+                    return False
+                new_grades = user_data.get("grades", [])
+                logger.debug(f"📊 Found {len(new_grades)} new grades for user {username}")
+                # Use username_unique for grade storage
+                old_grades = []
+                try:
+                    old_grades = self.grade_storage.get_user_grades(username_unique)
+                except Exception as db_exc:
+                    logger.error(f"[ALERT] Persistent DB error for user {username_unique}: {db_exc}")
+                    # Alert admin
+                    admin_id = CONFIG.get("ADMIN_ID")
+                    if admin_id:
+                        try:
+                            await self.app.bot.send_message(chat_id=admin_id, text=f"[DB ERROR] Persistent DB error for user {username_unique}: {db_exc}")
+                        except Exception:
+                            pass
+                    return False
+                logger.debug(f"📊 Found {len(old_grades) if old_grades else 0} stored grades for user {username_unique}")
                 
-                changes = [
-                    show_change('coursework', 'الأعمال'),
-                    show_change('final_exam', 'النظري'),
-                    show_change('total', 'النهائي'),
-                ]
-                changes = [c for c in changes if c]
+                # Get user's grade notification sensitivity setting
+                user_settings = self.user_settings.get_user_settings(telegram_id)
+                sensitivity = user_settings.get("notifications", {}).get("grade_sensitivity", "meaningful")
+                logger.debug(f"🔍 User {username_unique} grade sensitivity setting: {sensitivity}")
                 
-                if changes:
-                    message += f"📚 {name} ({code})\n" + "\n".join(changes) + "\n\n"
-            
-            # If we reach here, we have meaningful changes to report
-            logger.info(f"[CALL] About to call store_grades for username_unique={username_unique} with {len(new_grades)} grades.")
-            self.grade_storage.store_grades(username_unique, new_grades)
-            
-            now_utc3 = datetime.now(timezone.utc) + timedelta(hours=3)
-            message += f"🕒 وقت التحديث: {now_utc3.strftime('%Y-%m-%d %H:%M')} (UTC+3)"
-            await self.app.bot.send_message(chat_id=telegram_id, text=message)
-            logger.info(f"✅ Sent grade change notification to user {username_unique}")
-            return True
+                changed_courses = self._compare_grades(old_grades, new_grades, sensitivity)
+                logger.debug(f"🔍 Grade comparison for {username_unique}: {len(changed_courses)} {sensitivity} changes detected")
+                
+                if not changed_courses:
+                    logger.debug(f"✅ No {sensitivity} grade changes for user {username_unique}, not sending notification.")
+                    # Still save the grades even if no notification is sent
+                    self.grade_storage.store_grades(username_unique, new_grades)
+                    return False
+                
+                # Create appropriate message based on sensitivity
+                if sensitivity == "all":
+                    message = f"🎓 تم تحديث درجاتك في المواد التالية:\n\n"
+                elif sensitivity == "significant":
+                    message = f"🎓 تم تحديث درجاتك بشكل كبير في المواد التالية:\n\n"
+                else:  # meaningful
+                    message = f"🎓 تم تحديث درجاتك في المواد التالية:\n\n"
+                old_map = {g.get('code') or g.get('name'): g for g in old_grades if g.get('code') or g.get('name')}
+                
+                for grade in changed_courses:
+                    name = grade.get('name', 'N/A')
+                    code = grade.get('code', '-')
+                    key = code if code != '-' else name
+                    old = old_map.get(key, {})
+                    
+                    def show_change(field, label):
+                        """Show changes based on sensitivity setting"""
+                        old_val = old.get(field, '—')
+                        new_val = grade.get(field, '—')
+                        
+                        # Check if both values are meaningful grades
+                        def is_meaningful(val):
+                            return val and val != 'لم يتم النشر' and val != '—' and val != '-'
+                        
+                        old_meaningful = is_meaningful(old_val)
+                        new_meaningful = is_meaningful(new_val)
+                        
+                        if sensitivity == "all":
+                            # Show all changes
+                            if old_val != new_val:
+                                if not old_meaningful and new_meaningful:
+                                    return f"{label}: تم النشر → {new_val}"
+                                elif old_meaningful and not new_meaningful:
+                                    return f"{label}: {old_val} → تم إلغاء النشر"
+                                else:
+                                    return f"{label}: {old_val} → {new_val}"
+                        elif sensitivity == "significant":
+                            # Show only significant changes
+                            if old_meaningful and new_meaningful and old_val != new_val:
+                                # Check if it's a significant change
+                                try:
+                                    old_num = float(old_val) if old_val.replace('.', '').replace('-', '').isdigit() else None
+                                    new_num = float(new_val) if new_val.replace('.', '').replace('-', '').isdigit() else None
+                                    if old_num is not None and new_num is not None and abs(new_num - old_num) >= 5:
+                                        return f"{label}: {old_val} → {new_val}"
+                                    elif old_num is None or new_num is None:  # Letter grades
+                                        return f"{label}: {old_val} → {new_val}"
+                                except:
+                                    return f"{label}: {old_val} → {new_val}"
+                        else:  # meaningful (default)
+                            # Show only meaningful changes
+                            if old_meaningful and new_meaningful and old_val != new_val:
+                                return f"{label}: {old_val} → {new_val}"
+                            elif not old_meaningful and new_meaningful:
+                                return f"{label}: تم النشر → {new_val}"
+                        return None
+                    
+                    changes = [
+                        show_change('coursework', 'الأعمال'),
+                        show_change('final_exam', 'النظري'),
+                        show_change('total', 'النهائي'),
+                    ]
+                    changes = [c for c in changes if c]
+                    
+                    if changes:
+                        message += f"📚 {name} ({code})\n" + "\n".join(changes) + "\n\n"
+                
+                # If we reach here, we have meaningful changes to report
+                logger.info(f"[CALL] About to call store_grades for username_unique={username_unique} with {len(new_grades)} grades.")
+                self.grade_storage.store_grades(username_unique, new_grades)
+                
+                now_utc3 = datetime.now(timezone.utc) + timedelta(hours=3)
+                message += f"🕒 وقت التحديث: {now_utc3.strftime('%Y-%m-%d %H:%M')} (UTC+3)"
+                await self.app.bot.send_message(chat_id=telegram_id, text=message)
+                logger.info(f"✅ Sent grade change notification to user {username_unique}")
+                return True
         except Exception as e:
             logger.error(f"❌ Error in _check_and_notify_user_grades for user {user.get('username', 'Unknown')}: {e}", exc_info=True)
             return False
@@ -1410,17 +1463,28 @@ class TelegramBot:
 
     async def _refresh_keyboard(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Refresh keyboard based on user registration status"""
-        user = self.user_storage.get_user(update.effective_user.id)
-        if user:
-            await update.message.reply_text(
-                "✅ تم تحديث الأزرار للمستخدمين المسجلين.",
-                reply_markup=get_main_keyboard()
-            )
-        else:
-            await update.message.reply_text(
-                "❌ أنت غير مسجل. يرجى التسجيل أولاً.",
-                reply_markup=get_unregistered_keyboard()
-            )
+        try:
+            user = self.user_storage.get_user(update.effective_user.id)
+            if user:
+                await update.message.reply_text(
+                    "✅ تم تحديث الأزرار للمستخدمين المسجلين.",
+                    reply_markup=get_main_keyboard()
+                )
+            else:
+                await update.message.reply_text(
+                    "❌ أنت غير مسجل. يرجى التسجيل أولاً.",
+                    reply_markup=get_unregistered_keyboard()
+                )
+        except Exception as e:
+            logger.error(f"[ALERT] Error in _refresh_keyboard: {e}", exc_info=True)
+            admin_id = CONFIG.get("ADMIN_ID")
+            admin_username = CONFIG.get("ADMIN_USERNAME", "@admin")
+            if admin_id:
+                try:
+                    await self.app.bot.send_message(chat_id=admin_id, text=f"[REFRESH ERROR] User: {getattr(update.effective_user, 'id', None)}\nError: {e}")
+                except Exception:
+                    pass
+            await update.message.reply_text(f"❌ حدث خطأ أثناء تحديث الأزرار. إذا استمرت المشكلة، لا تتردد في التواصل مع المطور {admin_username}.", reply_markup=get_main_keyboard())
 
     async def _force_logout_user(self, telegram_id: int, update: Update):
         """Force logout user due to invalid token"""
@@ -1637,3 +1701,146 @@ class TelegramBot:
         else:
             await update.message.reply_text("❌ يرجى اختيار أو كتابة أحد الخيارات الصحيحة فقط.")
             return ASK_SESSION_MANAGEMENT
+
+    async def _older_terms_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle the 'older terms' button: show list of all terms, prompt for number, then fetch grades for selected term."""
+        telegram_id = update.effective_user.id
+        user = self.user_storage.get_user(telegram_id)
+        if not user:
+            await update.message.reply_text("❗️ يجب التسجيل أولاً.", reply_markup=get_unregistered_keyboard())
+            return
+        token = user.get("session_token")
+        if not token:
+            await update.message.reply_text("❗️ يجب إعادة تسجيل الدخول.", reply_markup=get_unregistered_keyboard())
+            return
+        # Fetch all terms
+        homepage_data = await self.university_api.get_homepage_data(token)
+        if not homepage_data:
+            await update.message.reply_text("❌ تعذر جلب قائمة الفصول. حاول لاحقاً.", reply_markup=get_main_keyboard())
+            return
+        terms = self.university_api.extract_terms_from_homepage(homepage_data)
+        if not terms or len(terms) < 1:
+            await update.message.reply_text("❌ لا توجد فصول متاحة.", reply_markup=get_main_keyboard())
+            return
+        # Show numbered list (skip first two: current, previous)
+        all_terms = terms
+        context.user_data['older_terms_list'] = all_terms
+        msg = "اختر رقم الفصل الذي تريد عرض درجاته:\n\n"
+        for idx, (term_name, _) in enumerate(all_terms, 1):
+            msg += f"{idx}. {term_name}\n"
+        msg += "\nأدخل رقم الفصل المطلوب (مثال: 1):"
+        await update.message.reply_text(msg, reply_markup=remove_keyboard())
+        context.user_data['last_action'] = 'older_terms'
+        return ASK_OLDER_TERM_NUMBER
+
+    async def _ask_older_term_number(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        telegram_id = update.effective_user.id
+        user = self.user_storage.get_user(telegram_id)
+        if not user:
+            await update.message.reply_text("❗️ يجب التسجيل أولاً.", reply_markup=get_unregistered_keyboard())
+            return ConversationHandler.END
+        token = user.get("session_token")
+        if not token:
+            await update.message.reply_text("❗️ يجب إعادة تسجيل الدخول.", reply_markup=get_unregistered_keyboard())
+            return ConversationHandler.END
+        all_terms = context.user_data.get('older_terms_list')
+        if not all_terms:
+            await update.message.reply_text("❌ لا توجد فصول متاحة.", reply_markup=get_main_keyboard())
+            return ConversationHandler.END
+        try:
+            number = int(update.message.text.strip())
+        except Exception:
+            await update.message.reply_text("❌ أدخل رقم صحيح للفصل.")
+            return ASK_OLDER_TERM_NUMBER
+        if not (1 <= number <= len(all_terms)):
+            await update.message.reply_text(f"❌ اختر رقم بين 1 و {len(all_terms)}.")
+            return ASK_OLDER_TERM_NUMBER
+        term_name, term_id = all_terms[number-1]
+        # Fetch grades for selected term
+        grades = await self.university_api.get_term_grades(token, term_id)
+        if not grades:
+            await update.message.reply_text(f"❌ لا توجد درجات متاحة للفصل: {term_name}", reply_markup=get_main_keyboard())
+            return ConversationHandler.END
+        # Add term info to grades
+        for grade in grades:
+            grade['term_name'] = term_name
+            grade['term_id'] = term_id
+        # Save grades to storage
+        self.grade_storage.store_grades(user.get('username'), grades)
+        # Format and send grades
+        message = await self.grade_analytics.format_old_grades_with_analysis(telegram_id, grades)
+        if len(message) > 4096:
+            for i in range(0, len(message), 4096):
+                await update.message.reply_text(message[i:i+4096], reply_markup=get_main_keyboard())
+        else:
+            await update.message.reply_text(message, reply_markup=get_main_keyboard())
+        return ConversationHandler.END
+
+    async def _download_my_info_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        telegram_id = update.effective_user.id
+        user = self.user_storage.get_user(telegram_id)
+        if not user:
+            await update.message.reply_text("❗️ يجب التسجيل أولاً.", reply_markup=get_unregistered_keyboard())
+            return
+        # Remove sensitive/session fields if needed
+        user_info = dict(user)
+        user_info.pop("session_token", None)
+        # Convert to JSON
+        json_str = json.dumps(user_info, ensure_ascii=False, indent=2)
+        # Inform the user about privacy
+        await update.message.reply_text(
+            "هذه كل المعلومات التي يعرفها البوت عنك. لا أحد يطلع عليها، ويتم جلبها فقط عند طلبك."
+        )
+        # Send as file
+        await update.message.reply_document(
+            document=bytes(json_str, encoding="utf-8"),
+            filename="my_information.json",
+            caption="📥 هذه جميع المعلومات المخزنة عنك في قاعدة البيانات."
+        )
+
+    async def _silent_update_all_users_grades(self):
+        """
+        Refresh grades for all users and save them to storage, but do NOT send any notifications.
+        Returns the number of users whose grades were refreshed.
+        """
+        users = self.user_storage.get_all_users()
+        logger.info(f"🔕 Silent update: Found {len(users)} users in database")
+        if not users:
+            logger.warning("⚠️ No users found in database for silent update")
+            return 0
+        updated_count = 0
+        semaphore = asyncio.Semaphore(CONFIG.get('MAX_CONCURRENT_REQUESTS', 5))
+        tasks = []
+        results = []
+
+        async def refresh_user(user):
+            async with semaphore:
+                try:
+                    telegram_id = user.get("telegram_id")
+                    username = user.get("username")
+                    username_unique = user.get("username_unique")
+                    token = user.get("session_token")
+                    lock = self._get_user_lock(username_unique)
+                    async with lock:
+                        if not token:
+                            return False
+                        # Test token validity
+                        if not await self.university_api.test_token(token):
+                            return False
+                        user_data = await self.university_api.get_user_data(token)
+                        if not user_data or "grades" not in user_data:
+                            return False
+                        new_grades = user_data.get("grades", [])
+                        self.grade_storage.store_grades(username_unique, new_grades)
+                        return True
+                except Exception as e:
+                    logger.error(f"❌ Error in silent grade refresh for user {user.get('username', 'Unknown')}: {e}", exc_info=True)
+                    return False
+
+        for user in users:
+            tasks.append(asyncio.create_task(refresh_user(user)))
+        if tasks:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            updated_count = sum(1 for r in results if r is True)
+        logger.info(f"🔕 Silent update completed: {updated_count}/{len(users)} users refreshed")
+        return updated_count

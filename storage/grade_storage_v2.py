@@ -9,6 +9,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, desc
 import logging
 import re
+import time
+from sqlalchemy.exc import OperationalError
+
+RETRY_ATTEMPTS = 3
+RETRY_SLEEP = 2  # seconds
 
 from .models import DatabaseManager, Grade, User
 
@@ -33,9 +38,24 @@ class GradeStorageV2:
         """Get database session"""
         return self.db_manager.get_session()
     
+    def _retry_db(self, func, *args, **kwargs):
+        last_exc = None
+        for attempt in range(RETRY_ATTEMPTS):
+            try:
+                return func(*args, **kwargs)
+            except OperationalError as e:
+                last_exc = e
+                logger.warning(f"[Retry] DB operation failed (attempt {attempt+1}/{RETRY_ATTEMPTS}): {e}")
+                time.sleep(RETRY_SLEEP)
+        logger.error(f"[Persistent DB Error] Operation failed after {RETRY_ATTEMPTS} attempts: {last_exc}")
+        if last_exc is not None:
+            raise last_exc
+        else:
+            raise Exception("Unknown persistent DB error after retries.")
+
     def store_grades(self, username: str, grades_data: List[Dict[str, Any]]) -> bool:
         """Store or update grades for a user"""
-        try:
+        def _inner():
             with self._get_session() as session:
                 # Get existing grades for this user
                 existing_grades = session.query(Grade).filter(Grade.username == username).all()
@@ -83,14 +103,15 @@ class GradeStorageV2:
                     logger.info(f"✅ No grade changes for {username}")
                 
                 return True
-                
+        try:
+            return self._retry_db(_inner)
         except Exception as e:
             logger.error(f"❌ Failed to store grades: {e}")
             return False
     
     def get_user_grades(self, username: str, term_name: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get grades for a user, optionally filtered by term"""
-        try:
+        def _inner():
             with self._get_session() as session:
                 query = session.query(Grade).filter(Grade.username == username)
                 
@@ -99,14 +120,15 @@ class GradeStorageV2:
                 
                 grades = query.order_by(Grade.name).all()
                 return [self._grade_to_dict(grade) for grade in grades]
-                
+        try:
+            return self._retry_db(_inner)
         except Exception as e:
             logger.error(f"❌ Failed to get user grades: {e}")
             return []
     
     def get_current_term_grades(self, username: str) -> List[Dict[str, Any]]:
         """Get current term grades for a user"""
-        try:
+        def _inner():
             with self._get_session() as session:
                 # Get the most recent term
                 latest_term = session.query(Grade.term_name).filter(
@@ -116,14 +138,15 @@ class GradeStorageV2:
                 if latest_term:
                     return self.get_user_grades(username, latest_term[0])
                 return []
-                
+        try:
+            return self._retry_db(_inner)
         except Exception as e:
             logger.error(f"❌ Failed to get current term grades: {e}")
             return []
     
     def get_old_term_grades(self, username: str) -> List[Dict[str, Any]]:
         """Get old term grades for a user (excluding current term)"""
-        try:
+        def _inner():
             with self._get_session() as session:
                 # Get current term
                 current_term = session.query(Grade.term_name).filter(
@@ -142,14 +165,15 @@ class GradeStorageV2:
                 ).order_by(desc(Grade.term_name), Grade.name).all()
                 
                 return [self._grade_to_dict(grade) for grade in grades]
-                
+        try:
+            return self._retry_db(_inner)
         except Exception as e:
             logger.error(f"❌ Failed to get old term grades: {e}")
             return []
     
     def compare_grades(self, username: str, new_grades: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Compare new grades with stored grades and return changes"""
-        try:
+        def _inner():
             with self._get_session() as session:
                 # Get existing grades
                 existing_grades = session.query(Grade).filter(Grade.username == username).all()
@@ -179,14 +203,15 @@ class GradeStorageV2:
                         })
                 
                 return changes
-                
+        try:
+            return self._retry_db(_inner)
         except Exception as e:
             logger.error(f"❌ Failed to compare grades: {e}")
             return []
     
     def get_grade_history(self, username: str, course_code: str) -> List[Dict[str, Any]]:
         """Get grade history for a specific course"""
-        try:
+        def _inner():
             with self._get_session() as session:
                 grades = session.query(Grade).filter(
                     and_(
@@ -196,14 +221,15 @@ class GradeStorageV2:
                 ).order_by(desc(Grade.updated_at)).all()
                 
                 return [self._grade_to_dict(grade) for grade in grades]
-                
+        try:
+            return self._retry_db(_inner)
         except Exception as e:
             logger.error(f"❌ Failed to get grade history: {e}")
             return []
     
     def delete_user_grades(self, username: str) -> bool:
         """Delete all grades for a user"""
-        try:
+        def _inner():
             with self._get_session() as session:
                 grades = session.query(Grade).filter(Grade.username == username).all()
                 for grade in grades:
@@ -211,14 +237,15 @@ class GradeStorageV2:
                 session.commit()
                 logger.info(f"✅ Deleted all grades for user: {username}")
                 return True
-                
+        try:
+            return self._retry_db(_inner)
         except Exception as e:
             logger.error(f"❌ Failed to delete user grades: {e}")
             return False
     
     def get_grade_statistics(self, username: str) -> Dict[str, Any]:
         """Get grade statistics for a user"""
-        try:
+        def _inner():
             with self._get_session() as session:
                 grades = session.query(Grade).filter(Grade.username == username).all()
                 
@@ -238,7 +265,8 @@ class GradeStorageV2:
                 }
                 
                 return stats
-                
+        try:
+            return self._retry_db(_inner)
         except Exception as e:
             logger.error(f"❌ Failed to get grade statistics: {e}")
             return {}
