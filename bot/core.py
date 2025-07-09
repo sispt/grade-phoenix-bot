@@ -877,56 +877,20 @@ class TelegramBot:
                     code = grade.get('code', '-')
                     key = code if code != '-' else name
                     old = old_map.get(key, {})
-                    
+
                     def show_change(field, label):
-                        """Show changes based on sensitivity setting"""
                         old_val = old.get(field, '—')
                         new_val = grade.get(field, '—')
-                        
-                        # Check if both values are meaningful grades
-                        def is_meaningful(val):
-                            return val and val != 'لم يتم النشر' and val != '—' and val != '-'
-                        
-                        old_meaningful = is_meaningful(old_val)
-                        new_meaningful = is_meaningful(new_val)
-                        
-                        if sensitivity == "all":
-                            # Show all changes
-                            if old_val != new_val:
-                                if not old_meaningful and new_meaningful:
-                                    return f"{label}: تم النشر → {new_val}"
-                                elif old_meaningful and not new_meaningful:
-                                    return f"{label}: {old_val} → تم إلغاء النشر"
-                                else:
-                                    return f"{label}: {old_val} → {new_val}"
-                        elif sensitivity == "significant":
-                            # Show only significant changes
-                            if old_meaningful and new_meaningful and old_val != new_val:
-                                # Check if it's a significant change
-                                try:
-                                    old_num = float(old_val) if old_val.replace('.', '').replace('-', '').isdigit() else None
-                                    new_num = float(new_val) if new_val.replace('.', '').replace('-', '').isdigit() else None
-                                    if old_num is not None and new_num is not None and abs(new_num - old_num) >= 5:
-                                        return f"{label}: {old_val} → {new_val}"
-                                    elif old_num is None or new_num is None:  # Letter grades
-                                        return f"{label}: {old_val} → {new_val}"
-                                except:
-                                    return f"{label}: {old_val} → {new_val}"
-                        else:  # meaningful (default)
-                            # Show only meaningful changes
-                            if old_meaningful and new_meaningful and old_val != new_val:
-                                return f"{label}: {old_val} → {new_val}"
-                            elif not old_meaningful and new_meaningful:
-                                return f"{label}: تم النشر → {new_val}"
-                        return None
-                    
+                        # Always show old and new, even if old was missing or 'لم يتم النشر'
+                        return f"{label}: {old_val} → {new_val}" if old_val != new_val else None
+
                     changes = [
                         show_change('coursework', 'الأعمال'),
                         show_change('final_exam', 'النظري'),
                         show_change('total', 'النهائي'),
                     ]
                     changes = [c for c in changes if c]
-                    
+
                     if changes:
                         message += f"📚 {name} ({code})\n" + "\n".join(changes) + "\n\n"
                 
