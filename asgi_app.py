@@ -22,7 +22,18 @@ app = FastAPI()
 async def startup_event():
     logger.info("🚀 FastAPI startup: Initializing Telegram bot and webhook...")
     await bot_runner.start()
-    # Set webhook (if not already set)
+    # Wait for app to be initialized (max 5 seconds)
+    app_obj = bot_runner.app
+    max_wait = 5.0
+    waited = 0.0
+    import asyncio
+    while app_obj is None and waited < max_wait:
+        await asyncio.sleep(0.2)
+        waited += 0.2
+        app_obj = bot_runner.app
+    if app_obj is None:
+        logger.error(f"❌ TelegramBot.app is not initialized after startup (waited {max_wait}s)! Aborting webhook setup.")
+        return
     webhook_url = os.getenv("WEBHOOK_URL")
     if not webhook_url:
         # Build from Railway or fallback
@@ -34,8 +45,12 @@ async def startup_event():
             "your-app-name.up.railway.app"
         )
         webhook_url = f"https://{railway_url}/{CONFIG['TELEGRAM_TOKEN']}"
-    await bot_runner.app.bot.set_webhook(url=webhook_url)
-    logger.info(f"✅ Webhook set to: {webhook_url}")
+    current = await app_obj.bot.get_webhook_info()
+    if current.url != webhook_url:
+        await app_obj.bot.set_webhook(url=webhook_url)
+        logger.info(f"✅ Webhook set to: {webhook_url}")
+    else:
+        logger.info(f"✅ Webhook already set to: {webhook_url}")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -44,10 +59,21 @@ async def shutdown_event():
 
 @app.post(f"/{CONFIG['TELEGRAM_TOKEN']}")
 async def telegram_webhook(request: Request):
+    app_obj = bot_runner.app
+    max_wait = 5.0
+    waited = 0.0
+    import asyncio
+    while app_obj is None and waited < max_wait:
+        await asyncio.sleep(0.2)
+        waited += 0.2
+        app_obj = bot_runner.app
+    if app_obj is None:
+        logger.error(f"❌ TelegramBot.app is not initialized for webhook (waited {max_wait}s)! Aborting update processing.")
+        return Response(status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
     try:
         data = await request.json()
-        update = Update.de_json(data, bot_runner.app.bot)
-        await bot_runner.app.process_update(update)
+        update = Update.de_json(data, app_obj.bot)
+        await app_obj.process_update(update)
         return Response(status_code=HTTPStatus.OK)
     except Exception as e:
         logger.error(f"❌ Error processing webhook update: {e}", exc_info=True)
