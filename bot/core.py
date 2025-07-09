@@ -1650,7 +1650,9 @@ class TelegramBot:
             keyboard = get_settings_main_keyboard(translation_enabled=new_value)
             status = "مفعلة" if new_value else "معطلة"
             await query.edit_message_text(
-                f"🌐 تم {'تفعيل' if new_value else 'تعطيل'} ترجمة الاقتباسات للعربية.\n\nالحالة الحالية: {status}",
+                f"🌐 تم {'تفعيل' if new_value else 'تعطيل'} ترجمة الاقتباسات للعربية.\n\n"
+                f"الحالة الحالية: {status}\n\n"
+                f"{'✅ ستظهر الاقتباسات باللغتين العربية والإنجليزية' if new_value else '✅ ستظهر الاقتباسات باللغة الإنجليزية فقط'}",
                 reply_markup=keyboard
             )
             return
