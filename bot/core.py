@@ -23,9 +23,11 @@ from storage.grade_storage_v2 import GradeStorageV2
 from admin.dashboard import AdminDashboard
 from admin.broadcast import BroadcastSystem
 from utils.keyboards import (
-    get_main_keyboard, get_admin_keyboard, get_cancel_keyboard, 
-    get_unregistered_keyboard,
-    remove_keyboard, get_error_recovery_keyboard, get_settings_main_keyboard, get_session_settings_keyboard
+    get_main_keyboard, get_main_keyboard_with_admin, get_admin_keyboard, get_cancel_keyboard, 
+    get_unregistered_keyboard, remove_keyboard, get_error_recovery_keyboard, get_registration_keyboard,
+    get_enhanced_admin_dashboard_keyboard, get_user_management_keyboard, get_broadcast_confirmation_keyboard,
+    get_system_actions_keyboard, get_settings_main_keyboard, get_session_settings_keyboard,
+    get_privacy_settings_keyboard, get_contact_support_inline_keyboard
 )
 from utils.messages import get_welcome_message, get_help_message, get_simple_welcome_message, get_security_welcome_message, get_credentials_security_info_message
 from security.enhancements import security_manager, is_valid_length
@@ -709,11 +711,81 @@ class TelegramBot:
             await self._help_command(update, context)
 
     async def _handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if update.effective_user.id != CONFIG["ADMIN_ID"]: return
         query = update.callback_query
         await query.answer()
-        # Delegate admin button clicks
-        await self.admin_dashboard.handle_callback(update, context)
+        
+        # Handle admin callbacks
+        if update.effective_user.id == CONFIG["ADMIN_ID"]:
+            await self.admin_dashboard.handle_callback(update, context)
+            return
+            
+        # Handle regular user callbacks
+        user_id = update.effective_user.id
+        user = self.user_storage.get_user_by_telegram_id(user_id)
+        
+        if query.data == "delete_user_data":
+            if not user:
+                await query.edit_message_text("❗️ يجب التسجيل أولاً.")
+                return
+            # Show confirmation for data deletion
+            await query.edit_message_text(
+                "🗑️ **حذف البيانات الشخصية**\n\n"
+                "⚠️ **تحذير**: هذا الإجراء سيحذف:\n"
+                "• جميع بياناتك المخزنة\n"
+                "• كلمة المرور المشفرة\n"
+                "• إعداداتك الشخصية\n"
+                "• سجل الدرجات\n\n"
+                "❌ **لا يمكن التراجع عن هذا الإجراء**\n\n"
+                "هل أنت متأكد من حذف جميع بياناتك؟",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("✅ نعم، احذف جميع بياناتي", callback_data="confirm_delete_data")],
+                    [InlineKeyboardButton("❌ إلغاء", callback_data="cancel_delete_data")]
+                ])
+            )
+            return
+            
+        elif query.data == "confirm_delete_data":
+            if not user:
+                await query.edit_message_text("❗️ يجب التسجيل أولاً.")
+                return
+            # Delete user data
+            try:
+                # Delete user from storage
+                self.user_storage.delete_user(user["username"])
+                # Delete grades
+                self.grade_storage.delete_user_grades(user["username"])
+                await query.edit_message_text(
+                    "✅ تم حذف جميع بياناتك بنجاح.\n\n"
+                    "تم تسجيل خروجك تلقائياً. يمكنك التسجيل مرة أخرى إذا أردت.",
+                    reply_markup=get_unregistered_keyboard()
+                )
+            except Exception as e:
+                await query.edit_message_text(
+                    f"❌ حدث خطأ أثناء حذف البيانات: {str(e)}\n\n"
+                    "يرجى المحاولة مرة أخرى أو التواصل مع الدعم الفني."
+                )
+            return
+            
+        elif query.data == "cancel_delete_data":
+            # Return to privacy settings
+            await query.edit_message_text(
+                "تم إلغاء حذف البيانات.",
+                reply_markup=get_privacy_settings_keyboard()
+            )
+            return
+        
+        elif query.data == "back_to_settings":
+            # Return to main settings
+            from utils.keyboards import get_settings_main_keyboard
+            keyboard = get_settings_main_keyboard(translation_enabled=user.get("do_trans", False) if user else False)
+            await query.edit_message_text(
+                "تمت العودة إلى الإعدادات الرئيسية.",
+                reply_markup=keyboard
+            )
+            return
+            
+        # Delegate other callbacks to settings handler
+        await self._settings_callback_handler(update, context)
 
     async def _admin_notify_grades(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if update.effective_user.id != CONFIG["ADMIN_ID"]:
@@ -1540,6 +1612,7 @@ class TelegramBot:
         await query.answer()
         user_id = update.effective_user.id
         user = self.user_storage.get_user_by_telegram_id(user_id)
+        
         if query.data == "toggle_translation":
             if not user:
                 await query.edit_message_text("❗️ يجب التسجيل أولاً.")
@@ -1556,7 +1629,108 @@ class TelegramBot:
                 reply_markup=keyboard
             )
             return
-        if query.data == "back_to_main":
+            
+        elif query.data == "delete_user_data":
+            if not user:
+                await query.edit_message_text("❗️ يجب التسجيل أولاً.")
+                return
+            # Show confirmation for data deletion
+            await query.edit_message_text(
+                "🗑️ **حذف البيانات الشخصية**\n\n"
+                "⚠️ **تحذير**: هذا الإجراء سيحذف:\n"
+                "• جميع بياناتك المخزنة\n"
+                "• كلمة المرور المشفرة\n"
+                "• إعداداتك الشخصية\n"
+                "• سجل الدرجات\n\n"
+                "❌ **لا يمكن التراجع عن هذا الإجراء**\n\n"
+                "هل أنت متأكد من حذف جميع بياناتك؟",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("✅ نعم، احذف جميع بياناتي", callback_data="confirm_delete_data")],
+                    [InlineKeyboardButton("❌ إلغاء", callback_data="cancel_delete_data")]
+                ])
+            )
+            return
+            
+        elif query.data == "confirm_delete_data":
+            if not user:
+                await query.edit_message_text("❗️ يجب التسجيل أولاً.")
+                return
+            # Delete user data
+            try:
+                # Delete user from storage
+                self.user_storage.delete_user(user["username"])
+                # Delete grades
+                self.grade_storage.delete_user_grades(user["username"])
+                await query.edit_message_text(
+                    "✅ تم حذف جميع بياناتك بنجاح.\n\n"
+                    "تم تسجيل خروجك تلقائياً. يمكنك التسجيل مرة أخرى إذا أردت.",
+                    reply_markup=get_unregistered_keyboard()
+                )
+            except Exception as e:
+                await query.edit_message_text(
+                    f"❌ حدث خطأ أثناء حذف البيانات: {str(e)}\n\n"
+                    "يرجى المحاولة مرة أخرى أو التواصل مع الدعم الفني."
+                )
+            return
+            
+        elif query.data == "cancel_delete_data":
+            # Return to privacy settings
+            await query.edit_message_text(
+                "تم إلغاء حذف البيانات.",
+                reply_markup=get_privacy_settings_keyboard()
+            )
+            return
+            
+        elif query.data == "toggle_show_profile":
+            if not user:
+                await query.edit_message_text("❗️ يجب التسجيل أولاً.")
+                return
+            # Toggle profile visibility (placeholder for future implementation)
+            await query.edit_message_text(
+                "👁️ **عرض المعلومات الشخصية**\n\n"
+                "هذه الميزة قيد التطوير.\n\n"
+                "ستتمكن قريباً من التحكم في عرض معلوماتك الشخصية للآخرين.",
+                reply_markup=get_privacy_settings_keyboard()
+            )
+            return
+            
+        elif query.data == "toggle_share_stats":
+            if not user:
+                await query.edit_message_text("❗️ يجب التسجيل أولاً.")
+                return
+            # Toggle stats sharing (placeholder for future implementation)
+            await query.edit_message_text(
+                "📊 **مشاركة الإحصائيات**\n\n"
+                "هذه الميزة قيد التطوير.\n\n"
+                "ستتمكن قريباً من التحكم في مشاركة إحصائياتك مع المطورين لتحسين الخدمة.",
+                reply_markup=get_privacy_settings_keyboard()
+            )
+            return
+            
+        elif query.data == "data_retention":
+            if not user:
+                await query.edit_message_text("❗️ يجب التسجيل أولاً.")
+                return
+            # Data retention settings (placeholder for future implementation)
+            await query.edit_message_text(
+                "📅 **فترة الاحتفاظ بالبيانات**\n\n"
+                "هذه الميزة قيد التطوير.\n\n"
+                "ستتمكن قريباً من تحديد المدة التي نحتفظ فيها ببياناتك.",
+                reply_markup=get_privacy_settings_keyboard()
+            )
+            return
+            
+        elif query.data == "back_to_settings":
+            # Return to main settings
+            from utils.keyboards import get_settings_main_keyboard
+            keyboard = get_settings_main_keyboard(translation_enabled=user.get("do_trans", False) if user else False)
+            await query.edit_message_text(
+                "تمت العودة إلى الإعدادات الرئيسية.",
+                reply_markup=keyboard
+            )
+            return
+            
+        elif query.data == "back_to_main":
             await query.edit_message_text(
                 "تمت العودة إلى القائمة الرئيسية.\n\n"
                 "نحن نقدر ثقتك ونسعى دائماً للشفافية في كل ما يتعلق ببياناتك."
