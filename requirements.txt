@@ -11,3 +11,5 @@ python-telegram-bot[tests]
 validators>=0.35.0
 googletrans-py
 cryptography>=41.0.0 
+
+psycopg2-binary 
