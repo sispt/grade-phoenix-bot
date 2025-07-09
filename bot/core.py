@@ -523,12 +523,15 @@ class TelegramBot:
             logger.error(f"Error in _profile_command: {e}", exc_info=True)
 
     async def _settings_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user_id = update.effective_user.id
+        user = self.user_storage.get_user_by_telegram_id(user_id)
+        
         await update.message.reply_text(
             "⚙️ إعدادات الحساب\n\n"
             "يمكنك التحكم في بياناتك والوصول إلى خيارات الخصوصية.\n"
             "كل شيء في هذا البوت شفاف ويمكنك دائماً معرفة كيف يتم التعامل مع بياناتك.\n\n"
             "- يمكنك زيارة الكود البرمجي على GitHub.",
-            reply_markup=get_session_settings_keyboard()
+            reply_markup=get_settings_main_keyboard(translation_enabled=user.get("do_trans", False) if user else False)
         )
         return ASK_SETTINGS_MAIN
 
