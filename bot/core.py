@@ -1268,25 +1268,28 @@ class TelegramBot:
             }
             success = self.user_storage.create_user(user_dict)
             if not success:
-                # Check if user already exists, and if so, proceed as registered
-                if self.user_storage.is_user_registered(user_data['username']) or self.user_storage.is_user_registered(telegram_id):
-                    logger.warning(f"User {user_data['username']} already exists, proceeding with registration flow.")
-                    welcome_message = get_welcome_message(user_data['fullname'])
-                    if session_type == 'permanent' and password_stored:
-                        welcome_message += "\n\n🔑 **جلسة دائمة**\nكلمة المرور مخزنة بشكل مشفر. سيتم تسجيل الدخول تلقائياً عند انتهاء الجلسة."
-                    else:
-                        welcome_message += "\n\n🔐 **جلسة مؤقتة**\nكلمة المرور لم تُخزن. ستحتاج لتسجيل الدخول مرة أخرى عند انتهاء الجلسة."
-                    try:
-                        await update.message.reply_text(welcome_message, reply_markup=get_main_keyboard())
-                    except Exception as e:
-                        logger.error(f"Error sending welcome message: {e}")
-                        await update.message.reply_text(welcome_message)
-                    return ConversationHandler.END
-                logger.error(f"❌ Failed to save user {user_data['username']}")
-                await update.message.reply_text(
-                    "❌ حدث خطأ أثناء حفظ البيانات. يرجى المحاولة مرة أخرى.",
-                    reply_markup=get_unregistered_keyboard()
-                )
+                # User exists, update their info
+                self.user_storage.update_user(user_data['username'], {
+                    "session_token": token,
+                    "token_expires_at": None,
+                    "is_active": True,
+                    "fullname": user_data.get('fullname'),
+                    "firstname": user_data.get('firstname'),
+                    "lastname": user_data.get('lastname'),
+                    "email": user_data.get('email'),
+                    # Add any other fields you want to update (e.g., encrypted_password, password_stored, etc.)
+                })
+                logger.warning(f"User {user_data['username']} already exists, updated session info.")
+                welcome_message = get_welcome_message(user_data['fullname'])
+                if session_type == 'permanent' and password_stored:
+                    welcome_message += "\n\n🔑 **جلسة دائمة**\nكلمة المرور مخزنة بشكل مشفر. سيتم تسجيل الدخول تلقائياً عند انتهاء الجلسة."
+                else:
+                    welcome_message += "\n\n🔐 **جلسة مؤقتة**\nكلمة المرور لم تُخزن. ستحتاج لتسجيل الدخول مرة أخرى عند انتهاء الجلسة."
+                try:
+                    await update.message.reply_text(welcome_message, reply_markup=get_main_keyboard())
+                except Exception as e:
+                    logger.error(f"Error sending welcome message: {e}")
+                    await update.message.reply_text(welcome_message)
                 return ConversationHandler.END
             logger.info(f"✅ User saved successfully")
         except Exception as e:
