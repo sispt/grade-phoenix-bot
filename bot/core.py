@@ -57,13 +57,12 @@ class TelegramBot:
         self.running = False
 
     def _initialize_storage(self):
-        pg_initialized = False
-        # Initialize new clean storage systems
+        """Initialize storage systems"""
         try:
-            logger.info("🗄️ Initializing new clean storage systems...")
+            logger.info("🗄️ Initializing storage systems...")
             self.user_storage = UserStorageV2(CONFIG["DATABASE_URL"])
             self.grade_storage = GradeStorageV2(CONFIG["DATABASE_URL"])
-            logger.info("✅ New storage systems initialized successfully.")
+            logger.info("✅ Storage systems initialized successfully.")
         except Exception as e:
             logger.critical(f"❌ FATAL: Storage initialization failed. Bot cannot run: {e}", exc_info=True)
             raise RuntimeError("Failed to initialize storage systems.")

@@ -1,3 +1,0 @@
-"""
-Storage tests package
-"""

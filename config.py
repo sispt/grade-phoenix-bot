@@ -21,6 +21,16 @@ else:
     logger.error(f"Invalid BOT_VERSION '{raw_version}' (must be valid SemVer). Using '0.0.0-invalid'.")
     validated_version = "0.0.0-invalid"
 
+# Resolve the database URL from multiple common environment variables so the bot
+# works out-of-the-box on platforms (e.g. Railway) that expose a `MYSQL_URL`
+# variable instead of `DATABASE_URL`.
+database_url_env = (
+    os.getenv("DATABASE_URL")
+    or os.getenv("MYSQL_URL")
+    or os.getenv("CLEARDB_DATABASE_URL")  # common on Heroku add-ons
+    or os.getenv("JAWSDB_MARIA_URL")       # another Heroku variant
+)
+
 # Bot configuration
 CONFIG = {
     # Telegram bot token
@@ -31,8 +41,9 @@ CONFIG = {
     "ADMIN_EMAIL": os.getenv("ADMIN_EMAIL", "admin@example.com"),
     "ADMIN_NAME": os.getenv("ADMIN_NAME", "Admin User"),
     # Database configuration
-    "DATABASE_URL": os.getenv("DATABASE_URL", "sqlite:///./data/bot.db"),
-    "USE_POSTGRESQL": bool(os.getenv("DATABASE_URL", "").startswith("postgresql")),
+    "DATABASE_URL": database_url_env,
+    "USE_POSTGRESQL": bool((database_url_env or "").startswith("postgresql")),
+    "USE_MYSQL": bool((database_url_env or "").startswith("mysql")),
     # University API configuration
     "UNIVERSITY_LOGIN_URL": "https://api.staging.sis.shamuniversity.com/portal",  # /portal for login
     "UNIVERSITY_API_URL": "https://api.staging.sis.shamuniversity.com/graphql",  # /graphql for API

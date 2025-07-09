@@ -10,6 +10,7 @@ import sys
 import signal
 from datetime import datetime
 from pathlib import Path
+# Database imports
 from sqlalchemy import create_engine, inspect, text
 from storage.models import Base
 
@@ -51,12 +52,13 @@ class BotRunner:
             # Run database migrations first
             self.run_migrations()
 
-            # Automatically create all tables (schema) before starting the bot
-            if CONFIG.get("USE_POSTGRESQL", False):
+            # Create database tables
+            database_url = CONFIG.get("DATABASE_URL")
+            if database_url:
                 logger.info(
                     "🗄️ Creating database tables (if not exist) using SQLAlchemy models..."
                 )
-                db_manager = DatabaseManager(CONFIG["DATABASE_URL"])
+                db_manager = DatabaseManager(database_url)
                 Base.metadata.create_all(bind=db_manager.engine)
                 logger.info("✅ Database tables checked/created.")
 
@@ -66,9 +68,16 @@ class BotRunner:
             logger.info("✅ Bot started successfully!")
             logger.info(f"📊 Admin ID: {CONFIG['ADMIN_ID']}")
             logger.info(f"🕒 Start time: {self.start_time}")
-            logger.info(
-                f"🗄️ Database: {'PostgreSQL' if CONFIG.get('USE_POSTGRESQL', False) else 'File-based'}"
-            )
+            if database_url:
+                if database_url.startswith("mysql"):
+                    db_type = "MySQL"
+                elif database_url.startswith("postgresql"):
+                    db_type = "PostgreSQL"
+                else:
+                    db_type = "SQL Database"
+                logger.info(f"🗄️ Database: {db_type}")
+            else:
+                logger.info("🗄️ Database: File-based")
 
         except Exception as e:
             logger.error(f"❌ Failed to start bot: {e}")
@@ -82,7 +91,7 @@ class BotRunner:
             logger.info("✅ Database migrations completed (no migration script)")
         except Exception as e:
             logger.error(f"❌ Migration error: {e}")
-            if CONFIG.get("USE_POSTGRESQL", False):
+            if CONFIG.get("DATABASE_URL"):
                 # If PostgreSQL is required, fail
                 raise
             else:

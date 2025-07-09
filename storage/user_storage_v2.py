@@ -1,219 +1,288 @@
-#!/usr/bin/env python3
 """
-User Storage V2 - Clean PostgreSQL-based user storage
+User Storage System v2
+Handles user data storage and management using PostgreSQL
 """
 
+from typing import Dict, List, Optional, Any
+from datetime import datetime, timezone, timedelta
+from sqlalchemy.orm import Session
+from sqlalchemy import and_, or_
 import logging
-from datetime import datetime, timezone
-from typing import Dict, List, Any, Optional
-from sqlalchemy.exc import SQLAlchemyError
+import re
 
-from storage.models import DatabaseManager, User
+from .models import DatabaseManager, User
 
 logger = logging.getLogger(__name__)
 
-
 class UserStorageV2:
-    """Clean user storage system - no password persistence"""
+    """User storage system using PostgreSQL"""
     
     def __init__(self, database_url: str):
         self.db_manager = DatabaseManager(database_url)
-        self.db_manager.create_all_tables()
-        logger.info("✅ UserStorageV2 initialized")
+        self._ensure_tables()
     
-    def save_user(self, telegram_id: int, username: str, token: str, user_data: Dict[str, Any], encrypted_password: str = "", password_stored: bool = False, password_consent_given: bool = False) -> bool:
-        """Save or update user data"""
+    def _ensure_tables(self):
+        """Ensure database tables exist"""
         try:
-            with self.db_manager.get_session() as session:
-                user = session.query(User).filter_by(telegram_id=telegram_id).first()
-                firstname = str(user_data.get("firstname")) if user_data.get("firstname") is not None else ""
-                lastname = str(user_data.get("lastname")) if user_data.get("lastname") is not None else ""
-                fullname = str(user_data.get("fullname")) if user_data.get("fullname") is not None else ""
-                email = str(user_data.get("email")) if user_data.get("email") is not None else ""
-                token_expired_notified = bool(user_data.get("token_expired_notified", False))
-                if user:
-                    user.username = str(username) if username is not None else ""  # type: ignore
-                    user.token = str(token) if token is not None else ""  # type: ignore
-                    user.firstname = firstname  # type: ignore
-                    user.lastname = lastname  # type: ignore
-                    user.fullname = fullname  # type: ignore
-                    user.email = email  # type: ignore
-                    user.last_login = datetime.now(timezone.utc)  # type: ignore
-                    user.is_active = True  # type: ignore
-                    user.token_expired_notified = token_expired_notified  # type: ignore
-                    user.encrypted_password = str(encrypted_password) if encrypted_password is not None else ""  # type: ignore
-                    user.password_stored = bool(password_stored)  # type: ignore
-                    user.password_consent_given = bool(password_consent_given)  # type: ignore
-                    session.commit()
-                    logger.info(f"✅ User {username} (ID: {telegram_id}) updated")
-                else:
-                    new_user = User(
-                        telegram_id=telegram_id,
-                        username=str(username) if username is not None else "",  # type: ignore
-                        token=str(token) if token is not None else "",  # type: ignore
-                        firstname=firstname,  # type: ignore
-                        lastname=lastname,  # type: ignore
-                        fullname=fullname,  # type: ignore
-                        email=email,  # type: ignore
-                        registration_date=datetime.now(timezone.utc),  # type: ignore
-                        last_login=datetime.now(timezone.utc),  # type: ignore
-                        is_active=True,  # type: ignore
-                        token_expired_notified=token_expired_notified,  # type: ignore
-                        encrypted_password=str(encrypted_password) if encrypted_password is not None else "",  # type: ignore
-                        password_stored=bool(password_stored),  # type: ignore
-                        password_consent_given=bool(password_consent_given),  # type: ignore
+            self.db_manager.create_tables()
+        except Exception as e:
+            logger.error(f"Failed to create tables: {e}")
+            raise
+    
+    def _get_session(self) -> Session:
+        """Get database session"""
+        return self.db_manager.get_session()
+    
+    def create_user(self, user_data: Dict[str, Any]) -> bool:
+        """Create a new user"""
+        try:
+            with self._get_session() as session:
+                # Check if user already exists
+                existing_user = session.query(User).filter(
+                    or_(
+                        User.username == user_data.get('username'),
+                        User.telegram_id == user_data.get('telegram_id')
                     )
-                    session.add(new_user)
-                    session.commit()
-                    logger.info(f"✅ User {username} (ID: {telegram_id}) created")
+                ).first()
+                
+                if existing_user:
+                    logger.warning(f"User already exists: {user_data.get('username')}")
+                    return False
+                
+                # Create new user
+                user = User(
+                    username=user_data.get('username'),
+                    telegram_id=user_data.get('telegram_id'),
+                    fullname=user_data.get('fullname'),
+                    firstname=user_data.get('firstname'),
+                    lastname=user_data.get('lastname'),
+                    email=user_data.get('email'),
+                    session_token=user_data.get('session_token'),
+                    token_expires_at=user_data.get('token_expires_at'),
+                    is_active=True
+                )
+                
+                session.add(user)
+                session.commit()
+                logger.info(f"✅ User created successfully: {user_data.get('username')}")
                 return True
-        except SQLAlchemyError as e:
-            logger.error(f"❌ Database error saving user {username}: {e}")
-            return False
+                
         except Exception as e:
-            logger.error(f"❌ Error saving user {username}: {e}")
+            logger.error(f"❌ Failed to create user: {e}")
             return False
     
-    def get_user(self, telegram_id: int) -> Optional[Dict[str, Any]]:
-        """Get user by Telegram ID"""
+    def get_user(self, identifier: str) -> Optional[Dict[str, Any]]:
+        """Get user by username or telegram_id"""
         try:
-            with self.db_manager.get_session() as session:
-                user = session.query(User).filter_by(telegram_id=telegram_id).first()
+            with self._get_session() as session:
+                # Try to find by username first, then telegram_id
+                user = session.query(User).filter(
+                    or_(
+                        User.username == identifier,
+                        User.telegram_id == int(identifier) if identifier.isdigit() else False
+                    )
+                ).first()
+                
                 if user:
-                    return {
-                        "telegram_id": user.telegram_id,
-                        "username": user.username,
-                        "username_unique": getattr(user, 'username_unique', user.username),
-                        "token": user.token,
-                        "firstname": user.firstname,
-                        "lastname": user.lastname,
-                        "fullname": user.fullname,
-                        "email": user.email,
-                        "registration_date": user.registration_date.isoformat() if hasattr(user.registration_date, 'isoformat') else None,  # type: ignore
-                        "last_login": user.last_login.isoformat() if hasattr(user.last_login, 'isoformat') else None,  # type: ignore
-                        "is_active": bool(user.is_active),
-                        "token_expired_notified": bool(user.token_expired_notified),
-                        "encrypted_password": user.encrypted_password if user.encrypted_password is not None else "",
-                        "password_stored": bool(user.password_stored),
-                        "password_consent_given": bool(user.password_consent_given),
-                    }
+                    return self._user_to_dict(user)
                 return None
-        except SQLAlchemyError as e:
-            logger.error(f"❌ Database error getting user {telegram_id}: {e}")
-            return None
+                
         except Exception as e:
-            logger.error(f"❌ Error getting user {telegram_id}: {e}")
+            logger.error(f"❌ Failed to get user: {e}")
             return None
+    
+    def get_user_by_telegram_id(self, telegram_id: int) -> Optional[Dict[str, Any]]:
+        """Get user by telegram ID"""
+        try:
+            with self._get_session() as session:
+                user = session.query(User).filter(User.telegram_id == telegram_id).first()
+                if user:
+                    return self._user_to_dict(user)
+                return None
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to get user by telegram_id: {e}")
+            return None
+    
+    def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
+        """Get user by username"""
+        try:
+            with self._get_session() as session:
+                user = session.query(User).filter(User.username == username).first()
+                if user:
+                    return self._user_to_dict(user)
+                return None
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to get user by username: {e}")
+            return None
+    
+    def update_user(self, username: str, update_data: Dict[str, Any]) -> bool:
+        """Update user information"""
+        try:
+            with self._get_session() as session:
+                user = session.query(User).filter(User.username == username).first()
+                if not user:
+                    logger.warning(f"User not found: {username}")
+                    return False
+                
+                # Update fields
+                for key, value in update_data.items():
+                    if hasattr(user, key):
+                        setattr(user, key, value)
+                
+                user.updated_at = datetime.now(timezone.utc)
+                session.commit()
+                logger.info(f"✅ User updated successfully: {username}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to update user: {e}")
+            return False
+    
+    def update_session_token(self, username: str, token: str, expires_at: datetime) -> bool:
+        """Update user session token"""
+        try:
+            with self._get_session() as session:
+                user = session.query(User).filter(User.username == username).first()
+                if not user:
+                    return False
+                
+                user.session_token = token
+                user.token_expires_at = expires_at
+                user.last_login = datetime.now(timezone.utc)
+                user.updated_at = datetime.now(timezone.utc)
+                
+                session.commit()
+                logger.info(f"✅ Session token updated for: {username}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to update session token: {e}")
+            return False
+    
+    def delete_user(self, username: str) -> bool:
+        """Delete user and all associated grades"""
+        try:
+            with self._get_session() as session:
+                user = session.query(User).filter(User.username == username).first()
+                if not user:
+                    logger.warning(f"User not found for deletion: {username}")
+                    return False
+                
+                session.delete(user)
+                session.commit()
+                logger.info(f"✅ User deleted successfully: {username}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to delete user: {e}")
+            return False
     
     def get_all_users(self) -> List[Dict[str, Any]]:
         """Get all active users"""
         try:
-            with self.db_manager.get_session() as session:
-                users = session.query(User).filter_by(is_active=True).all()
-                return [
-                    {
-                        "telegram_id": user.telegram_id,
-                        "username": user.username,
-                        "token": user.token,
-                        "firstname": user.firstname,
-                        "lastname": user.lastname,
-                        "fullname": user.fullname,
-                        "email": user.email,
-                        "registration_date": user.registration_date.isoformat() if hasattr(getattr(user, 'registration_date', None), 'isoformat') else None,  # type: ignore
-                        "last_login": user.last_login.isoformat() if hasattr(getattr(user, 'last_login', None), 'isoformat') else None,  # type: ignore
-                        "is_active": user.is_active,
-                        "token_expired_notified": user.token_expired_notified,
-                    }
-                    for user in users
-                ]
-        except SQLAlchemyError as e:
-            logger.error(f"❌ Database error getting all users: {e}")
-            return []
+            with self._get_session() as session:
+                users = session.query(User).filter(User.is_active == True).all()
+                return [self._user_to_dict(user) for user in users]
+                
         except Exception as e:
-            logger.error(f"❌ Error getting all users: {e}")
+            logger.error(f"❌ Failed to get all users: {e}")
             return []
     
-    def is_user_registered(self, telegram_id: int) -> bool:
-        """Check if user is registered"""
-        return self.get_user(telegram_id) is not None
-    
-    def delete_user(self, telegram_id: int) -> bool:
-        """Delete user by Telegram ID"""
+    def is_user_registered(self, identifier: str) -> bool:
+        """Check if user is registered by username or telegram_id"""
         try:
-            with self.db_manager.get_session() as session:
-                user = session.query(User).filter_by(telegram_id=telegram_id).first()
-                if user:
-                    session.delete(user)
-                    session.commit()
-                    logger.info(f"✅ User (ID: {telegram_id}) deleted")
-                    return True
-                return False
-        except SQLAlchemyError as e:
-            logger.error(f"❌ Database error deleting user {telegram_id}: {e}")
-            return False
+            with self._get_session() as session:
+                user = session.query(User).filter(
+                    or_(
+                        User.username == identifier,
+                        User.telegram_id == int(identifier) if identifier.isdigit() else False
+                    )
+                ).first()
+                return user is not None
+                
         except Exception as e:
-            logger.error(f"❌ Error deleting user {telegram_id}: {e}")
+            logger.error(f"❌ Failed to check user registration: {e}")
             return False
     
-    def clear_user_token(self, telegram_id: int) -> bool:
-        """Clear user's token"""
+    def get_users_with_expired_tokens(self) -> List[Dict[str, Any]]:
+        """Get users with expired session tokens"""
         try:
-            with self.db_manager.get_session() as session:
-                user = session.query(User).filter_by(telegram_id=telegram_id).first()
-                if user:
-                    user.token = ""  # type: ignore
-                    user.is_active = False  # type: ignore
-                    logger.info(f"✅ Cleared token for user {telegram_id}")
-                    return True
-                return False
-        except SQLAlchemyError as e:
-            logger.error(f"❌ Database error clearing token for user {telegram_id}: {e}")
-            return False
+            with self._get_session() as session:
+                now = datetime.now(timezone.utc)
+                users = session.query(User).filter(
+                    and_(
+                        User.token_expires_at.isnot(None),
+                        User.token_expires_at < now
+                    )
+                ).all()
+                return [self._user_to_dict(user) for user in users]
+                
         except Exception as e:
-            logger.error(f"❌ Error clearing token for user {telegram_id}: {e}")
-            return False
+            logger.error(f"❌ Failed to get users with expired tokens: {e}")
+            return []
     
-    def update_token_expired_notified(self, telegram_id: int, notified: bool) -> bool:
-        """Update token expired notification status"""
+    def update_token_expired_notified(self, username: str, notified: bool = True) -> bool:
+        """Mark that user has been notified about expired token"""
         try:
-            with self.db_manager.get_session() as session:
-                user = session.query(User).filter_by(telegram_id=telegram_id).first()
-                if user:
-                    user.token_expired_notified = bool(notified)  # type: ignore
-                    logger.info(f"✅ Updated token expired notification for user {telegram_id}: {notified}")
-                    return True
-                return False
-        except SQLAlchemyError as e:
-            logger.error(f"❌ Database error updating token expired notification for user {telegram_id}: {e}")
-            return False
+            with self._get_session() as session:
+                user = session.query(User).filter(User.username == username).first()
+                if not user:
+                    return False
+                
+                # You can add a field for this if needed
+                user.updated_at = datetime.now(timezone.utc)
+                session.commit()
+                return True
+                
         except Exception as e:
-            logger.error(f"❌ Error updating token expired notification for user {telegram_id}: {e}")
+            logger.error(f"❌ Failed to update token expired notification: {e}")
             return False
     
-    def _save_users(self):
-        """Compatibility method - no-op for PostgreSQL storage"""
-        # This method is not needed for PostgreSQL storage as it's handled automatically
-        pass 
-
-def migrate_backfill_username_unique(database_url: str):
-    """
-    For all users where username_unique is NULL or empty, set username_unique = username.
-    """
-    from storage.models import DatabaseManager, User
-    db_manager = DatabaseManager(database_url)
-    with db_manager.get_session() as session:
-        users = session.query(User).filter((User.username_unique == None) | (User.username_unique == "")).all()
-        count = 0
-        for user in users:
-            user.username_unique = user.username
-            count += 1
-        session.commit()
-        print(f"[MIGRATION] Backfilled username_unique for {count} users.")
-
-if __name__ == "__main__":
-    import os
-    db_url = os.environ.get("DATABASE_URL")
-    if not db_url:
-        print("Please set the DATABASE_URL environment variable.")
-    else:
-        migrate_backfill_username_unique(db_url) 
+    def get_user_count(self) -> int:
+        """Get total number of active users"""
+        try:
+            with self._get_session() as session:
+                return session.query(User).filter(User.is_active == True).count()
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to get user count: {e}")
+            return 0
+    
+    def search_users(self, query: str) -> List[Dict[str, Any]]:
+        """Search users by username, fullname, or email"""
+        try:
+            with self._get_session() as session:
+                users = session.query(User).filter(
+                    and_(
+                        User.is_active == True,
+                        or_(
+                            User.username.ilike(f"%{query}%"),
+                            User.fullname.ilike(f"%{query}%"),
+                            User.email.ilike(f"%{query}%")
+                        )
+                    )
+                ).all()
+                return [self._user_to_dict(user) for user in users]
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to search users: {e}")
+            return []
+    
+    def _user_to_dict(self, user: User) -> Dict[str, Any]:
+        """Convert User object to dictionary"""
+        return {
+            'username': user.username,
+            'telegram_id': user.telegram_id,
+            'fullname': user.fullname,
+            'firstname': user.firstname,
+            'lastname': user.lastname,
+            'email': user.email,
+            'session_token': user.session_token,
+            'token_expires_at': user.token_expires_at.isoformat() if user.token_expires_at else None,
+            'last_login': user.last_login.isoformat() if user.last_login else None,
+            'is_active': user.is_active,
+            'created_at': user.created_at.isoformat() if user.created_at else None,
+            'updated_at': user.updated_at.isoformat() if user.updated_at else None
+        } 
