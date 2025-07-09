@@ -188,14 +188,23 @@ class TelegramBot:
         gpa_calc_handler = ConversationHandler(
             entry_points=[MessageHandler(filters.Regex("^🧮 حساب المعدل المخصص$"), self._gpa_calc_start)],
             states={
-                ASK_GPA_COURSE_COUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._gpa_ask_course_count)],
-                ASK_GPA_PERCENTAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._gpa_ask_percentage)],
-                ASK_GPA_ECTS: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._gpa_ask_ects)],
+                ASK_GPA_COURSE_COUNT: [
+                    MessageHandler(filters.Regex("^❌ إلغاء$"), self._cancel_gpa_calc),
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self._gpa_ask_course_count)
+                ],
+                ASK_GPA_PERCENTAGE: [
+                    MessageHandler(filters.Regex("^❌ إلغاء$"), self._cancel_gpa_calc),
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self._gpa_ask_percentage)
+                ],
+                ASK_GPA_ECTS: [
+                    MessageHandler(filters.Regex("^❌ إلغاء$"), self._cancel_gpa_calc),
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self._gpa_ask_ects)
+                ],
             },
             fallbacks=[
                 CommandHandler("cancel", self._cancel_gpa_calc),
                 MessageHandler(filters.Regex("^❌ إلغاء$"), self._cancel_gpa_calc)
-            ],  # Robust fallback: cancel on any input
+            ],
             allow_reentry=True,
         )
         self.app.add_handler(gpa_calc_handler)
