@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger("config")
 
 # Get version from environment
-raw_version = os.getenv("BOT_VERSION", "v2.1.0")
+raw_version = os.getenv("BOT_VERSION", "v3.0.0")
 if re.match(SEMVER_REGEX, raw_version):
     validated_version = raw_version
 else:

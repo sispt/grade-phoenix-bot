@@ -173,7 +173,7 @@ def main():
 
 
 if __name__ == "__main__":
-    print("🎓 grade-phoenix-bot v2.1.0")
+    print("🎓 grade-phoenix-bot v3.0.0")
     print("بوت إشعارات الدرجات الجامعية (grade-phoenix-bot)")
     print("=" * 50)
 

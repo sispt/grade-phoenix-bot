@@ -13,11 +13,11 @@ import os
 import re
 
 SEMVER_REGEX = r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$'
-raw_version = os.getenv("BOT_VERSION", "v2.1.0")
+raw_version = os.getenv("BOT_VERSION", "v3.0.0")
 if re.match(SEMVER_REGEX, raw_version):
     expected_version = raw_version
 else:
-    expected_version = "v2.1.0"
+    expected_version = "v3.0.0"
 
 
 class TestSecurityHeaders:

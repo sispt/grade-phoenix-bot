@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Comprehensive Test Runner for Telegram University Bot v2.1.0
+Comprehensive Test Runner for Telegram University Bot v3.0.0
 Runs all tests from organized test folders
 """
 
@@ -22,11 +22,11 @@ def run_pytest_tests():
     # Set environment variables for consistent testing
     SEMVER_REGEX = r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$'
     env = os.environ.copy()
-    raw_version = os.getenv("BOT_VERSION", "2.1.0")
+    raw_version = os.getenv("BOT_VERSION", "3.0.0")
     if re.match(SEMVER_REGEX, raw_version):
         validated_version = raw_version
     else:
-        validated_version = "v2.1.0"
+        validated_version = "v3.0.0"
     env["BOT_VERSION"] = validated_version
 
     # Run pytest on all test directories
@@ -63,7 +63,7 @@ def run_manual_tests():
 
     # Set environment variables for consistent testing
     env = os.environ.copy()
-    env["BOT_VERSION"] = "v2.1.0"
+    env["BOT_VERSION"] = "v3.0.0"
 
     manual_tests = [
         ("tests/api/test_api_quotes.py", "API Quote Tests"),
@@ -92,7 +92,7 @@ def run_manual_tests():
 
 def main():
     """Main test runner"""
-    print(f"\U0001F680 Telegram University Bot v{os.getenv('BOT_VERSION', 'v2.1.0')} - Comprehensive Test Suite")
+    print(f"\U0001F680 Telegram University Bot v{os.getenv('BOT_VERSION', 'v3.0.0')} - Comprehensive Test Suite")
     print("=" * 60)
 
     # Run pytest tests
