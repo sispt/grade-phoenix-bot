@@ -13,3 +13,5 @@ googletrans-py
 cryptography>=41.0.0 
 
 psycopg2-binary 
+fastapi
+uvicorn 

@@ -236,12 +236,11 @@ class UserStorageV2:
                 user = session.query(User).filter(User.username == username).first()
                 if not user:
                     return False
-                
-                # You can add a field for this if needed
-                setattr(user, 'updated_at', datetime.now(timezone.utc))
+                # Assign directly to ORM attributes
+                user.session_expired_notified = notified
+                user.updated_at = datetime.now(timezone.utc)
                 session.commit()
                 return True
-                
         except Exception as e:
             logger.error(f"❌ Failed to update token expired notification: {e}")
             return False
@@ -290,5 +289,6 @@ class UserStorageV2:
             'last_login': user.last_login.isoformat() if getattr(user, 'last_login', None) is not None else None,
             'is_active': user.is_active,
             'created_at': user.created_at.isoformat() if getattr(user, 'created_at', None) is not None else None,
-            'updated_at': user.updated_at.isoformat() if getattr(user, 'updated_at', None) is not None else None
+            'updated_at': user.updated_at.isoformat() if getattr(user, 'updated_at', None) is not None else None,
+            'session_expired_notified': user.session_expired_notified,
         } 

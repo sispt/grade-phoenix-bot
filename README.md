@@ -402,3 +402,31 @@ For support and questions:
 - **Logout Button Restored:** The logout button is back in the main keyboard for easy access.
 - **Robust Error/Cancel Handling:** Cancel and error recovery are available everywhere, always returning the user to a safe state.
 - **General Stability:** All main flows tested and refined for reliability and user experience.
+
+## 🚀 Production Deployment (ASGI/FastAPI)
+
+This bot is now ready for robust production deployment using FastAPI and Uvicorn. This ensures that background tasks (like scheduled grade checking and daily quotes) run reliably, even in webhook mode.
+
+### How to run (locally or in production):
+
+1. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+2. **Run with Uvicorn:**
+   ```bash
+   uvicorn asgi_app:app --host 0.0.0.0 --port 8443
+   ```
+   - The bot will automatically set its webhook to the correct URL (using Railway/Render/Heroku env vars if present).
+   - The `/healthcheck` endpoint is available for monitoring.
+
+3. **Procfile** (for Railway/Heroku):
+   ```
+   web: uvicorn asgi_app:app --host 0.0.0.0 --port ${PORT:-8443}
+   ```
+
+---
+
+**Note:**
+- You do NOT need to run `main.py` directly anymore for production. All bot logic is now managed by FastAPI and Uvicorn.
+- All background tasks (grade notifications, daily quotes) will run as expected.

@@ -713,7 +713,7 @@ class TelegramBot:
             while True:
                 logger.info("🔔 Running scheduled grade check for all users (unconditional)...")
                 await self._notify_all_users_grades()
-                interval = CONFIG.get('GRADE_CHECK_INTERVAL', 10) * 60
+                interval = int(CONFIG.get('GRADE_CHECK_INTERVAL', 10)) * 60
                 logger.info(f"🚦 Sleeping for {interval} seconds before next check (unconditional)")
                 await asyncio.sleep(interval)
         except Exception as e:
@@ -765,7 +765,7 @@ class TelegramBot:
                     logger.debug(f"❌ No token for user {username}")
                     return False
                 is_pg = hasattr(self.user_storage, 'update_token_expired_notified')
-                notified = user.get("token_expired_notified", False)
+                notified = user.get("session_expired_notified", False)
                 logger.debug(f"🔍 Testing token for user {username}")
                 if not await self.university_api.test_token(token):
                     logger.warning(f"❌ Token expired for user {username}")
@@ -791,9 +791,9 @@ class TelegramBot:
                                 # Retry grade check with new token
                                 token = new_token
                                 if is_pg:
-                                    self.user_storage.update_token_expired_notified(telegram_id, False)
+                                    self.user_storage.update_token_expired_notified(user["username"], False)
                                 else:
-                                    user["token_expired_notified"] = False
+                                    user["session_expired_notified"] = False
                                     if hasattr(self.user_storage, '_save_users'):
                                         self.user_storage._save_users()
                                 # Now continue as if token is valid
@@ -812,9 +812,9 @@ class TelegramBot:
                                 reply_markup=get_unregistered_keyboard()
                             )
                             if is_pg:
-                                self.user_storage.update_token_expired_notified(telegram_id, True)
+                                self.user_storage.update_token_expired_notified(user["username"], True)
                             else:
-                                user["token_expired_notified"] = True
+                                user["session_expired_notified"] = True
                                 if hasattr(self.user_storage, '_save_users'):
                                     self.user_storage._save_users()
                         return False
@@ -822,10 +822,10 @@ class TelegramBot:
                 # Reset notification flag if token is valid
                 if notified:
                     if is_pg:
-                        self.user_storage.update_token_expired_notified(telegram_id, False)
+                        self.user_storage.update_token_expired_notified(user["username"], False)
                     else:
                         # Update file storage
-                        user["token_expired_notified"] = False
+                        user["session_expired_notified"] = False
                         if hasattr(self.user_storage, '_save_users'):
                             self.user_storage._save_users()
                 logger.debug(f"🔍 Fetching user data for {username}")
