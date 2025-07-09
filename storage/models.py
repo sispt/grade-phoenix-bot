@@ -3,7 +3,7 @@ Database Models for grade-phoenix-bot
 SQLAlchemy models for users and grades storage
 """
 
-from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, Text, Boolean, ForeignKey, text
+from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, Text, Boolean, ForeignKey, text, BigInteger
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.sql import func
@@ -21,7 +21,7 @@ class User(Base):
     
     # Primary key is username (as requested)
     username = Column(String(100), primary_key=True)
-    telegram_id = Column(Integer, unique=True, nullable=False)
+    telegram_id = Column(BigInteger, unique=True, nullable=False)
     fullname = Column(String(200), nullable=True)
     firstname = Column(String(100), nullable=True)
     lastname = Column(String(100), nullable=True)
