@@ -190,7 +190,8 @@ class TelegramBot:
                 ASK_GPA_PERCENTAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._gpa_ask_percentage)],
                 ASK_GPA_ECTS: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._gpa_ask_ects)],
             },
-            fallbacks=[MessageHandler(filters.Regex("^❌ إلغاء$"), self._cancel_gpa_calc)],
+            fallbacks=[MessageHandler(filters.ALL, self._gpa_calc_fallback)],  # Robust fallback: cancel on any input
+            allow_reentry=True,
         )
         self.app.add_handler(gpa_calc_handler)
         # Move older_terms_handler above the generic handler
@@ -860,10 +861,10 @@ class TelegramBot:
                 
                 changed_courses = self._compare_grades(old_grades, new_grades, sensitivity)
                 logger.debug(f"🔍 Grade comparison for {storage_username}: {len(changed_courses)} {sensitivity} changes detected")
+                # Always save the grades, regardless of notification
+                self.grade_storage.store_grades(storage_username, new_grades)
                 if not changed_courses:
                     logger.debug(f"✅ No {sensitivity} grade changes for user {storage_username}, not sending notification.")
-                    # Still save the grades even if no notification is sent
-                    self.grade_storage.store_grades(storage_username, new_grades)
                     return False
                 
                 # Create appropriate message based on sensitivity
@@ -898,9 +899,6 @@ class TelegramBot:
                         message += f"📚 {name} ({code})\n" + "\n".join(changes) + "\n\n"
                 
                 # If we reach here, we have meaningful changes to report
-                logger.info(f"[CALL] About to call store_grades for username_unique={username_unique} with {len(new_grades)} grades.")
-                self.grade_storage.store_grades(username_unique, new_grades)
-                
                 now_utc3 = datetime.now(timezone.utc) + timedelta(hours=3)
                 message += f"🕒 وقت التحديث: {now_utc3.strftime('%Y-%m-%d %H:%M')} (UTC+3)"
                 await self.app.bot.send_message(chat_id=telegram_id, text=message)
