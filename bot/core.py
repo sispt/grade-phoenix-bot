@@ -3,6 +3,8 @@
 """
 import asyncio
 from datetime import datetime, timedelta, timezone
+
+from sqlalchemy import update
 from telegram import Update, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ParseMode
 from telegram.ext import (
@@ -1518,6 +1520,9 @@ class TelegramBot:
                 "تمت إعادتك للقائمة الرئيسية.",
                 reply_markup=keyboard
             )
+    async def _gpa_calc_fallback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await update.message.reply_text("تم إلغاء العملية. أرسل /start للبدء من جديد.")
+        return ConversationHandler.END
 
     async def _gpa_calc_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['gpa_calc'] = {'courses': [], 'current': 0, 'count': 0}
