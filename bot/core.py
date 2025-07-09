@@ -143,7 +143,9 @@ class TelegramBot:
             self.grade_check_task.cancel()
         if hasattr(self, 'daily_quote_task') and self.daily_quote_task:
             self.daily_quote_task.cancel()
-        if self.app: await self.app.shutdown()
+        if self.app:
+            await self.app.stop()
+            await self.app.shutdown()
         logger.info("🛑 Bot stopped.")
 
     def _add_handlers(self):

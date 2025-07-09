@@ -23,7 +23,7 @@ async def scheduled_grade_check():
     while True:
         try:
             logger.info("🔔 Running scheduled grade check (FastAPI background task)...")
-            await bot_runner.bot._notify_all_users_grades()
+            await bot_runner._notify_all_users_grades()
         except Exception as e:
             logger.error(f"❌ Exception in scheduled_grade_check: {e}", exc_info=True)
         interval = int(CONFIG.get('GRADE_CHECK_INTERVAL', 10)) * 60
