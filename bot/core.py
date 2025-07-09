@@ -57,12 +57,13 @@ class TelegramBot:
         self.running = False
 
     def _initialize_storage(self):
-        """Initialize storage systems"""
+        pg_initialized = False
+        # Initialize new clean storage systems
         try:
-            logger.info("🗄️ Initializing storage systems...")
+            logger.info("🗄️ Initializing new clean storage systems...")
             self.user_storage = UserStorageV2(CONFIG["DATABASE_URL"])
             self.grade_storage = GradeStorageV2(CONFIG["DATABASE_URL"])
-            logger.info("✅ Storage systems initialized successfully.")
+            logger.info("✅ New storage systems initialized successfully.")
         except Exception as e:
             logger.critical(f"❌ FATAL: Storage initialization failed. Bot cannot run: {e}", exc_info=True)
             raise RuntimeError("Failed to initialize storage systems.")
@@ -1241,10 +1242,12 @@ class TelegramBot:
             from utils.crypto import encrypt_password
             try:
                 encrypted_password = encrypt_password(password)
+                logger.info("✅ Password encrypted successfully")
             except Exception as e:
-                logger.error(f"❌ Error encrypting password: {e}", exc_info=True)
+                logger.error(f"❌ Error encrypting password: {e}")
+                logger.info("🔄 Continuing with temporary session due to encryption failure")
                 await update.message.reply_text(
-                    "❌ حدث خطأ أثناء تشفير كلمة المرور. سيتم المتابعة بجلسة مؤقتة.",
+                    "⚠️ حدث خطأ أثناء تشفير كلمة المرور. سيتم المتابعة بجلسة مؤقتة.",
                     reply_markup=get_unregistered_keyboard()
                 )
                 password_stored = False
