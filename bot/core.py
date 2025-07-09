@@ -726,7 +726,27 @@ class TelegramBot:
         user_id = update.effective_user.id
         user = self.user_storage.get_user_by_telegram_id(user_id)
         
-        if query.data == "delete_user_data":
+        # Handle translation toggle specifically
+        if query.data == "toggle_translation":
+            if not user:
+                await query.edit_message_text("❗️ يجب التسجيل أولاً.")
+                return
+            # Toggle do_trans
+            new_value = not user.get("do_trans", False)
+            self.user_storage.update_user(user["username"], {"do_trans": new_value})
+            # Refresh keyboard
+            from utils.keyboards import get_settings_main_keyboard
+            keyboard = get_settings_main_keyboard(translation_enabled=new_value)
+            status = "مفعلة" if new_value else "معطلة"
+            await query.edit_message_text(
+                f"🌐 تم {'تفعيل' if new_value else 'تعطيل'} ترجمة الاقتباسات للعربية.\n\n"
+                f"الحالة الحالية: {status}\n\n"
+                f"{'✅ ستظهر الاقتباسات باللغتين العربية والإنجليزية' if new_value else '✅ ستظهر الاقتباسات باللغة الإنجليزية فقط'}",
+                reply_markup=keyboard
+            )
+            return
+        
+        elif query.data == "delete_user_data":
             if not user:
                 await query.edit_message_text("❗️ يجب التسجيل أولاً.")
                 return
@@ -1637,27 +1657,8 @@ class TelegramBot:
         await query.answer()
         user_id = update.effective_user.id
         user = self.user_storage.get_user_by_telegram_id(user_id)
-        
-        if query.data == "toggle_translation":
-            if not user:
-                await query.edit_message_text("❗️ يجب التسجيل أولاً.")
-                return
-            # Toggle do_trans
-            new_value = not user.get("do_trans", False)
-            self.user_storage.update_user(user["username"], {"do_trans": new_value})
-            # Refresh keyboard
-            from utils.keyboards import get_settings_main_keyboard
-            keyboard = get_settings_main_keyboard(translation_enabled=new_value)
-            status = "مفعلة" if new_value else "معطلة"
-            await query.edit_message_text(
-                f"🌐 تم {'تفعيل' if new_value else 'تعطيل'} ترجمة الاقتباسات للعربية.\n\n"
-                f"الحالة الحالية: {status}\n\n"
-                f"{'✅ ستظهر الاقتباسات باللغتين العربية والإنجليزية' if new_value else '✅ ستظهر الاقتباسات باللغة الإنجليزية فقط'}",
-                reply_markup=keyboard
-            )
-            return
-            
-        elif query.data == "delete_user_data":
+
+        if query.data == "delete_user_data":
             if not user:
                 await query.edit_message_text("❗️ يجب التسجيل أولاً.")
                 return
