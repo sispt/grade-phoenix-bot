@@ -1327,7 +1327,9 @@ class TelegramBot:
                     "firstname": user_data.get('firstname'),
                     "lastname": user_data.get('lastname'),
                     "email": user_data.get('email'),
-                    # Add any other fields you want to update (e.g., encrypted_password, password_stored, etc.)
+                    "encrypted_password": encrypted_password,
+                    "password_stored": password_stored,
+                    "password_consent_given": password_consent_given
                 })
                 logger.warning(f"User {user_data['username']} already exists, updated session info.")
                 welcome_message = get_welcome_message(user_data['fullname'])
