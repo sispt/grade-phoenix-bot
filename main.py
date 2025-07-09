@@ -53,7 +53,7 @@ class BotRunner:
             self.run_migrations()
 
             # Create database tables
-            database_url = CONFIG.get("DATABASE_URL")
+            database_url = CONFIG.get("MYSQL_URL")
             if database_url:
                 logger.info(
                     "🗄️ Creating database tables (if not exist) using SQLAlchemy models..."

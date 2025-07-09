@@ -65,8 +65,8 @@ class TelegramBot:
         # Initialize new clean storage systems
         try:
             logger.info("🗄️ Initializing new clean storage systems...")
-            self.user_storage = UserStorageV2(CONFIG["DATABASE_URL"])
-            self.grade_storage = GradeStorageV2(CONFIG["DATABASE_URL"])
+            self.user_storage = UserStorageV2(CONFIG["MYSQL_URL"])
+            self.grade_storage = GradeStorageV2(CONFIG["MYSQL_URL"])
             logger.info("✅ New storage systems initialized successfully.")
         except Exception as e:
             logger.critical(f"❌ FATAL: Storage initialization failed. Bot cannot run: {e}", exc_info=True)
