@@ -190,6 +190,16 @@ class TelegramBot:
             fallbacks=[MessageHandler(filters.Regex("^❌ إلغاء$"), self._cancel_registration)],
         )
         self.app.add_handler(gpa_calc_handler)
+        # Move older_terms_handler above the generic handler
+        older_terms_handler = ConversationHandler(
+            entry_points=[MessageHandler(filters.Regex("^📅 جميع الفصول$"), self._older_terms_command)],
+            states={
+                ASK_OLDER_TERM_NUMBER: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._ask_older_term_number)],
+            },
+            fallbacks=[MessageHandler(filters.Regex("^❌ إلغاء$"), self._cancel_registration)],
+        )
+        self.app.add_handler(older_terms_handler)
+        # The generic handler must come after all ConversationHandlers
         self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle_message))
         self.app.add_handler(CallbackQueryHandler(self._settings_callback_handler, pattern="^(back_to_main|cancel_action)$"))
         settings_handler = ConversationHandler(
@@ -201,14 +211,6 @@ class TelegramBot:
             fallbacks=[MessageHandler(filters.Regex("^🔙 العودة$"), self._return_to_main)],
         )
         self.app.add_handler(settings_handler)
-        older_terms_handler = ConversationHandler(
-            entry_points=[MessageHandler(filters.Regex("^📅 جميع الفصول$"), self._older_terms_command)],
-            states={
-                ASK_OLDER_TERM_NUMBER: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._ask_older_term_number)],
-            },
-            fallbacks=[MessageHandler(filters.Regex("^❌ إلغاء$"), self._cancel_registration)],
-        )
-        self.app.add_handler(older_terms_handler)
 
     async def _send_message_with_keyboard(self, update, message, keyboard_type="main"):
         keyboards = {
