@@ -109,6 +109,10 @@ def get_enhanced_admin_dashboard_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("💾 إنشاء نسخة احتياطية", callback_data="backup_data"),
             InlineKeyboardButton("🔕 تحديث صامت", callback_data="silent_update"),
         ],
+        [
+            InlineKeyboardButton("🧪 اختبار إشعار الدرجات", callback_data="test_grade_notification"),
+            InlineKeyboardButton("🧪 اختبار إشعار الاقتباس", callback_data="test_quote_notification"),
+        ],
         [InlineKeyboardButton("❌ إغلاق لوحة التحكم", callback_data="close_dashboard")],
     ]
     return InlineKeyboardMarkup(buttons)

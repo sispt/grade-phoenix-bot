@@ -16,6 +16,7 @@ from utils.keyboards import (
     get_broadcast_confirmation_keyboard,
 )
 import aiohttp
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -240,6 +241,93 @@ class AdminDashboard:
             elif action.startswith("force_grade_show_html:"):
                 telegram_id = action.split(":", 1)[1]
                 await self._admin_force_grade_show_html(query, telegram_id)
+            elif action == "test_grade_notification":
+                # Prompt admin to choose test type
+                keyboard = InlineKeyboardMarkup([
+                    [
+                        InlineKeyboardButton("✅ مع تغيير في الدرجات", callback_data="test_grade_notification_with_change"),
+                        InlineKeyboardButton("❌ بدون تغيير في الدرجات", callback_data="test_grade_notification_no_change"),
+                    ],
+                    [InlineKeyboardButton("🔙 العودة للوحة التحكم", callback_data="back_to_dashboard")],
+                ])
+                await query.edit_message_text(
+                    text="🧪 اختر نوع اختبار إشعار الدرجات:",
+                    reply_markup=keyboard
+                )
+            elif action == "test_grade_notification_with_change":
+                # Simulate a grade update with a change and send notification to admin
+                fake_user = {
+                    "telegram_id": CONFIG["ADMIN_ID"],
+                    "username": "fakeuser",
+                    "username_unique": "fakeuser_unique",
+                    "session_token": "fake_token"
+                }
+                # Old grades
+                old_grades = [
+                    {"name": "Mathematics", "code": "MATH101", "coursework": "20", "final_exam": "30", "total": "50"},
+                    {"name": "Physics", "code": "PHYS101", "coursework": "25", "final_exam": "25", "total": "50"},
+                ]
+                # New grades (with change)
+                new_grades = [
+                    {"name": "Mathematics", "code": "MATH101", "coursework": "20", "final_exam": "40", "total": "60"},
+                    {"name": "Physics", "code": "PHYS101", "coursework": "25", "final_exam": "25", "total": "50"},
+                ]
+                # Use the same notification logic as real users
+                analytics = self.bot.grade_analytics
+                changed_courses = self.bot._compare_grades(old_grades, new_grades, "meaningful")
+                if changed_courses:
+                    # Format and send notification to admin
+                    message = await analytics.format_current_grades_with_quote(CONFIG["ADMIN_ID"], new_grades, manual=False)
+                    await query.edit_message_text(
+                        text="🧪 تم إرسال إشعار الدرجات (مع تغيير) إلى المدير.",
+                        reply_markup=get_enhanced_admin_dashboard_keyboard()
+                    )
+                    await self.bot.app.bot.send_message(chat_id=CONFIG["ADMIN_ID"], text=message)
+                else:
+                    await query.edit_message_text(
+                        text="❌ لم يتم اكتشاف أي تغيير في الدرجات التجريبية.",
+                        reply_markup=get_enhanced_admin_dashboard_keyboard()
+                    )
+            elif action == "test_grade_notification_no_change":
+                # Simulate a grade update with no change (should not send notification)
+                fake_user = {
+                    "telegram_id": CONFIG["ADMIN_ID"],
+                    "username": "fakeuser",
+                    "username_unique": "fakeuser_unique",
+                    "session_token": "fake_token"
+                }
+                # Old and new grades are the same
+                old_grades = [
+                    {"name": "Mathematics", "code": "MATH101", "coursework": "20", "final_exam": "30", "total": "50"},
+                    {"name": "Physics", "code": "PHYS101", "coursework": "25", "final_exam": "25", "total": "50"},
+                ]
+                new_grades = [
+                    {"name": "Mathematics", "code": "MATH101", "coursework": "20", "final_exam": "30", "total": "50"},
+                    {"name": "Physics", "code": "PHYS101", "coursework": "25", "final_exam": "25", "total": "50"},
+                ]
+                changed_courses = self.bot._compare_grades(old_grades, new_grades, "meaningful")
+                if not changed_courses:
+                    await query.edit_message_text(
+                        text="✅ لم يتم إرسال إشعار لأن الدرجات لم تتغير (تطبيق المنطق الحالي).",
+                        reply_markup=get_enhanced_admin_dashboard_keyboard()
+                    )
+                else:
+                    await query.edit_message_text(
+                        text="❌ تم اكتشاف تغيير غير متوقع في الدرجات التجريبية.",
+                        reply_markup=get_enhanced_admin_dashboard_keyboard()
+                    )
+            elif action == "test_quote_notification":
+                # Schedule a quote notification to admin after 1 minute
+                await query.edit_message_text(
+                    text="🧪 سيتم إرسال إشعار الاقتباس التجريبي إلى المدير بعد دقيقة واحدة.",
+                    reply_markup=get_enhanced_admin_dashboard_keyboard()
+                )
+                async def send_test_quote():
+                    await asyncio.sleep(60)
+                    quote = await self.bot.grade_analytics.get_daily_quote()
+                    quote_text = await self.bot.grade_analytics.format_quote_dual_language(quote)
+                    await self.bot.app.bot.send_message(chat_id=CONFIG["ADMIN_ID"], text=f"🧪 إشعار اقتباس مجدول (تجريبي):\n\n{quote_text}")
+                asyncio.create_task(send_test_quote())
             else:
                 await query.edit_message_text(
                     f"Action '{action}' selected.",

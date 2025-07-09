@@ -1789,7 +1789,7 @@ class TelegramBot:
         json_str = json.dumps(user_info, ensure_ascii=False, indent=2)
         # Inform the user about privacy
         await update.message.reply_text(
-            "هذه كل المعلومات التي يعرفها البوت عنك. لا أحد يطلع عليها، ويتم جلبها فقط عند طلبك."
+            "هذه كل البيانات التي يخزنها البوت عنك. لا أحد يطلع عليها إلا عند طلبك ذلك بشكل مباشر، ويتم جلبها فقط عند طلبك."
         )
         # Send as file
         await update.message.reply_document(
