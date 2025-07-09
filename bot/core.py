@@ -717,12 +717,7 @@ class TelegramBot:
         query = update.callback_query
         await query.answer()
         
-        # Handle admin callbacks
-        if update.effective_user.id == CONFIG["ADMIN_ID"]:
-            await self.admin_dashboard.handle_callback(update, context)
-            return
-            
-        # Handle regular user callbacks
+        # Handle specific user callbacks first (regardless of admin status)
         user_id = update.effective_user.id
         user = self.user_storage.get_user_by_telegram_id(user_id)
         
@@ -805,6 +800,11 @@ class TelegramBot:
                 "تمت العودة إلى الإعدادات الرئيسية.",
                 reply_markup=keyboard
             )
+            return
+        
+        # Handle admin callbacks (after specific user callbacks)
+        if update.effective_user.id == CONFIG["ADMIN_ID"]:
+            await self.admin_dashboard.handle_callback(update, context)
             return
             
         # Delegate other callbacks to settings handler
