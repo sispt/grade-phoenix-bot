@@ -201,11 +201,16 @@ def get_system_actions_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(buttons)
 
 
-def get_settings_main_keyboard() -> InlineKeyboardMarkup:
-    """Main settings keyboard with GitHub button only."""
+def get_settings_main_keyboard(translation_enabled: bool = False) -> InlineKeyboardMarkup:
+    """Main settings keyboard with GitHub button and translation toggle."""
+    trans_label = "🌐 ترجمة الاقتباسات: مفعلة" if translation_enabled else "🌐 ترجمة الاقتباسات: معطلة"
+    trans_callback = "toggle_translation"
     buttons = [
         [
             InlineKeyboardButton("🔗 GitHub Repo", url="https://github.com/sispt/grade-phoenix-bot?refresh"),
+        ],
+        [
+            InlineKeyboardButton(trans_label, callback_data=trans_callback)
         ],
         [
             InlineKeyboardButton("🔙 العودة", callback_data="back_to_main")

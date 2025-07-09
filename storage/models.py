@@ -38,6 +38,9 @@ class User(Base):
     password_stored = Column(Boolean, default=False)
     password_consent_given = Column(Boolean, default=False)
     
+    # New: translation preference
+    do_trans = Column(Boolean, default=False, nullable=False)
+    
     # Timestamps
     created_at = Column(DateTime(timezone=True), default=func.now())
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())

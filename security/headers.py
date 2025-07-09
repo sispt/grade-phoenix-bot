@@ -177,7 +177,7 @@ class SecurityPolicy:
     def get_security_report(self) -> Dict[str, Any]:
         """Get security policy report"""
         return {
-            "policy_version": CONFIG.get("BOT_VERSION", "1.0.0-dev"),
+            "policy_version": CONFIG.get("BOT_VERSION", "3.0.0"),
             "allowed_domains": self.allowed_domains,
             "blocked_patterns_count": len(self.blocked_patterns),
             "security_level": "HIGH",

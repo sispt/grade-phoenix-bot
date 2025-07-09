@@ -1425,7 +1425,9 @@ class TelegramBot:
             # Fetch and send the quote
             quote = await self.grade_analytics.get_daily_quote()
             if quote:
-                message = await self.grade_analytics.format_quote_dual_language(quote)
+                user = self.user_storage.get_user_by_telegram_id(telegram_id)
+                do_translate = user.get("do_trans", False) if user else False
+                quote_text = await self.grade_analytics.format_quote_dual_language(quote, do_translate=do_translate)
             else:
                 message = "💬 رسالة اليوم:\n\nلم تتوفر رسالة اليوم حالياً."
             count = await self.send_quote_to_all_users(message)
@@ -1536,6 +1538,24 @@ class TelegramBot:
     async def _settings_callback_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
+        user_id = update.effective_user.id
+        user = self.user_storage.get_user_by_telegram_id(user_id)
+        if query.data == "toggle_translation":
+            if not user:
+                await query.edit_message_text("❗️ يجب التسجيل أولاً.")
+                return
+            # Toggle do_trans
+            new_value = not user.get("do_trans", False)
+            self.user_storage.update_user(user["username"], {"do_trans": new_value})
+            # Refresh keyboard
+            from utils.keyboards import get_settings_main_keyboard
+            keyboard = get_settings_main_keyboard(translation_enabled=new_value)
+            status = "مفعلة" if new_value else "معطلة"
+            await query.edit_message_text(
+                f"🌐 تم {'تفعيل' if new_value else 'تعطيل'} ترجمة الاقتباسات للعربية.\n\nالحالة الحالية: {status}",
+                reply_markup=keyboard
+            )
+            return
         if query.data == "back_to_main":
             await query.edit_message_text(
                 "تمت العودة إلى القائمة الرئيسية.\n\n"
@@ -1551,6 +1571,7 @@ class TelegramBot:
                 "تمت إعادتك للقائمة الرئيسية.",
                 reply_markup=keyboard
             )
+
     async def _gpa_calc_fallback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("تم إلغاء العملية. أرسل /start للبدء من جديد.")
         return ConversationHandler.END
