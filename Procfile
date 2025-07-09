@@ -1,1 +1,1 @@
-web: uvicorn asgi_app:app --host 0.0.0.0 --port ${PORT:-8443}
+web: uvicorn asgi_app:app --host 0.0.0.0 --port ${PORT:-8080}
