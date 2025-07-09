@@ -354,7 +354,7 @@ class TelegramBot:
                 logger.warning(f"❌ User {telegram_id} not found in storage")
                 await update.message.reply_text("❗️ يجب التسجيل أولاً.", reply_markup=get_unregistered_keyboard())
                 return
-            token = user.get("token")
+            token = user.get("session_token")
             logger.info(f"🔑 Token found: {token is not None}")
             if not token:
                 logger.warning(f"❌ No token for user {telegram_id}")
@@ -408,7 +408,7 @@ class TelegramBot:
             if not user:
                 await update.message.reply_text("❗️ يجب التسجيل أولاً.", reply_markup=get_unregistered_keyboard())
                 return
-            token = user.get("token")
+            token = user.get("session_token")
             if not token:
                 await update.message.reply_text("❗️ يجب إعادة تسجيل الدخول.", reply_markup=get_unregistered_keyboard())
                 return
@@ -711,7 +711,7 @@ class TelegramBot:
             telegram_id = user.get("telegram_id")
             username = user.get("username")
             username_unique = user.get("username_unique")
-            token = user.get("token")
+            token = user.get("session_token")
             logger.info(f"[CALL] _check_and_notify_user_grades for username={username}, username_unique={username_unique}, telegram_id={telegram_id}")
             logger.info(f"[CHECK] self.grade_storage is type: {type(self.grade_storage)}")
             # Notify only once if token expired

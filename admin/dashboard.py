@@ -565,7 +565,7 @@ class AdminDashboard:
                 reply_markup=get_enhanced_admin_dashboard_keyboard(),
             )
             return
-        token = user.get("token")
+        token = user.get("session_token")
         username = user.get("username", "-")
         username_unique = user.get("username_unique", username)
         if not token:
@@ -600,7 +600,7 @@ class AdminDashboard:
                 reply_markup=get_enhanced_admin_dashboard_keyboard(),
             )
             return
-        token = user.get("token")
+        token = user.get("session_token")
         username = user.get("username", "-")
         username_unique = user.get("username_unique", username)
         if not token:
