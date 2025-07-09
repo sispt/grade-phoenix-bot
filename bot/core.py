@@ -1731,13 +1731,13 @@ class TelegramBot:
             grade['term_id'] = term_id
         # Save grades to storage
         self.grade_storage.store_grades(user.get('username'), grades)
-        # Format and send grades
-        message = await self.grade_analytics.format_old_grades_with_analysis(telegram_id, grades)
-        if len(message) > 4096:
-            for i in range(0, len(message), 4096):
-                await update.message.reply_text(message[i:i+4096], reply_markup=get_main_keyboard())
+        # Format and send grades for the selected term
+        formatted_message = await self.grade_analytics.format_old_grades_with_analysis(telegram_id, grades)
+        if len(formatted_message) > 4096:
+            for i in range(0, len(formatted_message), 4096):
+                await update.message.reply_text(formatted_message[i:i+4096], reply_markup=get_main_keyboard())
         else:
-            await update.message.reply_text(message, reply_markup=get_main_keyboard())
+            await update.message.reply_text(formatted_message, reply_markup=get_main_keyboard())
         return ConversationHandler.END
 
     async def _download_my_info_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
