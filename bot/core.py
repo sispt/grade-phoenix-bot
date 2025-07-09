@@ -1612,7 +1612,7 @@ class TelegramBot:
         """Cancel handler for custom GPA calculator flow."""
         context.user_data.pop('gpa_calc', None)
         await update.message.reply_text(
-            "❌ تم إلغاء حساب المعدل المخصص. يمكنك البدء من جديد أو اختيار إجراء آخر.",
+            "❌ تم إلغاء عملية حساب المعدل. يمكنك البدء من جديد أو اختيار إجراء آخر.",
             reply_markup=get_main_keyboard()
         )
         return ConversationHandler.END
