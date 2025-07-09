@@ -243,6 +243,10 @@ class GradeAnalytics:
         """Format old grades with analysis and dual-language quote, using a relevant category."""
         import re
         try:
+            # Get user's translation preference
+            user = self.user_storage.get_user_by_telegram_id(telegram_id)
+            do_translate = user.get("do_trans", False) if user else False
+            
             category = self.get_quote_category_for_grades(old_grades)
             quote = await self.get_daily_quote(category)
             total_courses = len(old_grades)
@@ -294,7 +298,7 @@ class GradeAnalytics:
                 message += f"📖 **{name}** ({code})\n   الأعمال: {coursework} | النظري: {final_exam} | النهائي: {total}\n\n"
             # Add quote if available, only once
             if quote:
-                quote_text = await self.format_quote_dual_language(quote)
+                quote_text = await self.format_quote_dual_language(quote, do_translate=do_translate)
                 if quote_text.strip() not in message:
                     message += quote_text
             return message
@@ -339,6 +343,10 @@ class GradeAnalytics:
         """Format current term grades and append a dual-language quote, using a relevant category. If manual=True, use GPA for category if available."""
         import re
         try:
+            # Get user's translation preference
+            user = self.user_storage.get_user_by_telegram_id(telegram_id)
+            do_translate = user.get("do_trans", False) if user else False
+            
             gpa = self._calculate_gpa(grades)
             if manual and gpa is not None:
                 category = self.get_quote_category_for_gpa(gpa)
@@ -384,7 +392,7 @@ class GradeAnalytics:
                 total = grade.get("total", "لم يتم النشر")
                 message += f"📖 **{name}** ({code})\n   الأعمال: {coursework} | النظري: {final_exam} | النهائي: {total}\n\n"
             if quote:
-                quote_text = await self.format_quote_dual_language(quote)
+                quote_text = await self.format_quote_dual_language(quote, do_translate=do_translate)
                 if quote_text.strip() not in message:
                     message += f"\n{quote_text}"
             return message

@@ -7,6 +7,7 @@ from telegram import (
     Update,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    ParseMode,
 )
 from telegram.ext import ContextTypes
 from config import CONFIG
@@ -205,10 +206,12 @@ class AdminDashboard:
                 )
                 quote = await self.bot.grade_analytics.get_daily_quote()
                 if quote:
-                    message = await self.bot.grade_analytics.format_quote_dual_language(quote)
+                    # For admin broadcast, always translate (admin preference)
+                    message = await self.bot.grade_analytics.format_quote_dual_language(quote, do_translate=True)
                 else:
                     message = "💬 رسالة اليوم:\n\nلم تتوفر رسالة اليوم حالياً."
-                sent, failed = await self.send_quote_to_all_users(message)
+                sent = await self.bot.send_quote_to_all_users(message, parse_mode=ParseMode.MARKDOWN)
+                failed = 0  # We'll track failures differently
                 
                 # Create detailed feedback message
                 if failed == 0:
@@ -325,7 +328,7 @@ class AdminDashboard:
                 async def send_test_quote():
                     await asyncio.sleep(60)
                     quote = await self.bot.grade_analytics.get_daily_quote()
-                    quote_text = await self.bot.grade_analytics.format_quote_dual_language(quote)
+                    quote_text = await self.bot.grade_analytics.format_quote_dual_language(quote, do_translate=True)
                     await self.bot.app.bot.send_message(chat_id=CONFIG["ADMIN_ID"], text=f"🧪 إشعار اقتباس مجدول (تجريبي):\n\n{quote_text}")
                 asyncio.create_task(send_test_quote())
             else:

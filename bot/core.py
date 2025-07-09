@@ -1459,14 +1459,19 @@ class TelegramBot:
         await update.message.reply_text("تم إلغاء التسجيل.", reply_markup=keyboard)
         return ConversationHandler.END
 
-    async def send_quote_to_all_users(self, message):
+    async def send_quote_to_all_users(self, message, parse_mode=None):
         users = self.user_storage.get_all_users()
         sent = 0
         for user in users:
             try:
-                await self.app.bot.send_message(chat_id=user['telegram_id'], text=message)
+                await self.app.bot.send_message(
+                    chat_id=user['telegram_id'], 
+                    text=message,
+                    parse_mode=parse_mode
+                )
                 sent += 1
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Failed to send message to {user.get('telegram_id')}: {e}")
                 continue
         return sent
 
@@ -1500,13 +1505,27 @@ class TelegramBot:
             # Fetch and send the quote
             quote = await self.grade_analytics.get_daily_quote()
             if quote:
-                user = self.user_storage.get_user_by_telegram_id(telegram_id)
-                do_translate = user.get("do_trans", False) if user else False
-                quote_text = await self.grade_analytics.format_quote_dual_language(quote, do_translate=do_translate)
+                # Send quote to each user with their individual translation preference
+                sent_count = 0
+                for user in self.user_storage.get_all_users():
+                    telegram_id = user.get("telegram_id")
+                    if telegram_id:
+                        try:
+                            # Get user's translation preference
+                            do_translate = user.get("do_trans", False)
+                            quote_text = await self.grade_analytics.format_quote_dual_language(quote, do_translate=do_translate)
+                            if quote_text.strip():  # Only send if there's content
+                                await self.app.bot.send_message(
+                                    chat_id=telegram_id, 
+                                    text=quote_text, 
+                                    parse_mode=ParseMode.MARKDOWN
+                                )
+                                sent_count += 1
+                        except Exception as e:
+                            logger.warning(f"Failed to send scheduled quote to {telegram_id}: {e}")
+                logger.info(f"✅ تم إرسال رسالة اليوم إلى {sent_count} مستخدم.")
             else:
-                message = "💬 رسالة اليوم:\n\nلم تتوفر رسالة اليوم حالياً."
-            count = await self.send_quote_to_all_users(message)
-            logger.info(f"✅ تم إرسال رسالة اليوم إلى {count} مستخدم.")
+                logger.warning("No quote available for scheduled broadcast.")
 
     async def _how_it_works_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
@@ -1524,13 +1543,16 @@ class TelegramBot:
             if not quote:
                 logger.warning("No quote available for broadcast.")
                 return
-            # Format quote in two languages
-            quote_text = await self.grade_analytics.format_quote_dual_language(quote)
+            # Send quote to each user with their individual translation preference
             for user in self.user_storage.get_all_users():
                 telegram_id = user.get("telegram_id")
                 if telegram_id:
                     try:
-                        await context.bot.send_message(chat_id=telegram_id, text=quote_text, parse_mode=ParseMode.MARKDOWN)
+                        # Get user's translation preference
+                        do_translate = user.get("do_trans", False)
+                        quote_text = await self.grade_analytics.format_quote_dual_language(quote, do_translate=do_translate)
+                        if quote_text.strip():  # Only send if there's content
+                            await context.bot.send_message(chat_id=telegram_id, text=quote_text, parse_mode=ParseMode.MARKDOWN)
                     except Exception as e:
                         logger.warning(f"Failed to send quote to {telegram_id}: {e}")
         except Exception as e:
