@@ -774,10 +774,22 @@ class TelegramBot:
                 # Notify only once if token expired
                 if not token:
                     logger.debug(f"❌ No token for user {username}")
+                    notified = user.get("session_expired_notified", False)
+                    if not notified:
+                        await self.app.bot.send_message(
+                            chat_id=telegram_id,
+                            text="⏰ انتهت صلاحية الجلسة\n\nتم تسجيل الخروج تلقائياً لحماية حسابك. يرجى تسجيل الدخول مرة أخرى من خلال زر '🚀 تسجيل الدخول للجامعة'.",
+                            reply_markup=get_unregistered_keyboard()
+                        )
+                        is_pg = hasattr(self.user_storage, 'update_token_expired_notified')
+                        if is_pg:
+                            self.user_storage.update_token_expired_notified(user["username"], True)
+                        else:
+                            user["session_expired_notified"] = True
+                            if hasattr(self.user_storage, '_save_users'):
+                                self.user_storage._save_users()
                     return False
-                is_pg = hasattr(self.user_storage, 'update_token_expired_notified')
-                notified = user.get("session_expired_notified", False)
-                logger.debug(f"🔍 Testing token for user {username}")
+                # Test token validity
                 if not await self.university_api.test_token(token):
                     logger.warning(f"❌ Token expired for user {username}")
                     # Try auto-login if password is stored
