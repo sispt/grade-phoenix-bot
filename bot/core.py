@@ -390,7 +390,7 @@ class TelegramBot:
                 return
 
             # Always save grades to the grade table after fetching
-            self.grade_storage.save_grades(user.get('username'), grades)
+            self.grade_storage.store_grades(user.get('username'), grades)
 
             # Format grades with quote
             logger.info(f"📝 Formatting grades for user {telegram_id}")
@@ -807,7 +807,7 @@ class TelegramBot:
             if not changed_courses:
                 logger.debug(f"✅ No {sensitivity} grade changes for user {username_unique}, not sending notification.")
                 # Still save the grades even if no notification is sent
-                self.grade_storage.save_grades(username_unique, new_grades)
+                self.grade_storage.store_grades(username_unique, new_grades)
                 return False
             
             # Create appropriate message based on sensitivity
@@ -878,8 +878,8 @@ class TelegramBot:
                     message += f"📚 {name} ({code})\n" + "\n".join(changes) + "\n\n"
             
             # If we reach here, we have meaningful changes to report
-            logger.info(f"[CALL] About to call save_grades for username_unique={username_unique} with {len(new_grades)} grades.")
-            self.grade_storage.save_grades(username_unique, new_grades)
+            logger.info(f"[CALL] About to call store_grades for username_unique={username_unique} with {len(new_grades)} grades.")
+            self.grade_storage.store_grades(username_unique, new_grades)
             
             now_utc3 = datetime.now(timezone.utc) + timedelta(hours=3)
             message += f"🕒 وقت التحديث: {now_utc3.strftime('%Y-%m-%d %H:%M')} (UTC+3)"
