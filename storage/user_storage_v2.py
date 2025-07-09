@@ -291,4 +291,7 @@ class UserStorageV2:
             'created_at': user.created_at.isoformat() if getattr(user, 'created_at', None) is not None else None,
             'updated_at': user.updated_at.isoformat() if getattr(user, 'updated_at', None) is not None else None,
             'session_expired_notified': user.session_expired_notified,
+            'encrypted_password': user.encrypted_password,
+            'password_stored': user.password_stored,
+            'password_consent_given': user.password_consent_given,
         } 

@@ -34,6 +34,10 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     session_expired_notified = Column(Boolean, default=False)  # New column
     
+    encrypted_password = Column(String(255), nullable=True)
+    password_stored = Column(Boolean, default=False)
+    password_consent_given = Column(Boolean, default=False)
+    
     # Timestamps
     created_at = Column(DateTime(timezone=True), default=func.now())
     updated_at = Column(DateTime(timezone=True), default=func.now(), onupdate=func.now())
