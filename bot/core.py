@@ -388,7 +388,10 @@ class TelegramBot:
                 logger.warning(f"⚠️ No grades found for user {telegram_id}")
                 await update.message.reply_text("لا يوجد درجات متاحة بعد.", reply_markup=get_main_keyboard())
                 return
-            
+
+            # Always save grades to the grade table after fetching
+            self.grade_storage.save_grades(user.get('username'), grades)
+
             # Format grades with quote
             logger.info(f"📝 Formatting grades for user {telegram_id}")
             message = await self.grade_analytics.format_current_grades_with_quote(telegram_id, grades)
