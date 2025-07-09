@@ -200,9 +200,24 @@ class GradeAnalytics:
         return await self.get_daily_quote(categories)
 
     async def format_quote_dual_language(self, quote, do_translate=True) -> str:
-        """Format quote: "[EN]"\n"[AR]"\n[AUTHOR]. Only translate from English to Arabic if do_translate is True. Otherwise, return an empty string."""
+        """Format quote: "[EN]"\n"[AR]"\n[AUTHOR]. If do_translate is True, show both English and Arabic. If False, show only English."""
         if not do_translate:
-            return ""
+            # Show quote in English only when translation is disabled
+            try:
+                if isinstance(quote, dict):
+                    text = quote.get('text', '')
+                    author = quote.get('author', '')
+                else:
+                    text = str(quote)
+                    author = ''
+                if not text:
+                    return ''
+                quote_block = f'"{text}"' + (f'\n{author}' if author else '')
+                disclaimer = "\n_اقتباس آلي من الإنترنت_"
+                return f"{quote_block}{disclaimer}"
+            except Exception as e:
+                logger.warning(f"Quote formatting failed: {e}")
+                return ""
         try:
             if isinstance(quote, dict):
                 text = quote.get('text', '')
