@@ -192,7 +192,10 @@ class TelegramBot:
                 ASK_GPA_PERCENTAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._gpa_ask_percentage)],
                 ASK_GPA_ECTS: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._gpa_ask_ects)],
             },
-            fallbacks=[MessageHandler(filters.ALL, self._gpa_calc_fallback)],  # Robust fallback: cancel on any input
+            fallbacks=[
+                CommandHandler("cancel", self._cancel_gpa_calc),
+                MessageHandler(filters.Regex("^❌ إلغاء$"), self._cancel_gpa_calc)
+            ],  # Robust fallback: cancel on any input
             allow_reentry=True,
         )
         self.app.add_handler(gpa_calc_handler)
@@ -1541,7 +1544,10 @@ class TelegramBot:
 
     async def _gpa_calc_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['gpa_calc'] = {'courses': [], 'current': 0, 'count': 0}
-        await update.message.reply_text("كم عدد المقررات التي تريد حساب المعدل التراكمي لها؟ (أدخل رقماً بين 1 و10)")
+        await update.message.reply_text(
+            "كم عدد المقررات التي تريد حساب المعدل التراكمي لها؟ (أدخل رقماً بين 1 و10)",
+            reply_markup=ReplyKeyboardMarkup([["❌ إلغاء"]], resize_keyboard=True, one_time_keyboard=True)
+        )
         return ASK_GPA_COURSE_COUNT
 
     async def _gpa_ask_course_count(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1551,7 +1557,10 @@ class TelegramBot:
                 raise ValueError
             context.user_data['gpa_calc']['count'] = count
             context.user_data['gpa_calc']['current'] = 1
-            await update.message.reply_text(f"أدخل النسبة المئوية للمقرر رقم 1 (مثال: 85)")
+            await update.message.reply_text(
+                f"أدخل النسبة المئوية للمقرر رقم 1 (مثال: 85)",
+                reply_markup=ReplyKeyboardMarkup([["❌ إلغاء"]], resize_keyboard=True, one_time_keyboard=True)
+            )
             return ASK_GPA_PERCENTAGE
         except Exception:
             await update.message.reply_text("❌ أدخل رقماً صحيحاً بين 1 و10.")
@@ -1566,19 +1575,19 @@ class TelegramBot:
             match = re.search(r"\d+(?:\.\d+)?", text)
             if not match:
                 raise ValueError("No digits found")
-            
             percent = int(float(match.group(0)))
             if not (0 <= percent <= 100):
                 raise ValueError("Out of range")
-            
             # Check if percentage is below 30 (0 earned points)
             if percent < 30:
                 await update.message.reply_text(f"⚠️ النسبة المئوية {percent}% أقل من 30%، ستكون النقاط المكتسبة 0.")
-            
             context.user_data['gpa_calc']['courses'].append({'percentage': percent})
             # Ask for ECTS for this course
             current = context.user_data['gpa_calc']['current']
-            await update.message.reply_text(f"أدخل عدد نقاط ECTS المخصصة للمقرر رقم {current} (مثال: 4)")
+            await update.message.reply_text(
+                f"أدخل عدد نقاط ECTS المخصصة للمقرر رقم {current} (مثال: 4)",
+                reply_markup=ReplyKeyboardMarkup([["❌ إلغاء"]], resize_keyboard=True, one_time_keyboard=True)
+            )
             return ASK_GPA_ECTS
         except Exception:
             await update.message.reply_text("❌ أدخل نسبة مئوية صحيحة بين 0 و100.")
@@ -1596,7 +1605,10 @@ class TelegramBot:
                 return await self._gpa_calc_show_result(update, context)
             else:
                 context.user_data['gpa_calc']['current'] += 1
-                await update.message.reply_text(f"أدخل النسبة المئوية للمقرر رقم {context.user_data['gpa_calc']['current']} (دون إشارة %، مثال: 85)")
+                await update.message.reply_text(
+                    f"أدخل النسبة المئوية للمقرر رقم {context.user_data['gpa_calc']['current']} (دون إشارة %، مثال: 85)",
+                    reply_markup=ReplyKeyboardMarkup([["❌ إلغاء"]], resize_keyboard=True, one_time_keyboard=True)
+                )
                 return ASK_GPA_PERCENTAGE
         except Exception:
             await update.message.reply_text("❌ أدخل عدد نقاط ECTS صحيح (عادة بين 0.5 و20)")
