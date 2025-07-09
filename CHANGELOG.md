@@ -73,6 +73,35 @@ All notable changes to this project will be documented in this file.
 - Project cleanup: Removed unused migration scripts, clarified folder structure, and improved code organization.
 - Various bug fixes and user experience improvements.
 
+## [3.1.0] - 2025-01-27
+### Major Improvements
+- **Translation Toggle System**: Users can now control whether quotes are translated to Arabic via settings menu
+- **Scheduled Quote Broadcast Fix**: Fixed critical issues with daily quote scheduling system
+- **Individual User Preferences**: Each user's translation preference is now respected in all quote displays
+- **Modern Elegant Design**: Complete UI redesign with sophisticated button layouts and professional emoji selection
+- **Enhanced Error Handling**: Improved error recovery and user experience throughout the bot
+- **Code Cleanup**: Removed test files from root directory and improved project organization
+
+### Technical Improvements
+- **ParseMode Compatibility**: Fixed import issues for newer python-telegram-bot versions
+- **Translation Logic**: Fixed quote translation to respect user settings across all functions
+- **Scheduled Broadcast**: Individual user translation preferences now work in daily broadcasts
+- **Admin Dashboard**: Enhanced admin quote broadcasting with proper markdown formatting
+- **Code Organization**: Cleaned up file structure and removed development artifacts
+
+### Bug Fixes
+- Fixed translation toggle not working properly in quote displays
+- Fixed scheduled quote broadcast not respecting user preferences
+- Fixed ParseMode import errors in newer python-telegram-bot versions
+- Fixed undefined variables in scheduled broadcast function
+- Fixed message formatting issues in quote broadcasts
+
+### Design Improvements
+- **Modern Elegant Design System**: Implemented sophisticated button design with professional emoji patterns
+- **Consistent Visual Hierarchy**: Clear button grouping and logical flow
+- **Professional Aesthetics**: Clean, minimal design with elegant spacing and typography
+- **Enhanced User Experience**: Improved navigation and visual feedback
+
 ---
 
 _This changelog summarizes major features and improvements for each release. For detailed commit history, see the repository's commit log._
