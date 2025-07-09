@@ -67,6 +67,7 @@ class UserSettings:
                 "notification_time": "immediate",  # immediate, daily, weekly
                 "notification_sound": True,
                 "notification_vibration": True,
+                "grade_sensitivity": "meaningful",  # all, meaningful, significant
             },
             # Privacy Settings
             "privacy": {
@@ -131,7 +132,8 @@ class UserSettings:
         summary += (
             f"• إشعارات البث: {'✅' if notif['broadcast_notifications'] else '❌'}\n"
         )
-        summary += f"• وقت الإشعارات: {notif['notification_time']}\n\n"
+        summary += f"• وقت الإشعارات: {notif['notification_time']}\n"
+        summary += f"• حساسية إشعارات الدرجات: {notif['grade_sensitivity']}\n\n"
 
         # Privacy settings
         privacy = settings["privacy"]
