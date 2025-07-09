@@ -75,13 +75,12 @@ class UserStorageV2:
         """Get user by username or telegram_id"""
         try:
             with self._get_session() as session:
-                # Try to find by username first, then telegram_id
-                user = session.query(User).filter(
-                    or_(
-                        User.username == identifier,
-                        User.telegram_id == int(identifier) if identifier.isdigit() else False
-                    )
-                ).first()
+                filters = [User.username == identifier]
+                if (isinstance(identifier, str) and identifier.isdigit()):
+                    filters.append(User.telegram_id == int(identifier))
+                elif isinstance(identifier, int):
+                    filters.append(User.telegram_id == identifier)
+                user = session.query(User).filter(or_(*filters)).first()
                 
                 if user:
                     return self._user_to_dict(user)
@@ -194,12 +193,12 @@ class UserStorageV2:
         """Check if user is registered by username or telegram_id"""
         try:
             with self._get_session() as session:
-                user = session.query(User).filter(
-                    or_(
-                        User.username == identifier,
-                        User.telegram_id == int(identifier) if identifier.isdigit() else False
-                    )
-                ).first()
+                filters = [User.username == identifier]
+                if (isinstance(identifier, str) and identifier.isdigit()):
+                    filters.append(User.telegram_id == int(identifier))
+                elif isinstance(identifier, int):
+                    filters.append(User.telegram_id == identifier)
+                user = session.query(User).filter(or_(*filters)).first()
                 return user is not None
                 
         except Exception as e:
