@@ -1,11 +1,12 @@
 import os
 import logging
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, BackgroundTasks
 from http import HTTPStatus
 from telegram import Update
 from bot.core import TelegramBot
 from config import CONFIG
 from contextlib import asynccontextmanager
+import asyncio
 
 # Setup logging
 from utils.logger import setup_logging, get_logger
@@ -18,6 +19,16 @@ bot_runner = TelegramBot()
 # FastAPI app
 app = FastAPI()
 
+async def scheduled_grade_check():
+    while True:
+        try:
+            logger.info("🔔 Running scheduled grade check (FastAPI background task)...")
+            await bot_runner.bot._notify_all_users_grades()
+        except Exception as e:
+            logger.error(f"❌ Exception in scheduled_grade_check: {e}", exc_info=True)
+        interval = int(CONFIG.get('GRADE_CHECK_INTERVAL', 10)) * 60
+        await asyncio.sleep(interval)
+
 @app.on_event("startup")
 async def startup_event():
     logger.info("🚀 FastAPI startup: Initializing Telegram bot and webhook...")
@@ -26,7 +37,6 @@ async def startup_event():
     app_obj = bot_runner.app
     max_wait = 5.0
     waited = 0.0
-    import asyncio
     while app_obj is None and waited < max_wait:
         await asyncio.sleep(0.2)
         waited += 0.2
@@ -51,6 +61,8 @@ async def startup_event():
         logger.info(f"✅ Webhook set to: {webhook_url}")
     else:
         logger.info(f"✅ Webhook already set to: {webhook_url}")
+    # Start background grade check task
+    asyncio.create_task(scheduled_grade_check())
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -62,7 +74,6 @@ async def telegram_webhook(request: Request):
     app_obj = bot_runner.app
     max_wait = 5.0
     waited = 0.0
-    import asyncio
     while app_obj is None and waited < max_wait:
         await asyncio.sleep(0.2)
         waited += 0.2
@@ -81,4 +92,4 @@ async def telegram_webhook(request: Request):
 
 @app.get("/healthcheck")
 async def healthcheck():
-    return {"status": "ok"} 
+    return {"status": "ok"}
