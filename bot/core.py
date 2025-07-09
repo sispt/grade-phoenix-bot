@@ -1254,15 +1254,19 @@ class TelegramBot:
                 password_consent_given = False
         # Save user to database
         try:
-            success = self.user_storage.save_user(
-                telegram_id,
-                user_data['username'],
-                token,
-                user_data,
-                encrypted_password=encrypted_password,
-                password_stored=password_stored,
-                password_consent_given=password_consent_given
-            )
+            user_dict = {
+                "telegram_id": telegram_id,
+                "username": user_data['username'],
+                "fullname": user_data.get('fullname'),
+                "firstname": user_data.get('firstname'),
+                "lastname": user_data.get('lastname'),
+                "email": user_data.get('email'),
+                "session_token": token,
+                "token_expires_at": None,  # Set if you have it
+                "is_active": True,
+                # Optionally add encrypted_password, password_stored, password_consent_given if your User model supports them
+            }
+            success = self.user_storage.create_user(user_dict)
             if not success:
                 logger.error(f"❌ Failed to save user {user_data['username']}")
                 await update.message.reply_text(
