@@ -3,7 +3,7 @@ Database Models for grade-phoenix-bot
 SQLAlchemy models for users and grades storage
 """
 
-from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, Text, Boolean, ForeignKey
+from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, Text, Boolean, ForeignKey, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.sql import func
@@ -79,7 +79,7 @@ class Grade(Base):
         return f"<Grade(username='{self.username}', course='{self.name}', total='{self.total}')>"
 
 class DatabaseManager:
-    """Database manager for PostgreSQL connection and session management"""
+    """Database manager for MySQL connection and session management"""
     
     def __init__(self, database_url: str):
         self.database_url = database_url
@@ -90,11 +90,22 @@ class DatabaseManager:
     def _initialize_engine(self):
         """Initialize SQLAlchemy engine"""
         try:
+            # Log the database URL for debugging (without sensitive info)
+            safe_url = self.database_url.replace(self.database_url.split('@')[0].split('://')[1], '***') if '@' in self.database_url else self.database_url
+            logger.info(f"🔧 Initializing database engine with URL: {safe_url}")
+            
+            # Ensure the URL is properly formatted for MySQL
+            if not self.database_url.startswith('mysql'):
+                logger.error(f"❌ Invalid database URL format. Expected 'mysql://' but got: {self.database_url[:10]}...")
+                raise ValueError("Database URL must start with 'mysql://' for MySQL connections")
+            
             self.engine = create_engine(
                 self.database_url,
                 pool_pre_ping=True,
                 pool_recycle=300,
-                echo=False  # Set to True for SQL debugging
+                echo=False,  # Set to True for SQL debugging
+                # Explicitly specify MySQL dialect
+                connect_args={"charset": "utf8mb4"}
             )
             self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
             logger.info("✅ Database engine initialized successfully")
@@ -129,8 +140,12 @@ class DatabaseManager:
     def test_connection(self):
         """Test database connection"""
         try:
-            with self.engine.connect() as conn:
-                conn.execute("SELECT 1")
+            if not self.engine:
+                logger.error("❌ Database engine not initialized")
+                return False
+                
+            with self.engine.connect() as connection:
+                connection.execute(text("SELECT 1"))
             logger.info("✅ Database connection test successful")
             return True
         except Exception as e:

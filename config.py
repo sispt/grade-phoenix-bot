@@ -25,10 +25,7 @@ else:
 # works out-of-the-box on platforms (e.g. Railway) that expose a `MYSQL_URL`
 # variable instead of `DATABASE_URL`.
 database_url_env = (
-    os.getenv("DATABASE_URL")
-    or os.getenv("MYSQL_URL")
-    or os.getenv("CLEARDB_DATABASE_URL")  # common on Heroku add-ons
-    or os.getenv("JAWSDB_MARIA_URL")       # another Heroku variant
+    os.getenv("MYSQL_URL")
 )
 
 # Bot configuration
