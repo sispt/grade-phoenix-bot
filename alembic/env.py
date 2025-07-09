@@ -37,6 +37,26 @@ if config.config_file_name is not None:
 # ... etc.
 
 
+def format_database_url(url):
+    """Format database URL to use mysql+pymysql:// prefix"""
+    if not url:
+        return url
+    
+    # If it's already formatted correctly, return as is
+    if url.startswith('mysql+pymysql://'):
+        return url
+    
+    # If it starts with mysql://, replace with mysql+pymysql://
+    if url.startswith('mysql://'):
+        return url.replace('mysql://', 'mysql+pymysql://', 1)
+    
+    # If it doesn't have a scheme, assume it's a MySQL URL and add the prefix
+    if not url.startswith(('mysql://', 'mysql+pymysql://', 'postgresql://', 'sqlite://')):
+        return f'mysql+pymysql://{url}'
+    
+    return url
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -51,6 +71,8 @@ def run_migrations_offline() -> None:
     """
     # Use MYSQL_URL from environment
     url = os.getenv("MYSQL_URL") or config.get_main_option("sqlalchemy.url")
+    url = format_database_url(url)
+    
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -71,6 +93,7 @@ def run_migrations_online() -> None:
     """
     # Use MYSQL_URL from environment
     database_url = os.getenv("MYSQL_URL") or config.get_main_option("sqlalchemy.url")
+    database_url = format_database_url(database_url)
     
     # Update config with the actual database URL
     if database_url:

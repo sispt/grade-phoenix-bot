@@ -9,11 +9,34 @@ from pathlib import Path
 # Add current directory to Python path
 sys.path.append(str(Path(__file__).parent))
 
+def parse_database_url(database_url):
+    """Parse database URL and return connection parameters"""
+    from urllib.parse import urlparse
+    
+    # Handle different URL formats
+    if database_url.startswith('mysql+pymysql://'):
+        # Remove the pymysql part for parsing
+        clean_url = database_url.replace('mysql+pymysql://', 'mysql://')
+    elif database_url.startswith('mysql://'):
+        clean_url = database_url
+    else:
+        # Assume it's a raw MySQL URL
+        clean_url = f'mysql://{database_url}'
+    
+    parsed = urlparse(clean_url)
+    
+    return {
+        'host': parsed.hostname,
+        'port': parsed.port or 3306,
+        'user': parsed.username,
+        'password': parsed.password,
+        'database': parsed.path.lstrip('/')
+    }
+
 def run_simple_migration():
     """Run a simple migration to fix the telegram_id column"""
     try:
         import pymysql
-        from urllib.parse import urlparse
         
         # Get database URL
         database_url = os.getenv("MYSQL_URL")
@@ -22,24 +45,17 @@ def run_simple_migration():
             return False
             
         # Parse the URL
-        parsed = urlparse(database_url)
+        conn_params = parse_database_url(database_url)
         
-        # Extract connection details
-        host = parsed.hostname
-        port = parsed.port or 3306
-        username = parsed.username
-        password = parsed.password
-        database = parsed.path.lstrip('/')
-        
-        print(f"🔌 Connecting to MySQL at {host}:{port}")
+        print(f"🔌 Connecting to MySQL at {conn_params['host']}:{conn_params['port']}")
         
         # Connect to database
         connection = pymysql.connect(
-            host=host,
-            port=port,
-            user=username,
-            password=password,
-            database=database,
+            host=conn_params['host'],
+            port=conn_params['port'],
+            user=conn_params['user'],
+            password=conn_params['password'],
+            database=conn_params['database'],
             charset='utf8mb4'
         )
         
@@ -51,7 +67,7 @@ def run_simple_migration():
                 WHERE TABLE_SCHEMA = %s 
                 AND TABLE_NAME = 'users' 
                 AND COLUMN_NAME = 'telegram_id'
-            """, (database,))
+            """, (conn_params['database'],))
             
             result = cursor.fetchone()
             if result:
@@ -75,6 +91,8 @@ def run_simple_migration():
         
     except Exception as e:
         print(f"❌ Migration failed: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 if __name__ == "__main__":
