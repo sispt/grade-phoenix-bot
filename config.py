@@ -28,6 +28,12 @@ database_url_env = (
     os.getenv("MYSQL_URL")
 )
 
+# Ensure MySQL URLs use the correct dialect
+if database_url_env and database_url_env.startswith("mysql://"):
+    # Convert mysql:// to mysql+pymysql:// for proper PyMySQL usage
+    database_url_env = database_url_env.replace("mysql://", "mysql+pymysql://", 1)
+    logger.info("🔧 Converted MySQL URL to use PyMySQL dialect")
+
 # Bot configuration
 CONFIG = {
     # Telegram bot token

@@ -170,7 +170,3 @@ def get_credentials_security_info_message() -> str:
         "ننصح باستخدام كلمة مرور خاصة لهذا الحساب وعدم مشاركتها مع أي خدمة أخرى.\n\n"
         "🔐 **بياناتك آمنة ومشفرة بالكامل**"
     )
-
-
-# Database manager for message utilities
-db_manager = DatabaseManager(CONFIG["DATABASE_URL"])
