@@ -1368,7 +1368,9 @@ class TelegramBot:
         )
 
     async def _cancel_registration(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text("تم إلغاء التسجيل.", reply_markup=get_main_keyboard())
+        is_registered = self.user_storage.is_user_registered(update.effective_user.id)
+        keyboard = get_main_keyboard() if is_registered else get_unregistered_keyboard()
+        await update.message.reply_text("تم إلغاء التسجيل.", reply_markup=keyboard)
         return ConversationHandler.END
 
     async def send_quote_to_all_users(self, message):
@@ -1643,9 +1645,11 @@ class TelegramBot:
     async def _cancel_gpa_calc(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Cancel handler for custom GPA calculator flow."""
         context.user_data.pop('gpa_calc', None)
+        is_registered = self.user_storage.is_user_registered(update.effective_user.id)
+        keyboard = get_main_keyboard() if is_registered else get_unregistered_keyboard()
         await update.message.reply_text(
             "❌ تم إلغاء عملية حساب المعدل. يمكنك البدء من جديد أو اختيار إجراء آخر.",
-            reply_markup=get_main_keyboard()
+            reply_markup=keyboard
         )
         return ConversationHandler.END
 
