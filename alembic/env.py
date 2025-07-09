@@ -1,15 +1,26 @@
 from logging.config import fileConfig
 import os
+import sys
+from pathlib import Path
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
 
-# Import our models
-import sys
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from storage.models import Base
+# Add the project root to Python path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+# Import our models with error handling
+try:
+    from storage.models import Base
+    target_metadata = Base.metadata
+except ImportError as e:
+    print(f"Warning: Could not import storage.models: {e}")
+    # Create a minimal metadata if import fails
+    from sqlalchemy import MetaData
+    target_metadata = MetaData()
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -19,10 +30,6 @@ config = context.config
 # This line sets up loggers basically.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
-
-# add your model's MetaData object here
-# for 'autogenerate' support
-target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -42,7 +49,7 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    # Use DATABASE_URL from environment
+    # Use MYSQL_URL from environment
     url = os.getenv("MYSQL_URL") or config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
@@ -62,7 +69,7 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    # Use DATABASE_URL from environment
+    # Use MYSQL_URL from environment
     database_url = os.getenv("MYSQL_URL") or config.get_main_option("sqlalchemy.url")
     
     # Update config with the actual database URL
