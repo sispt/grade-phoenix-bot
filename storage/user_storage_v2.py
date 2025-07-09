@@ -19,7 +19,10 @@ class UserStorageV2:
     """User storage system using PostgreSQL"""
     
     def __init__(self, database_url: str, grade_storage: Optional[GradeStorageV2] = None):
-        self.db_manager = DatabaseManager(database_url)
+        # Use MYSQL_URL if set, otherwise fallback to database_url argument
+        import os
+        env_url = os.getenv("MYSQL_URL") or database_url
+        self.db_manager = DatabaseManager(env_url)
         self._ensure_tables()
         self.grade_storage = grade_storage
     

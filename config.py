@@ -44,7 +44,7 @@ CONFIG = {
     "ADMIN_EMAIL": os.getenv("ADMIN_EMAIL", "admin@example.com"),
     "ADMIN_NAME": os.getenv("ADMIN_NAME", "Admin User"),
     # Database configuration
-    "DATABASE_URL": database_url_env,
+    "MYSQL_URL": database_url_env,
     "USE_POSTGRESQL": bool((database_url_env or "").startswith("postgresql")),
     "USE_MYSQL": bool((database_url_env or "").startswith("mysql")),
     # University API configuration

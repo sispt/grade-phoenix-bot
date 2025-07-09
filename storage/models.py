@@ -32,6 +32,7 @@ class User(Base):
     token_expires_at = Column(DateTime(timezone=True), nullable=True)
     last_login = Column(DateTime(timezone=True), default=func.now())
     is_active = Column(Boolean, default=True)
+    session_expired_notified = Column(Boolean, default=False)  # New column
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), default=func.now())
