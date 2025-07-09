@@ -115,9 +115,10 @@ class TelegramBot:
         await self.app.updater.start_webhook(listen="0.0.0.0", port=port, url_path=CONFIG["TELEGRAM_TOKEN"], webhook_url=webhook_url)
         logger.info(f"✅ Bot started on webhook: {webhook_url}")
 
-        # Start background tasks only after the bot is fully initialized and started
-        self.grade_check_task = asyncio.create_task(self._grade_checking_loop())
-        self.daily_quote_task = asyncio.create_task(self.scheduled_daily_quote_broadcast())
+        # Start background tasks only if not running under cron
+        if os.getenv("RUN_GRADE_CHECK") != "1":
+            self.grade_check_task = asyncio.create_task(self._grade_checking_loop())
+            self.daily_quote_task = asyncio.create_task(self.scheduled_daily_quote_broadcast())
 
     async def _update_bot_info(self):
         try:
@@ -189,7 +190,7 @@ class TelegramBot:
                 ASK_GPA_PERCENTAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._gpa_ask_percentage)],
                 ASK_GPA_ECTS: [MessageHandler(filters.TEXT & ~filters.COMMAND, self._gpa_ask_ects)],
             },
-            fallbacks=[MessageHandler(filters.Regex("^❌ إلغاء$"), self._cancel_registration)],
+            fallbacks=[MessageHandler(filters.Regex("^❌ إلغاء$"), self._cancel_gpa_calc)],
         )
         self.app.add_handler(gpa_calc_handler)
         # Move older_terms_handler above the generic handler
@@ -757,6 +758,11 @@ class TelegramBot:
             telegram_id = user.get("telegram_id")
             username = user.get("username")
             username_unique = user.get("username_unique")
+            # Always use a valid username for grade storage
+            storage_username = username_unique or username
+            if not storage_username:
+                logger.error(f"[ALERT] Cannot store grades: missing username for user with telegram_id={telegram_id}")
+                return False
             token = user.get("session_token")
             logger.info(f"[CALL] _check_and_notify_user_grades for username={username}, username_unique={username_unique}, telegram_id={telegram_id}")
             logger.info(f"[CHECK] self.grade_storage is type: {type(self.grade_storage)}")
@@ -792,13 +798,7 @@ class TelegramBot:
                                 )
                                 # Retry grade check with new token
                                 token = new_token
-                                if is_pg:
-                                    self.user_storage.update_token_expired_notified(user["username"], False)
-                                else:
-                                    user["session_expired_notified"] = False
-                                    if hasattr(self.user_storage, '_save_users'):
-                                        self.user_storage._save_users()
-                                # Now continue as if token is valid
+
                             else:
                                 logger.warning(f"❌ Auto-login failed for user {username}")
                                 return False
@@ -837,21 +837,21 @@ class TelegramBot:
                     return False
                 new_grades = user_data.get("grades", [])
                 logger.debug(f"📊 Found {len(new_grades)} new grades for user {username}")
-                # Use username_unique for grade storage
+                # Use storage_username for grade storage
                 old_grades = []
                 try:
-                    old_grades = self.grade_storage.get_user_grades(username_unique)
+                    old_grades = self.grade_storage.get_user_grades(storage_username)
                 except Exception as db_exc:
-                    logger.error(f"[ALERT] Persistent DB error for user {username_unique}: {db_exc}")
+                    logger.error(f"[ALERT] Persistent DB error for user {storage_username}: {db_exc}")
                     # Alert admin
                     admin_id = CONFIG.get("ADMIN_ID")
                     if admin_id:
                         try:
-                            await self.app.bot.send_message(chat_id=admin_id, text=f"[DB ERROR] Persistent DB error for user {username_unique}: {db_exc}")
+                            await self.app.bot.send_message(chat_id=admin_id, text=f"[DB ERROR] Persistent DB error for user {storage_username}: {db_exc}")
                         except Exception:
                             pass
                     return False
-                logger.debug(f"📊 Found {len(old_grades) if old_grades else 0} stored grades for user {username_unique}")
+                logger.debug(f"📊 Found {len(old_grades) if old_grades else 0} stored grades for user {storage_username}")
                 
                 # Get user's grade notification sensitivity setting
                 user_settings = self.user_settings.get_user_settings(telegram_id)
@@ -859,12 +859,11 @@ class TelegramBot:
                 logger.debug(f"🔍 User {username_unique} grade sensitivity setting: {sensitivity}")
                 
                 changed_courses = self._compare_grades(old_grades, new_grades, sensitivity)
-                logger.debug(f"🔍 Grade comparison for {username_unique}: {len(changed_courses)} {sensitivity} changes detected")
-                
+                logger.debug(f"🔍 Grade comparison for {storage_username}: {len(changed_courses)} {sensitivity} changes detected")
                 if not changed_courses:
-                    logger.debug(f"✅ No {sensitivity} grade changes for user {username_unique}, not sending notification.")
+                    logger.debug(f"✅ No {sensitivity} grade changes for user {storage_username}, not sending notification.")
                     # Still save the grades even if no notification is sent
-                    self.grade_storage.store_grades(username_unique, new_grades)
+                    self.grade_storage.store_grades(storage_username, new_grades)
                     return False
                 
                 # Create appropriate message based on sensitivity
@@ -1611,6 +1610,15 @@ class TelegramBot:
         context.user_data.pop('gpa_calc', None)
         return ConversationHandler.END
 
+    async def _cancel_gpa_calc(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Cancel handler for custom GPA calculator flow."""
+        context.user_data.pop('gpa_calc', None)
+        await update.message.reply_text(
+            "❌ تم إلغاء حساب المعدل المخصص. يمكنك البدء من جديد أو اختيار إجراء آخر.",
+            reply_markup=get_main_keyboard()
+        )
+        return ConversationHandler.END
+
     async def _session_management_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = self.user_storage.get_user(update.effective_user.id)
         if not user:
@@ -1787,8 +1795,13 @@ class TelegramBot:
                     telegram_id = user.get("telegram_id")
                     username = user.get("username")
                     username_unique = user.get("username_unique")
+                    # Fallback: use username if username_unique is missing
+                    storage_username = username_unique or username
+                    if not storage_username:
+                        logger.error(f"[ALERT] Cannot store grades: missing username and username_unique for user with telegram_id={telegram_id}")
+                        return False
                     token = user.get("session_token")
-                    lock = self._get_user_lock(username_unique)
+                    lock = self._get_user_lock(storage_username)
                     async with lock:
                         if not token:
                             return False
@@ -1799,7 +1812,7 @@ class TelegramBot:
                         if not user_data or "grades" not in user_data:
                             return False
                         new_grades = user_data.get("grades", [])
-                        self.grade_storage.store_grades(username_unique, new_grades)
+                        self.grade_storage.store_grades(storage_username, new_grades)
                         return True
                 except Exception as e:
                     logger.error(f"❌ Error in silent grade refresh for user {user.get('username', 'Unknown')}: {e}", exc_info=True)
