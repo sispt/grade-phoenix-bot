@@ -770,6 +770,9 @@ class TelegramBot:
             logger.info(f"[CALL] _check_and_notify_user_grades for username={username}, username_unique={username_unique}, telegram_id={telegram_id}")
             logger.info(f"[CHECK] self.grade_storage is type: {type(self.grade_storage)}")
             lock = self._get_user_lock(username_unique)
+            # --- Fix: Always initialize notified and is_pg ---
+            notified = user.get("session_expired_notified", False)
+            is_pg = hasattr(self.user_storage, 'update_token_expired_notified')
             async with lock:
                 # Notify only once if token expired
                 if not token:
