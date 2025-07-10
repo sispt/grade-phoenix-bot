@@ -531,7 +531,7 @@ class TelegramBot:
             "يمكنك التحكم في بياناتك والوصول إلى خيارات الخصوصية.\n"
             "كل شيء في هذا البوت شفاف ويمكنك دائماً معرفة كيف يتم التعامل مع بياناتك.\n\n"
             "- يمكنك زيارة الكود البرمجي على GitHub.",
-            reply_markup=get_settings_main_keyboard(translation_enabled=user.get("do_trans", False) if user else False)
+            reply_markup=get_settings_main_keyboard()
         )
         return ASK_SETTINGS_MAIN
 
@@ -721,27 +721,9 @@ class TelegramBot:
         user_id = update.effective_user.id
         user = self.user_storage.get_user_by_telegram_id(user_id)
         
-        # Handle translation toggle specifically
-        if query.data == "toggle_translation":
-            if not user:
-                await query.edit_message_text("❗️ يجب التسجيل أولاً.")
-                return
-            # Toggle do_trans
-            new_value = not user.get("do_trans", False)
-            self.user_storage.update_user(user["username"], {"do_trans": new_value})
-            # Refresh keyboard
-            from utils.keyboards import get_settings_main_keyboard
-            keyboard = get_settings_main_keyboard(translation_enabled=new_value)
-            status = "مفعلة" if new_value else "معطلة"
-            await query.edit_message_text(
-                f"🌐 تم {'تفعيل' if new_value else 'تعطيل'} ترجمة الاقتباسات للعربية.\n\n"
-                f"الحالة الحالية: {status}\n\n"
-                f"{'✅ ستظهر الاقتباسات باللغتين العربية والإنجليزية' if new_value else '✅ ستظهر الاقتباسات باللغة الإنجليزية فقط'}",
-                reply_markup=keyboard
-            )
-            return
+        # Translation toggle is disabled for now
         
-        elif query.data == "delete_user_data":
+        if query.data == "delete_user_data":
             if not user:
                 await query.edit_message_text("❗️ يجب التسجيل أولاً.")
                 return
@@ -795,7 +777,7 @@ class TelegramBot:
         elif query.data == "back_to_settings":
             # Return to main settings
             from utils.keyboards import get_settings_main_keyboard
-            keyboard = get_settings_main_keyboard(translation_enabled=user.get("do_trans", False) if user else False)
+            keyboard = get_settings_main_keyboard()
             await query.edit_message_text(
                 "تمت العودة إلى الإعدادات الرئيسية.",
                 reply_markup=keyboard
@@ -1751,7 +1733,7 @@ class TelegramBot:
         elif query.data == "back_to_settings":
             # Return to main settings
             from utils.keyboards import get_settings_main_keyboard
-            keyboard = get_settings_main_keyboard(translation_enabled=user.get("do_trans", False) if user else False)
+            keyboard = get_settings_main_keyboard()
             await query.edit_message_text(
                 "تمت العودة إلى الإعدادات الرئيسية.",
                 reply_markup=keyboard
