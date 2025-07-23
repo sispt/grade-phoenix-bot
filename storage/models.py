@@ -3,7 +3,7 @@ Database Models for grade-phoenix-bot
 SQLAlchemy models for users and grades storage
 """
 
-from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, Text, Boolean, ForeignKey, text, BigInteger
+from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, Text, Boolean, ForeignKey, text, BigInteger, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.sql import func
