@@ -57,6 +57,14 @@ class GradeStorageV2:
         """Store or update grades for a user"""
         def _inner():
             with self._get_session() as session:
+                # Deduplicate grades_data by course code, keep last occurrence
+                unique_grades = {}
+                for grade_data in grades_data:
+                    course_code = grade_data.get('code')
+                    if course_code:
+                        unique_grades[course_code] = grade_data
+                grades_data = list(unique_grades.values())
+
                 # Get existing grades for this user
                 existing_grades = session.query(Grade).filter(Grade.username == username).all()
                 existing_grades_dict = {
