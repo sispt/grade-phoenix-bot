@@ -59,7 +59,10 @@ class GradeStorageV2:
             with self._get_session() as session:
                 # Get existing grades for this user
                 existing_grades = session.query(Grade).filter(Grade.username == username).all()
-                existing_grades_dict = {grade.code: grade for grade in existing_grades}
+                existing_grades_dict = {
+                    (grade.code, grade.term_id): grade for grade in existing_grades
+                }
+
                 
                 changes = []
                 
@@ -70,13 +73,16 @@ class GradeStorageV2:
                     
                     # Extract numeric grade if possible
                     numeric_grade = self._extract_numeric_grade(grade_data.get('total', ''))
-                    
-                    if course_code in existing_grades_dict:
-                        # Update existing grade
-                        existing_grade = existing_grades_dict[course_code]
+                    course_code = grade_data.get('code')
+                    term_id = grade_data.get('term_id')
+                    key = (course_code, term_id)
+
+                    if key in existing_grades_dict:
+                        # Update existing grade for this course+term
+                        existing_grade = existing_grades_dict[key]
                         changes.extend(self._update_grade_if_changed(existing_grade, grade_data, numeric_grade))
                     else:
-                        # Create new grade
+    # Create new grade entry
                         new_grade = Grade(
                             username=username,
                             name=grade_data.get('name', ''),
@@ -86,14 +92,13 @@ class GradeStorageV2:
                             total=grade_data.get('total'),
                             ects=grade_data.get('ects'),
                             term_name=grade_data.get('term_name'),
-                            term_id=grade_data.get('term_id'),
+                            term_id=term_id,
                             grade_status=grade_data.get('grade_status', 'Unknown'),
                             numeric_grade=numeric_grade
                         )
                         session.add(new_grade)
-                        changes.append(f"New grade added: {grade_data.get('name')} ({course_code})")
-                
-                session.commit()
+                        changes.append(f"New grade added: {grade_data.get('name')} ({course_code} - {term_id})")
+                        session.commit()
                 
                 if changes:
                     logger.info(f"✅ Grades updated for {username}: {len(changes)} changes")
