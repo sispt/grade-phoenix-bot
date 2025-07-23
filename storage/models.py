@@ -54,7 +54,9 @@ class User(Base):
 class Grade(Base):
     """Grade model - stores individual course grades"""
     __tablename__ = 'grades'
-    
+    __table_args__ = (
+        UniqueConstraint('username', 'code', 'term_id', name='uq_grade_user_code_term'),
+    )
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(100), ForeignKey('users.username', ondelete='CASCADE'), nullable=False)
     
